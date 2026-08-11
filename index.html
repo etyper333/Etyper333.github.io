@@ -1,0 +1,4772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Park Days — Trip Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16241C;
+    --sky:#1F4D3A;
+    --sky-deep:#123024;
+    --marigold:#8FA33C;
+    --coral:#2F8F5A;
+    --sage:#6E9A82;
+    --slate:#7A8C7E;
+    --cream:#F5F8F1;
+    --paper:#FFFFFF;
+    --line:#D9E3D2;
+    --header-text:#C7DFCB;
+    --header-placeholder:#A8C9AE;
+    --text-secondary:#5A6E62;
+    --accent-positive-bg:rgba(110,154,130,.16);
+    --accent-positive-text:#3E6B52;
+    --accent-mid-bg:rgba(143,163,60,.18);
+    --accent-mid-text:#5C6B26;
+    --accent-high-bg:rgba(31,77,58,.16);
+    --accent-high-text:#163524;
+    --accent-neutral-bg:rgba(122,140,126,.18);
+    --accent-neutral-text:#465A4C;
+    --accent-glow:rgba(47,143,90,.18);
+    --backdrop:rgba(15,42,30,.55);
+  }
+  :root[data-theme="fort-wilderness"]{
+    --ink:#2A1F16;
+    --sky:#5C3A21;
+    --sky-deep:#3D2414;
+    --marigold:#C9862F;
+    --coral:#B33F23;
+    --sage:#4F7942;
+    --slate:#8A7A6B;
+    --cream:#F5EDE0;
+    --paper:#FFFDF9;
+    --line:#E0D0BA;
+    --header-text:#EDD9BE;
+    --header-placeholder:#C9B296;
+    --text-secondary:#6B5D4F;
+    --accent-positive-bg:rgba(79,121,66,.16);
+    --accent-positive-text:#2F4A28;
+    --accent-mid-bg:rgba(201,134,47,.18);
+    --accent-mid-text:#7A501C;
+    --accent-high-bg:rgba(179,63,35,.18);
+    --accent-high-text:#6B2614;
+    --accent-neutral-bg:rgba(138,122,107,.20);
+    --accent-neutral-text:#4A3F32;
+    --accent-glow:rgba(179,63,35,.18);
+    --backdrop:rgba(42,31,22,.55);
+  }
+  :root[data-theme="magic-kingdom"]{
+    --ink:#1A1F2E;
+    --sky:#1E3A6E;
+    --sky-deep:#14284D;
+    --marigold:#D4A72C;
+    --coral:#C23B6B;
+    --sage:#6B7FD1;
+    --slate:#7A85A0;
+    --cream:#F3F6FC;
+    --paper:#FFFFFF;
+    --line:#DCE3F0;
+    --header-text:#F0E0B0;
+    --header-placeholder:#C9B77D;
+    --text-secondary:#5C6478;
+    --accent-positive-bg:rgba(107,127,209,.16);
+    --accent-positive-text:#3A4489;
+    --accent-mid-bg:rgba(212,167,44,.18);
+    --accent-mid-text:#7A5C0F;
+    --accent-high-bg:rgba(194,59,107,.18);
+    --accent-high-text:#7A2340;
+    --accent-neutral-bg:rgba(122,133,160,.18);
+    --accent-neutral-text:#3D4356;
+    --accent-glow:rgba(194,59,107,.18);
+    --backdrop:rgba(20,40,77,.55);
+  }
+  :root[data-theme="epcot"]{
+    --ink:#16232A;
+    --sky:#0B5D5D;
+    --sky-deep:#073F3F;
+    --marigold:#8A5FBF;
+    --coral:#C2368A;
+    --sage:#2F9E8F;
+    --slate:#6E8482;
+    --cream:#F1F7F6;
+    --paper:#FFFFFF;
+    --line:#D6E6E3;
+    --header-text:#CFEDE8;
+    --header-placeholder:#9CC9C2;
+    --text-secondary:#4F6360;
+    --accent-positive-bg:rgba(47,158,143,.16);
+    --accent-positive-text:#1F6B60;
+    --accent-mid-bg:rgba(138,95,191,.18);
+    --accent-mid-text:#5A3B85;
+    --accent-high-bg:rgba(194,54,138,.18);
+    --accent-high-text:#7A1F58;
+    --accent-neutral-bg:rgba(110,132,130,.18);
+    --accent-neutral-text:#45534F;
+    --accent-glow:rgba(194,54,138,.18);
+    --backdrop:rgba(7,63,63,.55);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Inter',sans-serif;
+    background:var(--cream);
+    color:var(--ink);
+    padding-bottom:60px;
+  }
+  h1,h2,h3,.display{
+    font-family:'Baloo 2',sans-serif;
+  }
+
+  .trip-switcher{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:10px 14px;
+    background:var(--sky-deep);
+    overflow-x:auto;
+  }
+  .trip-pill{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    flex-shrink:0;
+    padding:6px 12px;
+    border-radius:16px;
+    background:rgba(255,255,255,.1);
+    color:var(--header-text);
+    font-size:12.5px;
+    font-weight:600;
+    cursor:pointer;
+    border:1.5px solid transparent;
+    white-space:nowrap;
+  }
+  .trip-pill.active{
+    background:var(--coral);
+    color:white;
+  }
+  .trip-pill .del{
+    font-size:11px;
+    opacity:.7;
+    padding-left:2px;
+  }
+  .trip-pill .del:hover{opacity:1;}
+  .add-trip-btn{
+    flex-shrink:0;
+    border:1.5px dashed rgba(255,255,255,.4);
+    background:transparent;
+    color:var(--header-text);
+    border-radius:16px;
+    padding:6px 12px;
+    font-size:12.5px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .theme-switch-btn{
+    flex-shrink:0;
+    border:1.5px solid rgba(255,255,255,.3);
+    background:rgba(255,255,255,.08);
+    color:var(--header-text);
+    border-radius:16px;
+    padding:6px 12px;
+    font-size:12.5px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .theme-card-grid{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .theme-card{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:12px 14px;
+    border-radius:12px;
+    border:1.5px solid var(--line);
+    background:var(--paper);
+    cursor:pointer;
+    text-align:left;
+    width:100%;
+    font-family:'Inter',sans-serif;
+  }
+  .theme-card.active{
+    border-color:var(--coral);
+    box-shadow:0 0 0 2px rgba(0,0,0,.03);
+  }
+  .theme-card .swatch-set{
+    display:flex;
+    flex-shrink:0;
+  }
+  .theme-card .swatch{
+    width:22px;
+    height:22px;
+    border-radius:50%;
+    border:2px solid var(--paper);
+    margin-left:-8px;
+  }
+  .theme-card .swatch:first-child{margin-left:0;}
+  .theme-card .theme-name{
+    font-weight:700;
+    font-size:14px;
+    color:var(--ink);
+    flex:1;
+  }
+  .theme-card .theme-check{
+    font-size:16px;
+    color:var(--coral);
+    flex-shrink:0;
+  }
+
+  header.hero{
+    background:linear-gradient(180deg,var(--sky) 0%,var(--sky-deep) 100%);
+    color:var(--cream);
+    padding:22px 20px 20px;
+    position:relative;
+    overflow:hidden;
+  }
+  header.hero::after{
+    content:"";
+    position:absolute;
+    bottom:0;left:0;right:0;
+    height:6px;
+    background:repeating-linear-gradient(90deg,var(--marigold) 0 18px, var(--coral) 18px 36px);
+    opacity:.85;
+  }
+  #tripDetailsWrap{
+    color:var(--ink);
+  }
+  .eyebrow{
+    font-size:12px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--marigold);
+    font-weight:700;
+    margin-bottom:6px;
+  }
+  h1{
+    margin:0 0 4px;
+    font-size:26px;
+    font-weight:800;
+  }
+  .trip-meta{
+    font-size:13px;
+    color:var(--header-text);
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-top:8px;
+  }
+  .trip-meta input{
+    background:rgba(255,255,255,.1);
+    border:1px solid rgba(255,255,255,.25);
+    color:var(--cream);
+    border-radius:8px;
+    padding:6px 10px;
+    font-size:13px;
+    font-family:inherit;
+  }
+  .trip-meta input::placeholder{color:var(--header-placeholder);}
+  .dining-reminder-row{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    margin-top:10px;
+  }
+  .dining-reminder-pill{
+    display:inline-flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:6px;
+    font-size:12.5px;
+    font-weight:600;
+    padding:7px 12px;
+    border-radius:20px;
+    width:fit-content;
+    max-width:100%;
+    background:var(--accent-neutral-bg);
+    border:1px solid var(--line);
+    color:var(--accent-neutral-text);
+  }
+  .dining-reminder-pill.state-open{
+    background:var(--accent-positive-bg);
+    border-color:var(--sage);
+    color:var(--accent-positive-text);
+  }
+  .dining-reminder-pill .resort-name{
+    font-weight:700;
+  }
+  .dining-reminder-pill .sub{
+    opacity:.8;
+    font-weight:500;
+  }
+  .dining-reminder-manage-link{
+    font-size:11px;
+    color:var(--slate);
+    text-decoration:underline;
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding:0;
+    margin-top:2px;
+    align-self:flex-start;
+  }
+  .stay-card{
+    background:var(--paper);
+    border:1.5px solid var(--line);
+    border-radius:12px;
+    padding:12px;
+    margin-bottom:10px;
+  }
+  .stay-card .day-info-row{
+    margin-bottom:0;
+  }
+  .stay-card .day-info-row + .day-info-row{
+    margin-top:10px;
+  }
+  .stay-card-remove{
+    display:block;
+    text-align:right;
+    font-size:11px;
+    color:var(--slate);
+    text-decoration:underline;
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding:0;
+    margin-top:8px;
+  }
+  .add-stay-btn{
+    display:block;
+    width:100%;
+    background:var(--paper);
+    border:1.5px dashed var(--line);
+    color:var(--slate);
+    padding:10px;
+    border-radius:10px;
+    font-weight:700;
+    font-size:13px;
+    cursor:pointer;
+    margin:4px 0 20px;
+  }
+  .traveler-chip-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:10px;
+  }
+  .traveler-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-size:13px;
+    font-weight:600;
+    padding:6px 8px 6px 12px;
+    border-radius:20px;
+    background:var(--accent-neutral-bg);
+    color:var(--accent-neutral-text);
+  }
+  .traveler-chip button{
+    border:none;
+    background:rgba(0,0,0,.1);
+    color:inherit;
+    width:18px;height:18px;
+    border-radius:50%;
+    font-size:12px;
+    line-height:1;
+    cursor:pointer;
+    padding:0;
+  }
+  .who-toggle-link{
+    font-size:12px;
+    font-weight:600;
+    color:var(--sky);
+    text-decoration:underline;
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding:0;
+    margin:2px 0 8px;
+    display:block;
+  }
+  .who-checklist{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:10px;
+  }
+  .who-checklist label{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    font-size:12.5px;
+    font-weight:600;
+    padding:5px 10px;
+    border-radius:16px;
+    border:1.5px solid var(--line);
+    background:var(--paper);
+    cursor:pointer;
+  }
+  .who-checklist input[type=checkbox]{
+    accent-color:var(--coral);
+  }
+  .item-traveler-badge{
+    display:inline-flex;
+    align-items:center;
+    font-size:10.5px;
+    font-weight:700;
+    padding:2px 8px;
+    border-radius:20px;
+    background:var(--accent-neutral-bg);
+    color:var(--accent-neutral-text);
+  }
+  .item-main-plan-badge{
+    display:inline-flex;
+    align-items:center;
+    font-size:10.5px;
+    font-weight:700;
+    padding:2px 8px;
+    border-radius:20px;
+    background:var(--marigold);
+    color:#5A3D00;
+  }
+  .main-plan-checkbox-label{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink);
+    cursor:pointer;
+  }
+  .main-plan-checkbox-label input[type=checkbox]{
+    accent-color:var(--coral);
+    flex-shrink:0;
+  }
+  .main-plan-checkbox-label input[type=checkbox]:disabled + span{
+    color:var(--slate);
+    font-weight:500;
+  }
+  .trip-summary-trigger{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    width:100%;
+    text-align:left;
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.2);
+    border-radius:10px;
+    padding:9px 12px;
+    color:var(--header-text);
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .trip-summary-trigger .trip-summary-label{
+    flex-shrink:0;
+    font-family:'Baloo 2',sans-serif;
+    font-weight:700;
+  }
+  .trip-summary-trigger .trip-summary-text{
+    flex:1;
+    min-width:0;
+    opacity:.85;
+    font-weight:500;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .trip-summary-trigger .trip-summary-chevron{
+    flex-shrink:0;
+    font-size:12px;
+    transition:transform .2s ease;
+  }
+  .trip-summary-trigger.open .trip-summary-chevron{
+    transform:rotate(180deg);
+  }
+  .view-tabs{
+    display:flex;
+    gap:6px;
+    padding:10px 16px 0;
+    max-width:640px;
+    margin:0 auto;
+  }
+  .view-options-wrap{
+    max-width:640px;
+    margin:0 auto;
+    padding:0 16px 8px;
+  }
+  .view-options-trigger{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    width:100%;
+    text-align:left;
+    background:var(--paper);
+    border:1.5px solid var(--line);
+    border-radius:10px;
+    padding:8px 12px;
+    font-family:'Inter',sans-serif;
+    font-size:12.5px;
+    font-weight:700;
+    color:var(--ink);
+    cursor:pointer;
+  }
+  .view-options-trigger .view-options-summary{
+    flex:1;
+    min-width:0;
+    font-weight:500;
+    color:var(--slate);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .view-options-trigger .view-options-chevron{
+    flex-shrink:0;
+    font-size:11px;
+    transition:transform .2s ease;
+  }
+  .view-options-trigger.open .view-options-chevron{
+    transform:rotate(180deg);
+  }
+  .view-options-body{
+    padding-top:8px;
+  }
+  .view-options-body .traveler-filter-row{
+    padding:0 0 8px;
+    max-width:none;
+    margin:0;
+  }
+  .view-options-body .compact-toggle-btn{
+    width:100%;
+  }
+  .traveler-filter-row{
+    display:flex;
+    gap:8px;
+    padding:10px 16px;
+    max-width:640px;
+    margin:0 auto;
+    overflow-x:auto;
+  }
+  .traveler-filter-chip{
+    flex-shrink:0;
+    font-family:'Inter',sans-serif;
+    font-size:12.5px;
+    font-weight:600;
+    padding:7px 13px;
+    border-radius:16px;
+    border:1.5px solid var(--line);
+    background:var(--paper);
+    color:var(--ink);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .traveler-filter-chip.active{
+    background:var(--coral);
+    border-color:var(--coral);
+    color:white;
+  }
+  .overview-day-card{
+    display:block;
+    width:100%;
+    text-align:left;
+    background:var(--paper);
+    border:1.5px solid var(--line);
+    border-radius:12px;
+    padding:12px 14px;
+    margin-bottom:10px;
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
+  }
+  .overview-day-header{
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+    margin-bottom:6px;
+    flex-wrap:wrap;
+  }
+  .overview-day-date{
+    font-family:'Baloo 2',sans-serif;
+    font-size:15px;
+    font-weight:700;
+    color:var(--ink);
+  }
+  .overview-day-tag{
+    font-size:11px;
+    font-weight:600;
+    color:var(--slate);
+  }
+  .overview-day-hotel{
+    font-size:12.5px;
+    color:var(--slate);
+    margin-bottom:8px;
+  }
+  .overview-park-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-bottom:6px;
+  }
+  .overview-park-slot{
+    font-size:11.5px;
+    font-weight:600;
+    padding:4px 9px;
+    border-radius:14px;
+    background:var(--cream);
+    color:var(--ink);
+    border:1px solid var(--line);
+  }
+  .overview-park-slot.unset{
+    color:var(--slate);
+    font-weight:500;
+    font-style:italic;
+  }
+  .overview-park-slot b{
+    font-weight:700;
+    opacity:.65;
+    margin-right:4px;
+  }
+  .overview-dining-row{
+    font-size:12px;
+    color:var(--accent-positive-text);
+    display:flex;
+    flex-wrap:wrap;
+    gap:4px 10px;
+  }
+  .view-tab{
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    font-weight:700;
+    padding:9px 4px;
+    text-align:center;
+    flex:1;
+    background:transparent;
+    border:none;
+    border-bottom:3px solid var(--line);
+    color:var(--slate);
+    cursor:pointer;
+  }
+  .view-tab.active{
+    color:var(--coral);
+    border-bottom-color:var(--coral);
+  }
+  .view-tab-primary{
+    flex:1.7;
+    font-size:14.5px;
+  }
+  .view-tab-secondary{
+    flex:1;
+    font-size:12px;
+    font-weight:600;
+  }
+  .lists-sub-tabs{
+    display:flex;
+    gap:8px;
+    padding:10px 16px 0;
+    max-width:640px;
+    margin:0 auto;
+  }
+  .lists-sub-tab{
+    flex:1;
+    font-family:'Inter',sans-serif;
+    font-size:12.5px;
+    font-weight:700;
+    padding:8px;
+    border-radius:9px;
+    border:1.5px solid var(--line);
+    background:var(--paper);
+    color:var(--slate);
+    cursor:pointer;
+  }
+  .lists-sub-tab.active{
+    background:var(--sky);
+    border-color:var(--sky);
+    color:white;
+  }
+
+  .monorail{
+    display:flex;
+    align-items:center;
+    gap:0;
+    padding:18px 14px 4px;
+    overflow-x:auto;
+    background:var(--paper);
+    border-bottom:1px solid var(--line);
+    position:sticky;
+    top:0;
+    z-index:5;
+  }
+  .rail-stop{
+    display:flex;
+    align-items:center;
+    flex-shrink:0;
+  }
+  .rail-stop .dot-wrap{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    cursor:pointer;
+    padding:0 4px;
+  }
+  .rail-stop .dot{
+    width:16px;height:16px;
+    border-radius:50%;
+    background:var(--paper);
+    border:3px solid var(--slate);
+    transition:all .2s ease;
+  }
+  .rail-stop.active .dot{
+    background:var(--coral);
+    border-color:var(--coral);
+    box-shadow:0 0 0 4px var(--accent-glow);
+  }
+  .rail-stop .label{
+    font-size:11px;
+    font-weight:600;
+    color:var(--slate);
+    margin-top:6px;
+    white-space:nowrap;
+  }
+  .rail-stop.active .label{color:var(--coral);}
+  .rail-track{
+    width:36px;height:3px;
+    background:var(--line);
+    flex-shrink:0;
+  }
+  .add-day-btn{
+    flex-shrink:0;
+    margin-left:8px;
+    border:2px dashed var(--slate);
+    background:transparent;
+    color:var(--slate);
+    border-radius:50%;
+    width:30px;height:30px;
+    font-size:16px;
+    cursor:pointer;
+    line-height:1;
+  }
+  .add-day-btn.add-day-start{
+    margin-left:0;
+    margin-right:8px;
+  }
+
+  main{
+    max-width:640px;
+    margin:0 auto;
+    padding:18px 16px 0;
+  }
+
+  .itinerary-sidebar{
+    display:none;
+  }
+  .sidebar-block{
+    background:var(--paper);
+    border:1.5px solid var(--line);
+    border-radius:12px;
+    padding:14px;
+    margin-bottom:14px;
+  }
+  .sidebar-block-title{
+    font-family:'Baloo 2',sans-serif;
+    font-size:13px;
+    font-weight:700;
+    color:var(--ink);
+    margin-bottom:8px;
+  }
+  .sidebar-fact{
+    font-size:13px;
+    color:var(--ink);
+    margin-bottom:6px;
+  }
+  .sidebar-fact:last-child{margin-bottom:0;}
+  .sidebar-fact .label{
+    display:block;
+    font-size:10px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--slate);
+    margin-bottom:1px;
+  }
+  .sidebar-dining-item{
+    font-size:12.5px;
+    color:var(--accent-positive-text);
+    margin-bottom:4px;
+  }
+  .sidebar-dining-item:last-child{margin-bottom:0;}
+  .sidebar-empty{
+    font-size:12px;
+    color:var(--slate);
+    font-style:italic;
+  }
+
+  @media (min-width: 900px){
+    .itinerary-layout{
+      display:flex;
+      align-items:flex-start;
+      gap:24px;
+      max-width:900px;
+      margin:0 auto;
+      padding:0 16px;
+    }
+    .itinerary-layout main#dayPanels{
+      flex:1;
+      min-width:0;
+      max-width:none;
+      margin:0;
+      padding:18px 0 0;
+    }
+    .itinerary-sidebar{
+      display:block;
+      flex:0 0 240px;
+      position:sticky;
+      top:calc(var(--monorail-height, 60px) + 18px);
+      padding-top:18px;
+    }
+  }
+
+  .day-panel{
+    display:none;
+  }
+  .day-panel.active{display:block;}
+
+  .park-select-row{
+    display:flex;
+    gap:8px;
+    align-items:center;
+    margin-bottom:12px;
+    flex-wrap:wrap;
+  }
+  .day-title-input{
+    font-family:'Inter',sans-serif;
+    font-size:14px;
+    font-weight:600;
+    padding:8px 10px;
+    border-radius:9px;
+    border:1.5px solid var(--line);
+    background:var(--paper);
+    color:var(--ink);
+    flex:1;
+    min-width:120px;
+  }
+  .day-title-display{
+    font-family:'Baloo 2',sans-serif;
+    font-size:16px;
+    font-weight:700;
+    color:var(--ink);
+    padding:8px 2px;
+    flex:1 1 auto;
+    min-width:140px;
+  }
+  .day-tag-input{
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    font-weight:600;
+    padding:8px 10px;
+    border-radius:9px;
+    border:1.5px solid var(--line);
+    background:var(--paper);
+    color:var(--ink);
+    flex:0 1 130px;
+    min-width:110px;
+  }
+  .remove-day-btn{
+    margin-left:auto;
+    background:none;
+    border:none;
+    color:var(--slate);
+    font-size:12px;
+    cursor:pointer;
+    text-decoration:underline;
+  }
+
+  .day-info-row{
+    display:flex;
+    margin-bottom:0;
+    flex-wrap:wrap;
+  }
+  .day-info-row + .day-info-row{
+    margin-top:10px;
+  }
+  .day-info-field{
+    flex:1 1 130px;
+    min-width:130px;
+    margin:0 8px 8px 0;
+  }
+  .day-info-field:last-child{
+    margin-right:0;
+  }
+  .day-info-field label{
+    display:block;
+    font-size:10.5px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:var(--slate);
+    margin-bottom:3px;
+    min-height:26px;
+  }
+  .day-info-field input{
+    width:100%;
+    box-sizing:border-box;
+    font-family:'Inter',sans-serif;
+    font-size:13.5px;
+    padding:8px 10px;
+    border-radius:9px;
+    border:1.5px solid var(--line);
+    background:var(--paper);
+    color:var(--ink);
+    min-height:38px;
+  }
+  .day-info-field-time{
+    flex:1 1 150px;
+    min-width:150px;
+  }
+  .day-info-field-full{
+    flex:1 1 100%;
+    width:100%;
+    margin-right:0;
+  }
+  .day-info-field-full input{
+    max-width:220px;
+  }
+
+  .section-header{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin:20px 0 8px;
+    padding:8px 0;
+    flex-wrap:wrap;
+    position:sticky;
+    top:var(--monorail-height, 60px);
+    z-index:4;
+    background:var(--cream);
+  }
+  .section-header:first-of-type{margin-top:0;}
+  .section-add-btn{
+    flex-shrink:0;
+    border:2px dashed var(--slate);
+    background:transparent;
+    color:var(--slate);
+    border-radius:50%;
+    width:24px;height:24px;
+    font-size:14px;
+    line-height:1;
+    cursor:pointer;
+    padding:0;
+  }
+  .section-inline-add-form{
+    margin:-4px 0 14px;
+    scroll-margin-top:calc(var(--monorail-height, 60px) + 56px);
+  }
+  .section-header .dot{
+    width:8px;height:8px;
+    border-radius:50%;
+    flex-shrink:0;
+  }
+  .section-morning .dot{background:var(--marigold);}
+  .section-afternoon .dot{background:var(--coral);}
+  .section-evening .dot{background:var(--sky);}
+  .section-header .label{
+    font-family:'Baloo 2',sans-serif;
+    font-size:13px;
+    font-weight:700;
+    color:var(--ink);
+    text-transform:uppercase;
+    letter-spacing:.04em;
+  }
+  .section-header .rule{
+    flex:1;
+    height:1px;
+    background:var(--line);
+    min-width:20px;
+  }
+  .section-main-plan-display{
+    font-family:'Inter',sans-serif;
+    font-size:12px;
+    font-weight:600;
+    padding:5px 8px;
+    color:var(--ink);
+    max-width:160px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .section-crowd-badge{
+    font-family:'Inter',sans-serif;
+    font-size:11.5px;
+    font-weight:700;
+    padding:4px 10px;
+    border-radius:14px;
+    border:1.5px solid var(--line);
+    background:var(--paper);
+    color:var(--ink);
+    flex-shrink:0;
+    white-space:nowrap;
+  }
+  .section-crowd-badge.crowd-low{
+    background:var(--accent-positive-bg);
+    border-color:var(--sage);
+    color:var(--accent-positive-text);
+  }
+  .section-crowd-badge.crowd-mid{
+    background:var(--accent-mid-bg);
+    border-color:var(--marigold);
+    color:var(--accent-mid-text);
+  }
+  .section-crowd-badge.crowd-high{
+    background:var(--accent-high-bg);
+    border-color:var(--sky);
+    color:var(--accent-high-text);
+  }
+  .crowd-entry-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:var(--paper);
+    border:1.5px solid var(--line);
+    border-radius:10px;
+    padding:9px 12px;
+    margin-bottom:8px;
+  }
+  .crowd-entry-row .crowd-entry-label{
+    flex:1;
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink);
+  }
+  .crowd-entry-row .crowd-entry-label .park-name{
+    display:block;
+    font-size:11.5px;
+    font-weight:500;
+    color:var(--slate);
+  }
+  .crowd-entry-row select{
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    font-weight:700;
+    padding:6px 8px;
+    border-radius:8px;
+    border:1.5px solid var(--line);
+    background:var(--cream);
+    width:64px;
+    text-align:center;
+    flex-shrink:0;
+  }
+  .crowd-remove-btn{
+    border:none;
+    background:rgba(0,0,0,.08);
+    color:var(--slate);
+    width:22px;height:22px;
+    border-radius:50%;
+    font-size:13px;
+    line-height:1;
+    cursor:pointer;
+    padding:0;
+    flex-shrink:0;
+  }
+  .print-only-fact{
+    display:none;
+  }
+  .section-empty-note{
+    font-size:12.5px;
+    color:var(--slate);
+    padding:2px 0 4px 16px;
+    font-style:italic;
+  }
+
+  .item-card{
+    display:flex;
+    background:var(--paper);
+    border-radius:12px;
+    margin-bottom:10px;
+    box-shadow:0 1px 3px rgba(27,42,46,.08);
+    overflow:hidden;
+    border:1px solid var(--line);
+  }
+  .item-tab{
+    width:8px;
+    flex-shrink:0;
+  }
+  .tab-activity{background:var(--marigold);}
+  .tab-logistics{background:var(--sky);}
+  .tab-dining{background:var(--coral);}
+  .tab-rest{background:var(--sage);}
+  .tab-travel{background:var(--slate);}
+
+  .item-body{
+    flex:1;
+    padding:12px 14px;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+  .item-top-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    gap:8px;
+  }
+  .item-time{
+    font-weight:700;
+    font-size:13px;
+    color:var(--sky);
+    font-family:'Baloo 2',sans-serif;
+  }
+  .item-type-badge{
+    font-size:10px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:var(--slate);
+  }
+  .item-name{
+    font-size:15px;
+    font-weight:700;
+  }
+  .item-notes{
+    font-size:12.5px;
+    color:var(--text-secondary);
+  }
+  .item-status{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    font-size:10.5px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    padding:2px 8px;
+    border-radius:20px;
+    width:fit-content;
+  }
+  .item-status.status-confirmed{
+    background:var(--accent-positive-bg);
+    color:var(--accent-positive-text);
+  }
+  .item-status.status-tentative{
+    background:var(--accent-neutral-bg);
+    color:var(--accent-neutral-text);
+  }
+  .item-badges-row{
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+  }
+  .item-content-compact{
+    display:none;
+  }
+  .item-compact-line1{
+    font-size:13.5px;
+    font-weight:700;
+    color:var(--ink);
+  }
+  .item-compact-line2{
+    font-size:11.5px;
+    color:var(--slate);
+    margin-top:2px;
+  }
+  body.compact-items .item-content-full{display:none;}
+  body.compact-items .item-content-compact{display:block;}
+  .compact-toggle-btn{
+    flex-shrink:0;
+    font-family:'Inter',sans-serif;
+    font-size:12px;
+    font-weight:600;
+    padding:6px 12px;
+    border-radius:16px;
+    border:1.5px solid var(--line);
+    background:var(--paper);
+    color:var(--ink);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .compact-toggle-btn.active{
+    background:var(--sky);
+    border-color:var(--sky);
+    color:white;
+  }
+  .item-meal-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    font-size:10.5px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    padding:2px 8px;
+    border-radius:20px;
+    width:fit-content;
+    background:var(--accent-mid-bg);
+    color:var(--accent-mid-text);
+  }
+  .item-confirmation{
+    font-size:12px;
+    color:var(--sky);
+    font-weight:600;
+  }
+  .item-confirmation span{
+    color:var(--slate);
+    font-weight:500;
+  }
+  .item-actions{
+    display:flex;
+    gap:10px;
+    margin-top:4px;
+  }
+  .item-actions button{
+    font-size:11.5px;
+    border:none;
+    background:none;
+    color:var(--slate);
+    cursor:pointer;
+    padding:0;
+    text-decoration:underline;
+  }
+
+  .empty-state{
+    text-align:center;
+    padding:34px 20px;
+    color:var(--slate);
+    background:var(--paper);
+    border-radius:12px;
+    border:1.5px dashed var(--line);
+    font-size:13.5px;
+  }
+
+  .day-notes-block{
+    margin:0 0 28px;
+  }
+  .day-notes-block label{
+    display:block;
+    font-size:10.5px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:var(--slate);
+    margin-bottom:5px;
+  }
+  .day-notes-block textarea{
+    width:100%;
+    box-sizing:border-box;
+    font-family:'Inter',sans-serif;
+    font-size:13.5px;
+    padding:10px 12px;
+    border-radius:10px;
+    border:1.5px solid var(--line);
+    background:var(--paper);
+    color:var(--ink);
+    min-height:70px;
+    resize:vertical;
+  }
+
+  .accordion{
+    border:1.5px solid var(--line);
+    border-radius:12px;
+    background:var(--paper);
+    margin-bottom:18px;
+    overflow:hidden;
+  }
+  .accordion-header{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:12px 14px;
+    cursor:pointer;
+    background:none;
+    border:none;
+    width:100%;
+    text-align:left;
+    font-family:'Inter',sans-serif;
+  }
+  .accordion-header .accordion-title{
+    font-family:'Baloo 2',sans-serif;
+    font-size:14.5px;
+    font-weight:700;
+    color:var(--ink);
+    flex-shrink:0;
+  }
+  .accordion-header .accordion-summary{
+    font-size:12px;
+    color:var(--slate);
+    flex:1;
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .accordion-header .chevron{
+    font-size:12px;
+    color:var(--slate);
+    transition:transform .2s ease;
+    flex-shrink:0;
+  }
+  .accordion.open .chevron{
+    transform:rotate(180deg);
+  }
+  .accordion-body{
+    display:none;
+    padding:2px 14px 14px;
+    border-top:1px solid var(--line);
+    padding-top:14px;
+  }
+  .accordion.open .accordion-body{
+    display:block;
+  }
+  .accordion.accent .accordion-header .accordion-title{
+    color:var(--coral);
+  }
+
+  .add-form{
+    background:var(--paper);
+    border:1.5px solid var(--line);
+    border-radius:14px;
+    padding:14px;
+    margin:18px 0 24px;
+  }
+  .add-form.nested{
+    border:none;
+    padding:0;
+    margin:0;
+  }
+  .add-form h3{
+    margin:0 0 10px;
+    font-size:15px;
+  }
+  .form-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:8px;
+    flex-wrap:wrap;
+  }
+  .form-row > *{flex:1;min-width:110px;}
+  .form-row input, .form-row select, .form-row textarea{
+    font-family:'Inter',sans-serif;
+    font-size:13.5px;
+    padding:9px 10px;
+    border-radius:9px;
+    border:1.5px solid var(--line);
+    width:100%;
+  }
+  .form-row textarea{resize:vertical;min-height:36px;font-family:inherit;}
+  .submit-btn{
+    background:var(--coral);
+    color:white;
+    border:none;
+    padding:10px 16px;
+    border-radius:9px;
+    font-weight:700;
+    font-size:13.5px;
+    cursor:pointer;
+    width:100%;
+  }
+  .form-row .submit-btn{
+    width:auto;
+    flex:1;
+  }
+  .cancel-btn{
+    background:var(--paper);
+    color:var(--slate);
+    border:1.5px solid var(--line);
+    padding:10px 16px;
+    border-radius:9px;
+    font-weight:700;
+    font-size:13.5px;
+    cursor:pointer;
+    flex:1;
+  }
+  .submit-btn:active{opacity:.85;}
+
+  .packing-panel{display:none;}
+  .packing-panel.active{display:block;}
+  .packing-intro{
+    font-size:13px;
+    color:var(--text-secondary);
+    margin:0 0 14px;
+    line-height:1.5;
+  }
+  .category-toggle-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:20px;
+  }
+  .category-chip{
+    font-family:'Inter',sans-serif;
+    font-size:12.5px;
+    font-weight:600;
+    padding:7px 13px;
+    border-radius:16px;
+    border:1.5px solid var(--line);
+    background:var(--paper);
+    color:var(--ink);
+    cursor:pointer;
+  }
+  .category-chip.on{
+    background:var(--sky);
+    border-color:var(--sky);
+    color:white;
+  }
+  .category-chip.locked{
+    background:var(--accent-positive-bg);
+    border-color:var(--sage);
+    color:var(--accent-positive-text);
+    cursor:default;
+  }
+  .packing-category-block{
+    margin-bottom:18px;
+  }
+  .packing-category-title{
+    font-family:'Baloo 2',sans-serif;
+    font-size:14px;
+    font-weight:700;
+    color:var(--ink);
+    margin-bottom:8px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .packing-category-title .essential-tag{
+    font-family:'Inter',sans-serif;
+    font-size:10px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--accent-positive-text);
+    background:var(--accent-positive-bg);
+    padding:2px 7px;
+    border-radius:20px;
+  }
+  .tab-packing-essential{background:var(--sage);}
+  .tab-packing-regular{background:var(--slate);}
+  .packing-item-inner{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .packing-item-inner input[type=checkbox]{
+    width:18px;height:18px;
+    accent-color:var(--coral);
+    flex-shrink:0;
+  }
+  .packing-item-name{
+    flex:1;
+    font-size:14px;
+  }
+  .packing-item-card.checked .packing-item-name{
+    color:var(--slate);
+    text-decoration:line-through;
+  }
+  .packing-item-inner .del-item{
+    font-size:11px;
+    border:none;
+    background:none;
+    color:var(--slate);
+    cursor:pointer;
+    text-decoration:underline;
+    flex-shrink:0;
+  }
+  .packing-add-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin:16px 0 26px;
+  }
+  .packing-add-row input{
+    flex:1;
+    font-family:'Inter',sans-serif;
+    font-size:13.5px;
+    padding:9px 10px;
+    border-radius:9px;
+    border:1.5px solid var(--line);
+  }
+  .packing-add-row button{
+    background:var(--coral);
+    color:white;
+    border:none;
+    padding:0 16px;
+    border-radius:9px;
+    font-weight:700;
+    font-size:13px;
+    cursor:pointer;
+  }
+  .packing-add-row select{
+    flex:0 1 110px;
+    min-width:100px;
+    font-family:'Inter',sans-serif;
+    font-size:13.5px;
+    padding:9px 8px;
+    border-radius:9px;
+    border:1.5px solid var(--line);
+  }
+  .catalog-item-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:8px 4px;
+    border-bottom:1px solid var(--line);
+  }
+  .catalog-item-row:last-child{
+    border-bottom:none;
+  }
+  .catalog-item-name{
+    flex:1;
+    font-size:13.5px;
+    color:var(--ink);
+  }
+  .catalog-item-actions{
+    display:flex;
+    gap:6px;
+    flex-shrink:0;
+  }
+  .catalog-toggle-btn{
+    font-family:'Inter',sans-serif;
+    font-size:12px;
+    font-weight:700;
+    padding:6px 11px;
+    border-radius:16px;
+    border:1.5px solid var(--line);
+    background:var(--paper);
+    color:var(--slate);
+    cursor:pointer;
+  }
+  .catalog-toggle-btn.active-pack{
+    background:var(--slate);
+    border-color:var(--slate);
+    color:white;
+  }
+  .catalog-toggle-btn.active-delivery{
+    background:var(--marigold);
+    border-color:var(--marigold);
+    color:white;
+  }
+  .grocery-channel-heading{
+    font-family:'Baloo 2',sans-serif;
+    font-size:15px;
+    font-weight:700;
+    color:var(--ink);
+    margin:22px 0 8px;
+  }
+  .grocery-channel-heading:first-of-type{
+    margin-top:0;
+  }
+  .grocery-category-label{
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--slate);
+    margin:12px 0 4px 2px;
+  }
+  .tab-grocery-pack{background:var(--slate);}
+  .tab-grocery-delivery{background:var(--marigold);}
+  .manage-list-link{
+    display:block;
+    text-align:center;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--sky);
+    text-decoration:underline;
+    background:none;
+    border:none;
+    cursor:pointer;
+    margin:0 0 30px;
+    width:100%;
+  }
+  .print-packing-btn{
+    display:block;
+    width:100%;
+    background:var(--sky);
+    color:white;
+    border:none;
+    padding:10px;
+    border-radius:9px;
+    font-weight:700;
+    font-size:13px;
+    cursor:pointer;
+    margin:0 0 16px;
+  }
+  .packing-btn-row{
+    display:flex;
+    gap:8px;
+    margin:0 0 16px;
+  }
+  .packing-btn-row .print-packing-btn{
+    margin:0;
+  }
+  .build-list-addall-btn{
+    flex-shrink:0;
+    margin-left:auto;
+    font-family:'Inter',sans-serif;
+    font-size:11.5px;
+    font-weight:700;
+    padding:5px 10px;
+    border-radius:12px;
+    border:1.5px solid var(--sky);
+    background:var(--paper);
+    color:var(--sky);
+    cursor:pointer;
+  }
+  .packing-sticky-addrow{
+    position:sticky;
+    bottom:calc(var(--footer-height, 60px) + 10px);
+    background:var(--paper);
+    border:1.5px solid var(--line);
+    border-radius:12px;
+    padding:10px;
+    box-shadow:0 -2px 10px rgba(27,42,46,.08);
+    z-index:3;
+  }
+
+  .master-editor-overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:var(--backdrop);
+    z-index:20;
+    align-items:flex-end;
+    justify-content:center;
+  }
+  .master-editor-overlay.active{display:flex;}
+  .master-editor{
+    background:var(--cream);
+    width:100%;
+    max-width:640px;
+    max-height:85vh;
+    overflow-y:auto;
+    border-radius:18px 18px 0 0;
+    padding:18px 16px 24px;
+  }
+  .master-editor h2{
+    font-size:19px;
+    margin:0 0 4px;
+  }
+  .master-editor .sub{
+    font-size:12.5px;
+    color:var(--slate);
+    margin:0 0 16px;
+  }
+  .master-item-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:8px 10px;
+    margin-bottom:6px;
+  }
+  .master-item-row input[type=text]{
+    flex:1.4;
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    padding:7px 8px;
+    border-radius:7px;
+    border:1.5px solid var(--line);
+  }
+  .master-item-row select{
+    flex:1;
+    font-family:'Inter',sans-serif;
+    font-size:12px;
+    padding:7px 6px;
+    border-radius:7px;
+    border:1.5px solid var(--line);
+  }
+  .master-item-row label.ess-label{
+    display:flex;
+    align-items:center;
+    gap:4px;
+    font-size:10.5px;
+    font-weight:700;
+    color:var(--slate);
+    flex-shrink:0;
+  }
+  .master-item-row .del-item{
+    font-size:11px;
+    border:none;
+    background:none;
+    color:var(--slate);
+    cursor:pointer;
+    text-decoration:underline;
+    flex-shrink:0;
+  }
+  .master-add-row{
+    display:flex;
+    gap:6px;
+    margin:14px 0 20px;
+    flex-wrap:wrap;
+  }
+  .master-add-row input, .master-add-row select{
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    padding:8px 9px;
+    border-radius:8px;
+    border:1.5px solid var(--line);
+  }
+  .master-add-row input[type=text]{flex:2;min-width:140px;}
+  .master-add-row select{flex:1;min-width:120px;}
+  .master-add-row button{
+    background:var(--sky);
+    color:white;
+    border:none;
+    padding:0 14px;
+    border-radius:8px;
+    font-weight:700;
+    font-size:12.5px;
+    cursor:pointer;
+  }
+  .master-editor-close{
+    display:block;
+    width:100%;
+    text-align:center;
+    background:var(--sky);
+    color:white;
+    border:none;
+    padding:11px;
+    border-radius:9px;
+    font-weight:700;
+    font-size:13.5px;
+    cursor:pointer;
+    margin-top:10px;
+  }
+
+  .status-toggle-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:8px;
+  }
+  .status-toggle-row button{
+    flex:1;
+    font-family:'Inter',sans-serif;
+    font-size:12.5px;
+    font-weight:700;
+    padding:9px 10px;
+    border-radius:9px;
+    border:1.5px solid var(--line);
+    background:var(--paper);
+    color:var(--slate);
+    cursor:pointer;
+  }
+  .status-toggle-row button.on-tentative{
+    background:var(--accent-neutral-bg);
+    border-color:var(--slate);
+    color:var(--ink);
+  }
+  .status-toggle-row button.on-confirmed{
+    background:var(--accent-positive-bg);
+    border-color:var(--sage);
+    color:var(--accent-positive-text);
+  }
+
+  footer.toolbar{
+    position:fixed;
+    bottom:0;left:0;right:0;
+    background:var(--paper);
+    border-top:1px solid var(--line);
+    padding:10px 16px;
+    display:flex;
+    gap:8px;
+    justify-content:center;
+    z-index:6;
+  }
+  footer.toolbar button, footer.toolbar label{
+    font-family:'Inter',sans-serif;
+    font-size:12.5px;
+    font-weight:700;
+    padding:9px 14px;
+    border-radius:20px;
+    cursor:pointer;
+    border:1.5px solid var(--sky);
+    background:var(--paper);
+    color:var(--sky);
+  }
+  footer.toolbar .primary{
+    background:var(--sky);
+    color:white;
+  }
+  .unsaved-indicator{
+    display:flex;
+    align-items:center;
+    font-family:'Inter',sans-serif;
+    font-size:12px;
+    font-weight:700;
+    color:var(--coral);
+  }
+  input[type=file]{display:none;}
+
+  @media(max-width:400px){
+    h1{font-size:22px;}
+  }
+  @media print {
+    body{background:#fff;padding-bottom:0;}
+
+    /* App chrome not relevant on paper, in either print mode */
+    .trip-switcher, .view-tabs, .lists-sub-tabs, .view-options-wrap, .monorail, footer.toolbar,
+    .remove-day-btn, .add-day-btn, .section-add-btn, .item-actions,
+    .accordion.accent, .add-form, .chevron,
+    .manage-list-link, .dining-reminder-manage-link, .print-packing-btn,
+    .master-editor-overlay, .theme-switch-btn, .add-trip-btn,
+    .packing-intro, .category-toggle-row, .packing-add-row,
+    .who-toggle-link, .add-stay-btn, .stay-card-remove,
+    .crowd-remove-btn, .traveler-chip button, .compact-toggle-btn,
+    .trip-subsection-overview, .trip-subsection-crowd, .trip-subsection-share,
+    .dining-reservations-block,
+    #groceryPanelWrap, #tripTitle[contenteditable]::after{
+      display:none !important;
+    }
+
+    /* Default print mode: itinerary. Always shows days regardless of active tab. */
+    #dayPanels{display:block !important;}
+    #packingPanelWrap{display:none !important;}
+    .itinerary-sidebar{display:none !important;}
+    .itinerary-layout{display:block !important;max-width:none !important;padding:0 !important;}
+    .day-panel{
+      display:block !important;
+      page-break-inside:avoid;
+      break-inside:avoid;
+    }
+
+    /* Packing list print mode, triggered from the Packing List tab's own print button */
+    body.printing-packing-list #dayPanels{display:none !important;}
+    body.printing-packing-list #tripDetailsWrap{display:none !important;}
+    body.printing-packing-list #packingPanelWrap{
+      display:block !important;
+      max-width:none !important;
+      padding:0 !important;
+    }
+    body.printing-packing-list #packingPanelWrap::before{
+      content:"Packing List";
+      display:block;
+      font-family:'Baloo 2',sans-serif;
+      font-size:20px;
+      font-weight:700;
+      color:#000;
+      margin-bottom:10px;
+    }
+    body.printing-packing-list .packing-category-block{
+      break-inside:avoid;
+    }
+
+    /* Force every accordion open for print, regardless of on-screen collapse state */
+    .accordion-body{display:block !important;}
+    .accordion{border:none;background:none;margin-bottom:14px;}
+    .accordion-header{
+      cursor:default;
+      background:none;
+      border:none;
+      padding:2px 0;
+      pointer-events:none;
+    }
+    .accordion-header .accordion-summary{color:#444;}
+
+    /* Ink-friendly header */
+    header.hero{background:none !important;color:#000 !important;padding:6px 0 10px;max-width:none;}
+    header.hero::after{display:none;}
+    .eyebrow{color:#000 !important;}
+    h1#tripTitle{color:#000;}
+    .trip-summary-trigger{display:none !important;}
+    .print-only-fact{display:block !important;font-size:12px;color:#000;margin-bottom:3px;}
+    .trip-basics-fields .day-info-row,
+    .stay-card .day-info-row,
+    .day-details-hotel-row,
+    .day-details-ropedrop-row,
+    .print-hide-if-empty{display:none !important;}
+
+    .item-card, .stay-card{box-shadow:none !important;border-color:#ccc !important;}
+
+    .day-title-display{font-size:18px;}
+
+    /* Use the full page width instead of the mobile-width column */
+    main, #tripDetailsWrap{max-width:none !important;padding:0 !important;display:block !important;}
+
+    /* Condense vertical spacing that was sized for touch targets, not paper.
+       Packing item cards reuse .item-card/.item-body, so these apply there too. */
+    .park-select-row{margin-bottom:6px;}
+    .section-header{margin:12px 0 4px;position:static !important;background:none !important;}
+    .section-header:first-of-type{margin-top:4px;}
+    .item-card{margin-bottom:5px;border-radius:6px;}
+    .item-body{padding:6px 9px;gap:2px;}
+    .item-name, .packing-item-name{font-size:13px;}
+    .item-time{font-size:12px;}
+    .item-notes{font-size:11px;}
+    .item-confirmation{font-size:11px;}
+    .item-status, .item-meal-badge, .item-traveler-badge{
+      font-size:9px;
+      padding:1px 6px;
+    }
+    .item-type-badge{font-size:9px;}
+    .item-content-full{display:none !important;}
+    .item-content-compact{display:block !important;}
+    .item-compact-line1{font-size:12px;}
+    .item-compact-line2{font-size:10.5px;}
+    .day-notes-block{margin:0 0 10px;}
+    .day-notes-block textarea{min-height:auto;padding:6px 8px;font-size:12px;}
+    .accordion-body{padding:4px 0 8px;}
+    .day-info-row{margin-bottom:6px;}
+    .day-info-row + .day-info-row{margin-top:6px;}
+    .day-info-field label{font-size:9px;min-height:0;margin-bottom:1px;}
+    .day-info-field input, .day-info-field select{
+      padding:3px 6px;
+      font-size:12px;
+      border-color:#ddd;
+    }
+    .packing-category-title{margin:10px 0 4px;font-size:13px;}
+    .packing-item-inner{gap:6px;}
+    .packing-item-inner input[type=checkbox]{width:13px;height:13px;}
+
+    @page{margin:0.5in;}
+  }
+</style>
+</head>
+<body>
+
+<nav class="trip-switcher" id="tripSwitcher"></nav>
+
+<header class="hero">
+  <div class="eyebrow">Park Days</div>
+  <h1 id="tripTitle" contenteditable="true">Our Disney World Trip</h1>
+  <div class="trip-meta">
+    <button type="button" id="tripSummaryTrigger" class="trip-summary-trigger">
+      <span class="trip-summary-label">🏨 Trip Details</span>
+      <span class="trip-summary-text"></span>
+      <span class="trip-summary-chevron">▾</span>
+    </button>
+  </div>
+  <div id="tripDetailsWrap" style="max-width:640px;margin:0 auto;padding:14px 0 4px;"></div>
+</header>
+
+<div class="view-tabs" id="viewTabs">
+  <button class="view-tab view-tab-primary" data-view="itinerary">Itinerary</button>
+  <button class="view-tab view-tab-secondary" data-view="packing">Packing Lists</button>
+</div>
+
+<div class="lists-sub-tabs" id="listsSubTabs" style="display:none;">
+  <button type="button" class="lists-sub-tab" data-sub="packing">🎒 Packing</button>
+  <button type="button" class="lists-sub-tab" data-sub="groceries">🛒 Groceries</button>
+</div>
+
+<div class="view-options-wrap" id="viewOptionsWrap" style="display:none;">
+  <button type="button" class="view-options-trigger" id="viewOptionsTrigger">
+    <span class="view-options-label">⚙️ View Options</span>
+    <span class="view-options-summary" id="viewOptionsSummary"></span>
+    <span class="view-options-chevron">▾</span>
+  </button>
+  <div class="view-options-body" id="viewOptionsBody" style="display:none;">
+    <div class="traveler-filter-row" id="travelerFilterWrap"></div>
+    <button type="button" id="compactToggleBtn" class="compact-toggle-btn">🗜️ Compact View</button>
+  </div>
+</div>
+
+<nav class="monorail" id="monorail"></nav>
+
+<div class="itinerary-layout" id="itineraryLayout">
+  <main id="dayPanels"></main>
+  <aside class="itinerary-sidebar" id="itinerarySidebar"></aside>
+</div>
+
+<main id="packingPanelWrap" class="packing-panel" style="max-width:640px;margin:0 auto;padding:18px 16px 0;"></main>
+
+<main id="groceryPanelWrap" class="packing-panel" style="max-width:640px;margin:0 auto;padding:18px 16px 0;"></main>
+
+<div class="master-editor-overlay" id="masterEditorOverlay">
+  <div class="master-editor">
+    <h2>Edit Packing Catalog</h2>
+    <p class="sub">This master list is shared across all your trips. Mark items "always pack" if they should be included on every trip automatically (like medical supplies).</p>
+    <div id="masterEditorBody"></div>
+    <button class="master-editor-close" id="masterEditorCloseBtn">Done</button>
+  </div>
+</div>
+
+<div class="master-editor-overlay" id="buildPackingListOverlay">
+  <div class="master-editor">
+    <h2>Build Packing List</h2>
+    <p class="sub">Add items from the catalog to this trip's packing list. Use "+ Add all" to grab a whole category at once, or add items one at a time.</p>
+    <div id="buildPackingListBody"></div>
+    <button class="master-editor-close" id="buildPackingListCloseBtn">Done</button>
+  </div>
+</div>
+
+<div class="master-editor-overlay" id="themePickerOverlay">
+  <div class="master-editor">
+    <h2>Choose a Theme</h2>
+    <p class="sub">Pick a color palette for the whole planner. This applies for everyone using this file.</p>
+    <div id="themePickerBody"></div>
+    <button class="master-editor-close" id="themePickerCloseBtn">Done</button>
+  </div>
+</div>
+
+<div class="master-editor-overlay" id="groceryMasterEditorOverlay">
+  <div class="master-editor">
+    <h2>Manage Grocery Catalog</h2>
+    <p class="sub">This catalog is shared across all your trips. Nothing here is added to a trip automatically — you'll pick what applies each time.</p>
+    <div id="groceryMasterEditorBody"></div>
+    <button class="master-editor-close" id="groceryMasterEditorCloseBtn">Done</button>
+  </div>
+</div>
+
+<div class="master-editor-overlay" id="resortsMasterEditorOverlay">
+  <div class="master-editor">
+    <h2>Manage Disney Resorts List</h2>
+    <p class="sub">Used to spot Disney-owned resort check-ins for the dining reservation reminder, matched against whatever you type in a day's Hotel field. Add nicknames or abbreviations you actually use (like "GF" for Grand Floridian) so matching works reliably.</p>
+    <div id="resortsMasterEditorBody"></div>
+    <button class="master-editor-close" id="resortsMasterEditorCloseBtn">Done</button>
+  </div>
+</div>
+
+<footer class="toolbar">
+  <button class="primary" id="saveBtn">Save All Trips</button>
+  <span id="unsavedIndicator" class="unsaved-indicator" style="display:none;" title="You have changes that haven't been saved to a file yet">● Unsaved</span>
+  <label for="loadInput">Load Trips</label>
+  <input type="file" id="loadInput" accept="application/json" />
+</footer>
+
+<script>
+function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
+
+const WEEKDAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function parseISODate(dateStr){
+  const parts = dateStr.split('-').map(Number);
+  return new Date(parts[0], parts[1] - 1, parts[2]);
+}
+function addDaysToDate(date, n){
+  const d = new Date(date);
+  d.setDate(d.getDate() + n);
+  return d;
+}
+function computeDayDate(trip, index){
+  if(!trip.startDate) return null;
+  return addDaysToDate(parseISODate(trip.startDate), index);
+}
+function formatDayDateFull(date){
+  return `${WEEKDAYS[date.getDay()]}, ${MONTHS[date.getMonth()]} ${date.getDate()}`;
+}
+function formatDayDateShort(date){
+  return `${WEEKDAYS[date.getDay()].slice(0,3)} ${date.getMonth()+1}/${date.getDate()}`;
+}
+function formatTripDateRange(trip){
+  if(!trip.startDate || !trip.days.length) return '';
+  const start = computeDayDate(trip, 0);
+  const end = computeDayDate(trip, trip.days.length - 1);
+  if(trip.days.length === 1){
+    return `${MONTHS_SHORT[start.getMonth()]} ${start.getDate()}, ${start.getFullYear()}`;
+  }
+  const sameMonth = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+  const sameYear = start.getFullYear() === end.getFullYear();
+  if(sameMonth){
+    return `${MONTHS_SHORT[start.getMonth()]} ${start.getDate()}–${end.getDate()}, ${end.getFullYear()}`;
+  }
+  if(sameYear){
+    return `${MONTHS_SHORT[start.getMonth()]} ${start.getDate()} – ${MONTHS_SHORT[end.getMonth()]} ${end.getDate()}, ${end.getFullYear()}`;
+  }
+  return `${MONTHS_SHORT[start.getMonth()]} ${start.getDate()}, ${start.getFullYear()} – ${MONTHS_SHORT[end.getMonth()]} ${end.getDate()}, ${end.getFullYear()}`;
+}
+function formatShortDate(date){
+  return `${MONTHS_SHORT[date.getMonth()]} ${date.getDate()}`;
+}
+
+const SECTION_DEFAULT_TIME = { morning: '09:00', afternoon: '13:00', evening: '18:00' };
+
+function escapeICSText(text){
+  return String(text || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r?\n/g, '\\n');
+}
+function pad2(n){ return String(n).padStart(2, '0'); }
+function formatICSDateTime(date){
+  return `${date.getFullYear()}${pad2(date.getMonth()+1)}${pad2(date.getDate())}T${pad2(date.getHours())}${pad2(date.getMinutes())}00`;
+}
+function getEffectiveItemTime(item){
+  if(item.time) return item.time;
+  const section = getItemSection(item);
+  return SECTION_DEFAULT_TIME[section] || SECTION_DEFAULT_TIME.morning;
+}
+function getICSDtstamp(){
+  const now = new Date();
+  return `${now.getUTCFullYear()}${pad2(now.getUTCMonth()+1)}${pad2(now.getUTCDate())}T${pad2(now.getUTCHours())}${pad2(now.getUTCMinutes())}${pad2(now.getUTCSeconds())}Z`;
+}
+function buildICSEventLines(day, dayDate, item, dtstamp){
+  const timeStr = getEffectiveItemTime(item);
+  const [h, m] = timeStr.split(':').map(Number);
+  const start = new Date(dayDate);
+  start.setHours(h, m, 0, 0);
+  const end = new Date(start);
+  end.setHours(end.getHours() + 1);
+
+  const section = getItemSection(item);
+  const mainPlanItem = getMainPlanForSection(day, section);
+  const location = mainPlanItem ? mainPlanItem.name : '';
+
+  const descParts = [];
+  if(item.confirmationNumber) descParts.push('Confirmation #: ' + item.confirmationNumber);
+  if(item.mealService) descParts.push('Service: ' + item.mealService.toUpperCase());
+  if(item.notes) descParts.push(item.notes);
+
+  const lines = [];
+  lines.push('BEGIN:VEVENT');
+  lines.push('UID:' + item.id + '@parkdaysplanner');
+  lines.push('DTSTAMP:' + dtstamp);
+  lines.push('DTSTART:' + formatICSDateTime(start));
+  lines.push('DTEND:' + formatICSDateTime(end));
+  lines.push('SUMMARY:' + escapeICSText(item.name));
+  if(location) lines.push('LOCATION:' + escapeICSText(location));
+  if(descParts.length) lines.push('DESCRIPTION:' + escapeICSText(descParts.join('\n')));
+  lines.push('STATUS:' + (item.status === 'confirmed' ? 'CONFIRMED' : 'TENTATIVE'));
+  lines.push('END:VEVENT');
+  return lines;
+}
+function generateICS(trip){
+  if(!trip.startDate){
+    alert('Set a trip start date first (in Trip Details) so events can be placed on real calendar dates.');
+    return null;
+  }
+  const lines = [];
+  lines.push('BEGIN:VCALENDAR');
+  lines.push('VERSION:2.0');
+  lines.push('PRODID:-//Park Days Trip Planner//EN');
+  lines.push('CALSCALE:GREGORIAN');
+
+  const dtstamp = getICSDtstamp();
+  let eventCount = 0;
+  trip.days.forEach((day, dayIndex) => {
+    const dayDate = computeDayDate(trip, dayIndex);
+    day.items.filter(itemMatchesFilter).forEach(item => {
+      lines.push(...buildICSEventLines(day, dayDate, item, dtstamp));
+      eventCount++;
+    });
+  });
+
+  lines.push('END:VCALENDAR');
+
+  if(eventCount === 0){
+    alert('No items to export for the current filter.');
+    return null;
+  }
+  return lines.join('\r\n');
+}
+function generateSingleItemICS(trip, day, item){
+  if(!trip.startDate){
+    alert('Set a trip start date first (in Trip Details) so this event can be placed on a real calendar date.');
+    return null;
+  }
+  const dayIndex = trip.days.findIndex(d => d.id === day.id);
+  if(dayIndex === -1) return null;
+  const dayDate = computeDayDate(trip, dayIndex);
+  const dtstamp = getICSDtstamp();
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Park Days Trip Planner//EN',
+    'CALSCALE:GREGORIAN',
+    ...buildICSEventLines(day, dayDate, item, dtstamp),
+    'END:VCALENDAR'
+  ];
+  return lines.join('\r\n');
+}
+
+function getDayDisplayLabel(trip, index, day, full){
+  if(trip.startDate){
+    const date = computeDayDate(trip, index);
+    return full ? formatDayDateFull(date) : formatDayDateShort(date);
+  }
+  return day.label || ('Day ' + (index + 1));
+}
+
+function matchDisneyResort(hotelText){
+  if(!hotelText) return null;
+  const norm = hotelText.trim().toLowerCase();
+  if(norm.length < 2) return null;
+  for(const resort of appData.disneyResorts){
+    const terms = [resort.name, ...(resort.nicknames || [])];
+    for(const term of terms){
+      const t = (term || '').trim().toLowerCase();
+      if(t.length < 2) continue;
+      if(norm.includes(t) || t.includes(norm)) return resort;
+    }
+  }
+  return null;
+}
+
+function getStayStartIndex(trip, stay){
+  return trip.days.findIndex(d => d.id === stay.startDayId);
+}
+
+function getResolvedStays(trip){
+  if(!Array.isArray(trip.stays)) return [];
+  return trip.stays
+    .map(stay => ({ stay, startIndex: getStayStartIndex(trip, stay) }))
+    .filter(r => r.startIndex !== -1)
+    .sort((a,b) => a.startIndex - b.startIndex);
+}
+
+function getStayForDayIndex(trip, dayIndex){
+  const resolved = getResolvedStays(trip);
+  let best = null;
+  resolved.forEach(r => {
+    if(r.startIndex <= dayIndex) best = r.stay;
+  });
+  return best;
+}
+
+function todayMidnight(){
+  const d = new Date();
+  d.setHours(0,0,0,0);
+  return d;
+}
+
+function getDiningWindows(trip){
+  if(!trip.startDate || trip.days.length === 0) return [];
+  const tripLastDate = computeDayDate(trip, trip.days.length - 1);
+  const today = todayMidnight();
+  if(today > tripLastDate) return [];
+
+  const resolved = getResolvedStays(trip);
+  return resolved.map((r, i) => {
+    const resort = matchDisneyResort(r.stay.hotel);
+    if(!resort) return null;
+    const checkInDate = computeDayDate(trip, r.startIndex);
+    const windowOpenDate = addDaysToDate(checkInDate, -60);
+    const nextStartIndex = (i + 1 < resolved.length) ? resolved[i+1].startIndex : trip.days.length;
+    const nights = nextStartIndex - r.startIndex;
+    const daysUntilOpen = Math.round((windowOpenDate - today) / 86400000);
+    const state = today < windowOpenDate ? 'before' : 'open';
+    return {
+      resortName: resort.name,
+      checkInDate,
+      windowOpenDate,
+      nights,
+      daysUntilOpen,
+      state
+    };
+  }).filter(Boolean);
+}
+
+function migrateDayHotelsToStays(trip){
+  if(Array.isArray(trip.stays) && trip.stays.length > 0) return;
+  const stays = [];
+  let current = null;
+  trip.days.forEach(day => {
+    const hotelText = (day.hotel || '').trim();
+    if(hotelText){
+      if(!current || current.hotel !== hotelText){
+        if(current) stays.push(current);
+        current = {
+          id: cryptoId(),
+          hotel: hotelText,
+          hotelConfirmation: day.hotelConfirmation || '',
+          roomType: day.roomType || '',
+          roomTypeOther: day.roomTypeOther || '',
+          startDayId: day.id
+        };
+      }
+    }
+  });
+  if(current) stays.push(current);
+  trip.stays = stays;
+}
+
+function setTripLength(trip, nights){
+  nights = Math.max(1, Math.floor(nights) || 1);
+  const targetDays = nights + 1;
+  const current = trip.days.length;
+  if(targetDays > current){
+    for(let i = current; i < targetDays; i++){
+      trip.days.push(defaultDay(i + 1));
+    }
+  } else if(targetDays < current){
+    const toRemove = current - targetDays;
+    if(!confirm(`This will remove the last ${toRemove} day${toRemove === 1 ? '' : 's'} of the trip and any plans on them. Continue?`)) return false;
+    const removedDays = trip.days.slice(targetDays);
+    trip.days = trip.days.slice(0, targetDays);
+    if(Array.isArray(trip.stays)){
+      trip.stays = trip.stays.filter(s => !removedDays.some(d => d.id === s.startDayId));
+    }
+    if(!trip.days.some(d => d.id === activeDayId)){
+      activeDayId = trip.days[trip.days.length - 1].id;
+    }
+  }
+  return true;
+}
+
+const PARKS = ["","Magic Kingdom","EPCOT","Hollywood Studios","Animal Kingdom","Disney Springs","Typhoon Lagoon","Blizzard Beach","Pool Time","Resort","Off-site / Travel Day","Other"];
+const CROWD_LEVEL_PARKS = ["Magic Kingdom","EPCOT","Hollywood Studios","Animal Kingdom"];
+const TYPES = [
+  {key:"activity", label:"Activity", icon:"🎡"},
+  {key:"logistics", label:"Logistics", icon:"🚶"},
+  {key:"dining", label:"Dining", icon:"🍽️"},
+  {key:"travel", label:"Travel", icon:"✈️"},
+  {key:"rest", label:"Rest / Hotel", icon:"🛌"},
+];
+const STATUSES = [
+  {key:"tentative", label:"Tentative"},
+  {key:"confirmed", label:"Confirmed"},
+];
+const MEAL_SERVICES = [
+  {key:"qs", label:"QS"},
+  {key:"ts", label:"TS"},
+  {key:"2ts", label:"2TS"},
+  {key:"snack", label:"Snack"},
+  {key:"inroom", label:"In-Room", icon:"🍳"},
+];
+const MEAL_PERIODS = [
+  {key:"breakfast", label:"B"},
+  {key:"lunch", label:"L"},
+  {key:"dinner", label:"D"},
+];
+const ROOM_TYPES = [
+  "Studio","One-Bedroom","Two-Bedroom","Grand Villa","Treehouse Villa","Cabin","Standard Room","Other"
+];
+const THEMES = [
+  {key:"green", label:"Classic Green", swatches:["#1F4D3A","#2F8F5A","#8FA33C"]},
+  {key:"fort-wilderness", label:"Fort Wilderness", swatches:["#5C3A21","#B33F23","#C9862F"]},
+  {key:"magic-kingdom", label:"Magic Kingdom", swatches:["#1E3A6E","#C23B6B","#D4A72C"]},
+  {key:"epcot", label:"EPCOT", swatches:["#0B5D5D","#C2368A","#8A5FBF"]},
+];
+const SECTIONS = [
+  {key:'morning', label:'Morning', test: t => !!t && t < '12:00'},
+  {key:'afternoon', label:'Afternoon', test: t => !!t && t >= '12:00' && t < '17:00'},
+  {key:'evening', label:'Evening', test: t => !!t && t >= '17:00'},
+];
+
+function getItemSection(item){
+  if(item.time){
+    const match = SECTIONS.find(s => s.test(item.time));
+    if(match) return match.key;
+  }
+  return item.section || 'morning';
+}
+
+function getMainPlanForSection(day, sectionKey){
+  return day.items.find(i => i.isMainPlan && getItemSection(i) === sectionKey) || null;
+}
+
+function defaultPackingMaster(){
+  const cat = (name, essential, items) => items.map(i => ({ id: cryptoId(), name: i, category: name, essential }));
+  return [
+    ...cat("Park Essentials", false, [
+      "Lightweight backpack or park bag","Refillable water bottles","Cooling towels","Portable fan or neck fan",
+      "Ponchos","Sunscreen","Hats & sunglasses","Hand sanitizer","Wet wipes","Autograph book & pen",
+      "Disney MagicBands","Phone charger / portable power bank","Ziploc bags","Park snacks"
+    ]),
+    ...cat("Clothing & Footwear", false, [
+      "Comfortable walking shoes","Sandals or flip-flops","Swimsuits & cover-ups","Pajamas","Matching shirts",
+      "Light jacket or sweater","Extra socks & underwear"
+    ]),
+    ...cat("Food/Room Supplies", false, [
+      "Canned goods / pantry snacks","Cereal","Non-dairy creamer","Tea","Applesauce / cinnamon","Popcorn",
+      "Laundry detergent","Wet bag","Device chargers / hub"
+    ]),
+    ...cat("Toiletries", false, [
+      "Toothbrush & toothpaste","Shampoo & conditioner","Deodorant","Lip balm with SPF","Bubble bath","Bug spray"
+    ]),
+    ...cat("Medications & First Aid", true, [
+      "Daily medications","Motion sickness relief","Pain relievers","Allergy medicine","Small first aid kit"
+    ]),
+    ...cat("Extras for Kids", false, [
+      "Glow sticks","Sticker books, coloring books, or small toys","Stuffed animal or blanket","Bubble wand","Wikistix"
+    ]),
+  ];
+}
+
+function getOrCreateTraveler(name){
+  const norm = name.trim().toLowerCase();
+  if(!norm) return null;
+  const existing = appData.travelers.find(t => t.name.trim().toLowerCase() === norm);
+  if(existing) return existing.id;
+  const newTraveler = { id: cryptoId(), name: name.trim() };
+  appData.travelers.push(newTraveler);
+  return newTraveler.id;
+}
+
+function migratePartyToTravelers(trip){
+  if(Array.isArray(trip.travelerIds) && trip.travelerIds.length > 0) return;
+  if(!trip.party || !trip.party.trim()) return;
+  const names = trip.party.split(',').map(s => s.trim()).filter(Boolean);
+  trip.travelerIds = names.map(name => getOrCreateTraveler(name)).filter(Boolean);
+}
+
+function getTravelerName(id){
+  const t = appData.travelers.find(t => t.id === id);
+  return t ? t.name : null;
+}
+
+function crowdKey(dayId, park){
+  return dayId + ':' + park;
+}
+function getCrowdLevel(trip, dayId, park){
+  if(!trip.crowdLevels) return '';
+  return trip.crowdLevels[crowdKey(dayId, park)] || '';
+}
+function setCrowdLevel(trip, dayId, park, value){
+  if(!trip.crowdLevels) trip.crowdLevels = {};
+  if(value){
+    trip.crowdLevels[crowdKey(dayId, park)] = value;
+  } else {
+    delete trip.crowdLevels[crowdKey(dayId, park)];
+  }
+}
+function getCrowdClass(value){
+  const n = parseInt(value, 10);
+  if(!n) return '';
+  return n <= 3 ? 'crowd-low' : (n <= 7 ? 'crowd-mid' : 'crowd-high');
+}
+function getCrowdLevelSlots(trip){
+  const map = new Map();
+
+  trip.days.forEach((day, i) => {
+    ['morning','afternoon','evening'].forEach(sec => {
+      const mainPlanItem = getMainPlanForSection(day, sec);
+      const park = mainPlanItem ? mainPlanItem.name : '';
+      if(!CROWD_LEVEL_PARKS.includes(park)) return;
+      const key = crowdKey(day.id, park);
+      if(map.has(key)) return;
+      map.set(key, { dayId: day.id, dayLabel: getDayDisplayLabel(trip, i, day, true), park, removable: false });
+    });
+  });
+
+  (trip.manualCrowdSlots || []).forEach(slot => {
+    const key = crowdKey(slot.dayId, slot.park);
+    if(map.has(key)) return;
+    const dayIndex = trip.days.findIndex(d => d.id === slot.dayId);
+    if(dayIndex === -1) return;
+    map.set(key, { dayId: slot.dayId, dayLabel: getDayDisplayLabel(trip, dayIndex, trip.days[dayIndex], true), park: slot.park, removable: true });
+  });
+
+  return Array.from(map.values()).sort((a, b) => {
+    const ai = trip.days.findIndex(d => d.id === a.dayId);
+    const bi = trip.days.findIndex(d => d.id === b.dayId);
+    if(ai !== bi) return ai - bi;
+    return a.park.localeCompare(b.park);
+  });
+}
+function migrateDayCrowdLevelsToTrip(trip){
+  if(!trip.crowdLevels) trip.crowdLevels = {};
+  trip.days.forEach(day => {
+    if(!day.crowdLevels) return;
+    ['morning','afternoon','evening'].forEach(sec => {
+      const val = day.crowdLevels[sec];
+      const park = (day.parks && day.parks[sec]) || '';
+      if(!val || !CROWD_LEVEL_PARKS.includes(park)) return;
+      const key = crowdKey(day.id, park);
+      if(!trip.crowdLevels[key]){
+        trip.crowdLevels[key] = val;
+      }
+    });
+  });
+}
+
+function defaultDisneyResorts(){
+  const r = (name, nicknames) => ({ id: cryptoId(), name, nicknames });
+  return [
+    // Deluxe
+    r("Disney's Animal Kingdom Lodge", ["AKL","Animal Kingdom Lodge"]),
+    r("Disney's Beach Club Resort", ["Beach Club"]),
+    r("Disney's BoardWalk Inn", ["BoardWalk Inn","BWI"]),
+    r("Disney's Contemporary Resort", ["Contemporary","CR"]),
+    r("Disney's Grand Floridian Resort & Spa", ["Grand Floridian","GF","Grand Flo"]),
+    r("Disney's Polynesian Village Resort", ["Polynesian","Poly"]),
+    r("Disney's Wilderness Lodge", ["Wilderness Lodge","WL"]),
+    r("Disney's Yacht Club Resort", ["Yacht Club","YC"]),
+    // Deluxe Villa
+    r("Disney's Old Key West Resort", ["Old Key West","OKW"]),
+    r("Disney's Saratoga Springs Resort & Spa", ["Saratoga Springs","SSR"]),
+    r("Disney's Riviera Resort", ["Riviera"]),
+    r("Disney's Polynesian Villas & Bungalows", ["Poly Villas","Bungalows"]),
+    r("Bay Lake Tower at Disney's Contemporary Resort", ["Bay Lake Tower","BLT"]),
+    r("Boulder Ridge Villas at Disney's Wilderness Lodge", ["Boulder Ridge","BRV"]),
+    r("Copper Creek Villas & Cabins at Disney's Wilderness Lodge", ["Copper Creek","CCV"]),
+    r("Disney's Animal Kingdom Villas - Jambo House", ["Jambo House","Jambo","AKV Jambo"]),
+    r("Disney's Animal Kingdom Villas - Kidani Village", ["Kidani Village","Kidani","AKV Kidani"]),
+    r("Disney's Beach Club Villas", ["BCV"]),
+    r("Disney's BoardWalk Villas", ["BoardWalk Villas","BWV"]),
+    r("The Villas at Disney's Grand Floridian Resort & Spa", ["Grand Floridian Villas","GFV"]),
+    // Moderate
+    r("Disney's Caribbean Beach Resort", ["Caribbean Beach","CBR"]),
+    r("Disney's Coronado Springs Resort", ["Coronado Springs","CSR"]),
+    r("Disney's Port Orleans Resort - French Quarter", ["Port Orleans French Quarter","French Quarter","POFQ"]),
+    r("Disney's Port Orleans Resort - Riverside", ["Port Orleans Riverside","Riverside","PORS"]),
+    // Value
+    r("Disney's All-Star Movies Resort", ["All-Star Movies","ASMo"]),
+    r("Disney's All-Star Music Resort", ["All-Star Music","ASMu"]),
+    r("Disney's All-Star Sports Resort", ["All-Star Sports","ASSp"]),
+    r("Disney's Art of Animation Resort", ["Art of Animation","AoA"]),
+    r("Disney's Pop Century Resort", ["Pop Century","Pop"]),
+    // Campground
+    r("Disney's Fort Wilderness Resort & Campground", ["Fort Wilderness","FW","Fort Wilderness Cabins"]),
+  ];
+}
+
+function defaultGroceryMaster(){
+  const cat = (name, items) => items.map(i => ({ id: cryptoId(), name: i, category: name }));
+  return [
+    ...cat("Produce", [
+      "Bananas","Apples","Grapes","Baby carrots","Salad kit"
+    ]),
+    ...cat("Dairy & Refrigerated", [
+      "Milk","Yogurt (single)","Yogurt (6-pack)","String cheese","White cheddar","Deli ham","Butter","Eggs"
+    ]),
+    ...cat("Pantry / Breakfast", [
+      "Cereal","Oatmeal","Granola bars","Bread","English muffins","Peanut butter","Mac & cheese"
+    ]),
+    ...cat("Drinks / Coffee", [
+      "Bottled water","Coffee (grounds)","Coffee pods","Non-dairy creamer","Juice boxes","Gatorade / Powerade"
+    ]),
+    ...cat("Frozen", [
+      "Eggo waffles","Uncrustables (single)","Uncrustables (4-pack)","Frozen fruit","Frozen vegetables","Ice pops"
+    ]),
+  ];
+}
+
+function defaultDay(n){
+  return {
+    id: cryptoId(),
+    label: "Day " + n,
+    dayTag: "",
+    hotel: "",
+    hotelConfirmation: "",
+    roomType: "",
+    roomTypeOther: "",
+    ropeDrop: "",
+    parks: { morning: "", afternoon: "", evening: "" },
+    items: [],
+    notes: ""
+  };
+}
+
+function defaultTrip(){
+  return {
+    id: cryptoId(),
+    title: "Our Disney World Trip",
+    dates: "",
+    startDate: "",
+    party: "",
+    days: [ defaultDay(1) ],
+    stays: [],
+    travelerIds: [],
+    crowdLevels: {},
+    manualCrowdSlots: [],
+    packingCategories: [],
+    packingItems: [],
+    groceryItems: []
+  };
+}
+
+let appData = {
+  trips: [ defaultTrip() ],
+  activeTripId: null,
+  packingMaster: defaultPackingMaster(),
+  groceryMaster: defaultGroceryMaster(),
+  disneyResorts: defaultDisneyResorts(),
+  travelers: [],
+  theme: 'green'
+};
+appData.activeTripId = appData.trips[0].id;
+let activeDayId = appData.trips[0].days[0].id;
+let currentView = 'itinerary';
+let lastListsSubView = 'packing';
+let expandedDetails = new Set();
+let expandedAddForm = new Set();
+let editingItems = new Set();
+let pendingMainPlanEdit = new Set();
+let expandedSectionAddForm = new Set();
+let expandedTripDetails = new Set();
+let expandedTripSubsections = new Set();
+let lastSavedSnapshot = null;
+let activeTravelerFilter = [];
+let expandedViewOptions = false;
+
+function itemMatchesFilter(item){
+  if(activeTravelerFilter.length === 0) return true;
+  if(!Array.isArray(item.travelerIds) || item.travelerIds.length === 0) return true;
+  return item.travelerIds.some(id => activeTravelerFilter.includes(id));
+}
+
+function markSaved(){
+  lastSavedSnapshot = JSON.stringify(appData);
+  updateUnsavedIndicator();
+}
+function hasUnsavedChanges(){
+  return lastSavedSnapshot !== null && JSON.stringify(appData) !== lastSavedSnapshot;
+}
+function updateUnsavedIndicator(){
+  const el = document.getElementById('unsavedIndicator');
+  if(!el) return;
+  el.style.display = hasUnsavedChanges() ? '' : 'none';
+}
+
+function getActiveTrip(){
+  return appData.trips.find(t => t.id === appData.activeTripId);
+}
+
+function migrateDayParksToMainPlanItems(trip){
+  trip.days.forEach(day => {
+    if(!day.parks) return;
+    ['morning','afternoon','evening'].forEach(sec => {
+      const park = day.parks[sec];
+      if(!park) return;
+      const alreadyFlagged = day.items.some(i => i.isMainPlan && getItemSection(i) === sec);
+      if(alreadyFlagged) return;
+      day.items.push({
+        id: cryptoId(),
+        name: park,
+        type: 'activity',
+        status: 'tentative',
+        time: '',
+        section: sec,
+        isMainPlan: true,
+        confirmationNumber: '',
+        mealService: '',
+        mealPeriod: '',
+        notes: '',
+        travelerIds: []
+      });
+    });
+  });
+}
+
+function render(){
+  document.documentElement.setAttribute('data-theme', appData.theme || 'green');
+  renderTripSwitcher();
+  const trip = getActiveTrip();
+  migrateDayHotelsToStays(trip);
+  migratePartyToTravelers(trip);
+  migrateDayCrowdLevelsToTrip(trip);
+  migrateDayParksToMainPlanItems(trip);
+  document.getElementById('tripTitle').textContent = trip.title;
+  renderTripSummaryTrigger(trip);
+  renderTripDetails(trip);
+
+  document.querySelectorAll('.view-tab').forEach(btn => {
+    const isListsTab = btn.dataset.view === 'packing';
+    const active = isListsTab
+      ? (currentView === 'packing' || currentView === 'groceries')
+      : btn.dataset.view === currentView;
+    btn.classList.toggle('active', active);
+  });
+  const isDayMode = currentView === 'itinerary';
+  const isListsMode = currentView === 'packing' || currentView === 'groceries';
+  document.getElementById('monorail').style.display = isDayMode ? '' : 'none';
+  document.getElementById('viewOptionsWrap').style.display = currentView === 'itinerary' ? '' : 'none';
+  document.getElementById('dayPanels').style.display = isDayMode ? '' : 'none';
+  document.getElementById('itinerarySidebar').style.display = isDayMode ? '' : 'none';
+  renderTravelerFilterRow(trip);
+  renderViewOptionsTrigger();
+  document.getElementById('listsSubTabs').style.display = isListsMode ? '' : 'none';
+  document.querySelectorAll('.lists-sub-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.sub === currentView);
+  });
+  document.getElementById('packingPanelWrap').classList.toggle('active', currentView === 'packing');
+  document.getElementById('groceryPanelWrap').classList.toggle('active', currentView === 'groceries');
+
+  if(isDayMode){
+    renderMonorail();
+    renderDayPanels();
+    renderItinerarySidebar(trip);
+    const monorailEl = document.getElementById('monorail');
+    document.documentElement.style.setProperty('--monorail-height', monorailEl.offsetHeight + 'px');
+  } else if(currentView === 'packing'){
+    renderPackingPanel();
+  } else if(currentView === 'groceries'){
+    renderGroceryPanel();
+  }
+  updateUnsavedIndicator();
+}
+
+document.getElementById('viewTabs').addEventListener('click', e => {
+  const btn = e.target.closest('.view-tab');
+  if(!btn) return;
+  currentView = btn.dataset.view === 'packing' ? lastListsSubView : btn.dataset.view;
+  render();
+});
+
+document.getElementById('listsSubTabs').addEventListener('click', e => {
+  const btn = e.target.closest('.lists-sub-tab');
+  if(!btn) return;
+  currentView = btn.dataset.sub;
+  lastListsSubView = currentView;
+  render();
+});
+
+function renderTripSwitcher(){
+  const bar = document.getElementById('tripSwitcher');
+  bar.innerHTML = '';
+  appData.trips.forEach(trip => {
+    const pill = document.createElement('div');
+    pill.className = 'trip-pill' + (trip.id === appData.activeTripId ? ' active' : '');
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = trip.title || 'Untitled trip';
+    pill.appendChild(nameSpan);
+    if(appData.trips.length > 1){
+      const del = document.createElement('span');
+      del.className = 'del';
+      del.textContent = '✕';
+      del.onclick = (e) => { e.stopPropagation(); removeTrip(trip.id); };
+      pill.appendChild(del);
+    }
+    pill.onclick = () => {
+      appData.activeTripId = trip.id;
+      activeDayId = trip.days[0].id;
+      activeTravelerFilter = [];
+      render();
+    };
+    bar.appendChild(pill);
+  });
+  const addBtn = document.createElement('button');
+  addBtn.className = 'add-trip-btn';
+  addBtn.textContent = '+ New Trip';
+  addBtn.onclick = addTrip;
+  bar.appendChild(addBtn);
+
+  const themeBtn = document.createElement('button');
+  themeBtn.className = 'theme-switch-btn';
+  themeBtn.textContent = '🎨 Theme';
+  themeBtn.title = 'Change color theme';
+  themeBtn.onclick = openThemePicker;
+  bar.appendChild(themeBtn);
+}
+
+function addTrip(){
+  const trip = defaultTrip();
+  appData.trips.push(trip);
+  appData.activeTripId = trip.id;
+  activeDayId = trip.days[0].id;
+  activeTravelerFilter = [];
+  render();
+}
+
+function removeTrip(tripId){
+  if(appData.trips.length <= 1) return;
+  if(!confirm('Remove this entire trip, including all its days and plans?')) return;
+  appData.trips = appData.trips.filter(t => t.id !== tripId);
+  if(appData.activeTripId === tripId){
+    appData.activeTripId = appData.trips[0].id;
+    activeDayId = appData.trips[0].days[0].id;
+  }
+  render();
+}
+
+function renderTravelerFilterRow(trip){
+  const wrap = document.getElementById('travelerFilterWrap');
+  const travelers = (Array.isArray(trip.travelerIds) ? trip.travelerIds : [])
+    .map(id => ({ id, name: getTravelerName(id) }))
+    .filter(t => t.name);
+
+  if(currentView !== 'itinerary' || travelers.length === 0){
+    wrap.style.display = 'none';
+    wrap.innerHTML = '';
+    return;
+  }
+
+  wrap.style.display = '';
+  wrap.innerHTML = '';
+
+  const allChip = document.createElement('button');
+  allChip.type = 'button';
+  allChip.className = 'traveler-filter-chip' + (activeTravelerFilter.length === 0 ? ' active' : '');
+  allChip.textContent = 'All Plans';
+  allChip.onclick = () => {
+    activeTravelerFilter = [];
+    render();
+  };
+  wrap.appendChild(allChip);
+
+  travelers.forEach(t => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'traveler-filter-chip' + (activeTravelerFilter.includes(t.id) ? ' active' : '');
+    chip.textContent = t.name;
+    chip.onclick = () => {
+      if(activeTravelerFilter.includes(t.id)){
+        activeTravelerFilter = activeTravelerFilter.filter(id => id !== t.id);
+      } else {
+        activeTravelerFilter.push(t.id);
+      }
+      render();
+    };
+    wrap.appendChild(chip);
+  });
+}
+
+function renderViewOptionsTrigger(){
+  const btn = document.getElementById('viewOptionsTrigger');
+  const summaryEl = document.getElementById('viewOptionsSummary');
+  const bodyEl = document.getElementById('viewOptionsBody');
+
+  const filterSummary = activeTravelerFilter.length === 0
+    ? 'All Plans'
+    : activeTravelerFilter.map(id => getTravelerName(id)).filter(Boolean).join(', ');
+  const isCompact = document.body.classList.contains('compact-items');
+  summaryEl.textContent = `${filterSummary} · ${isCompact ? 'Compact View' : 'Full View'}`;
+
+  btn.classList.toggle('open', expandedViewOptions);
+  bodyEl.style.display = expandedViewOptions ? '' : 'none';
+  btn.onclick = () => {
+    expandedViewOptions = !expandedViewOptions;
+    renderViewOptionsTrigger();
+  };
+}
+
+function renderItinerarySidebar(trip){
+  const wrap = document.getElementById('itinerarySidebar');
+  wrap.innerHTML = '';
+
+  const dayIndex = trip.days.findIndex(d => d.id === activeDayId);
+  if(dayIndex === -1) return;
+  const day = trip.days[dayIndex];
+
+  const stay = getStayForDayIndex(trip, dayIndex);
+  const diningItems = day.items
+    .filter(i => i.type === 'dining' && i.confirmationNumber && itemMatchesFilter(i))
+    .sort((a,b) => (a.time||'').localeCompare(b.time||''));
+
+  const crowdFacts = [];
+  SECTIONS.forEach(sec => {
+    const mainPlanItem = getMainPlanForSection(day, sec.key);
+    const park = mainPlanItem ? mainPlanItem.name : '';
+    if(!CROWD_LEVEL_PARKS.includes(park)) return;
+    const val = getCrowdLevel(trip, day.id, park);
+    if(!val) return;
+    const key = park;
+    if(!crowdFacts.some(f => f.park === key)){
+      crowdFacts.push({ park, val });
+    }
+  });
+
+  const block = document.createElement('div');
+  block.className = 'sidebar-block';
+
+  const title = document.createElement('div');
+  title.className = 'sidebar-block-title';
+  title.textContent = 'At a glance';
+  block.appendChild(title);
+
+  const hotelFact = document.createElement('div');
+  hotelFact.className = 'sidebar-fact';
+  hotelFact.innerHTML = `<span class="label">Tonight's Hotel</span>${stay ? escapeHtml(stay.hotel) : '<span class="sidebar-empty">Not set</span>'}`;
+  block.appendChild(hotelFact);
+
+  const ropeFact = document.createElement('div');
+  ropeFact.className = 'sidebar-fact';
+  ropeFact.innerHTML = `<span class="label">Rope Drop Target</span>${day.ropeDrop ? formatTime(day.ropeDrop) : '<span class="sidebar-empty">Not set</span>'}`;
+  block.appendChild(ropeFact);
+
+  if(crowdFacts.length){
+    const crowdFact = document.createElement('div');
+    crowdFact.className = 'sidebar-fact';
+    crowdFact.innerHTML = `<span class="label">Crowd Level</span>${crowdFacts.map(f => `${escapeHtml(f.park)}: ${escapeHtml(f.val)}`).join('<br>')}`;
+    block.appendChild(crowdFact);
+  }
+
+  if(diningItems.length){
+    const diningFact = document.createElement('div');
+    diningFact.className = 'sidebar-fact';
+    diningFact.innerHTML = `<span class="label">Dining Reservations</span>`;
+    diningItems.forEach(i => {
+      const line = document.createElement('div');
+      line.className = 'sidebar-dining-item';
+      line.textContent = `🍽️ ${i.time ? formatTime(i.time) + ' ' : ''}${i.name}`;
+      diningFact.appendChild(line);
+    });
+    block.appendChild(diningFact);
+  }
+
+  wrap.appendChild(block);
+}
+
+function renderOverview(trip, wrap){
+  wrap.innerHTML = '';
+
+  trip.days.forEach((day, dayIndex) => {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'overview-day-card';
+    card.onclick = () => {
+      activeDayId = day.id;
+      expandedTripDetails.delete(trip.id);
+      render();
+    };
+
+    const header = document.createElement('div');
+    header.className = 'overview-day-header';
+    header.innerHTML = `
+      <span class="overview-day-date">${escapeHtml(getDayDisplayLabel(trip, dayIndex, day, true))}</span>
+      ${day.dayTag ? `<span class="overview-day-tag">${escapeHtml(day.dayTag)}</span>` : ''}
+    `;
+    card.appendChild(header);
+
+    const stay = getStayForDayIndex(trip, dayIndex);
+    if(stay){
+      const hotelLine = document.createElement('div');
+      hotelLine.className = 'overview-day-hotel';
+      hotelLine.textContent = '🏨 ' + stay.hotel;
+      card.appendChild(hotelLine);
+    }
+
+    const parkRow = document.createElement('div');
+    parkRow.className = 'overview-park-row';
+    SECTIONS.forEach(sec => {
+      const mainPlanItem = getMainPlanForSection(day, sec.key);
+      const park = mainPlanItem ? mainPlanItem.name : '';
+      const slot = document.createElement('span');
+      slot.className = 'overview-park-slot' + (park ? '' : ' unset');
+      slot.innerHTML = `<b>${sec.label}</b>${park ? escapeHtml(park) : '—'}`;
+      parkRow.appendChild(slot);
+    });
+    card.appendChild(parkRow);
+
+    const diningItems = day.items.filter(i => i.type === 'dining' && i.confirmationNumber && itemMatchesFilter(i));
+    if(diningItems.length){
+      const diningRow = document.createElement('div');
+      diningRow.className = 'overview-dining-row';
+      diningItems.sort((a,b) => (a.time||'').localeCompare(b.time||'')).forEach(i => {
+        const span = document.createElement('span');
+        span.textContent = `🍽️ ${i.time ? formatTime(i.time) + ' ' : ''}${i.name}`;
+        diningRow.appendChild(span);
+      });
+      card.appendChild(diningRow);
+    }
+
+    wrap.appendChild(card);
+  });
+}
+
+function renderMonorail(){
+  const trip = getActiveTrip();
+  const rail = document.getElementById('monorail');
+  rail.innerHTML = '';
+
+  const addStartBtn = document.createElement('button');
+  addStartBtn.className = 'add-day-btn add-day-start';
+  addStartBtn.textContent = '+';
+  addStartBtn.title = 'Add day at start of trip';
+  addStartBtn.onclick = addDayAtStart;
+  rail.appendChild(addStartBtn);
+
+  trip.days.forEach((day, i) => {
+    if(i>0){
+      const track = document.createElement('div');
+      track.className = 'rail-track';
+      rail.appendChild(track);
+    }
+    const stop = document.createElement('div');
+    stop.className = 'rail-stop' + (day.id===activeDayId ? ' active' : '');
+    stop.innerHTML = `<div class="dot-wrap"><div class="dot"></div><div class="label">${escapeHtml(getDayDisplayLabel(trip, i, day, false))}</div></div>`;
+    stop.querySelector('.dot-wrap').onclick = () => { activeDayId = day.id; render(); };
+    rail.appendChild(stop);
+  });
+  const addBtn = document.createElement('button');
+  addBtn.className = 'add-day-btn';
+  addBtn.textContent = '+';
+  addBtn.title = 'Add day at end of trip';
+  addBtn.onclick = addDay;
+  rail.appendChild(addBtn);
+}
+
+function addDay(){
+  const trip = getActiveTrip();
+  const newDay = defaultDay(trip.days.length+1);
+  trip.days.push(newDay);
+  activeDayId = newDay.id;
+  render();
+}
+
+function addDayAtStart(){
+  const trip = getActiveTrip();
+  const newDay = defaultDay(1);
+  trip.days.unshift(newDay);
+  activeDayId = newDay.id;
+  render();
+}
+
+function removeDay(dayId){
+  const trip = getActiveTrip();
+  if(trip.days.length <= 1) return;
+  const idx = trip.days.findIndex(d => d.id === dayId);
+  if(idx !== 0 && idx !== trip.days.length - 1){
+    alert("Only the first or last day of a trip can be removed, to keep dates in order.");
+    return;
+  }
+  if(!confirm('Remove this day and its plans?')) return;
+  trip.days = trip.days.filter(d => d.id !== dayId);
+  if(activeDayId === dayId){
+    activeDayId = trip.days[0].id;
+  }
+  render();
+}
+
+function renderDayPanels(){
+  const trip = getActiveTrip();
+  const container = document.getElementById('dayPanels');
+  container.innerHTML = '';
+  trip.days.forEach((day, dayIndex) => {
+    const panel = document.createElement('div');
+    panel.className = 'day-panel' + (day.id===activeDayId ? ' active' : '');
+
+    const row = document.createElement('div');
+    row.className = 'park-select-row';
+    const isFirst = dayIndex === 0;
+    const isLast = dayIndex === trip.days.length - 1;
+    const canRemove = trip.days.length > 1 && (isFirst || isLast);
+    if(trip.startDate){
+      row.innerHTML = `
+        <div class="day-title-display">${escapeHtml(getDayDisplayLabel(trip, dayIndex, day, true))}</div>
+        <input class="day-tag-input${day.dayTag ? '' : ' print-hide-if-empty'}" value="${escapeHtml(day.dayTag || '')}" placeholder="Tag (optional)" data-role="tag" />
+        ${canRemove ? '<button class="remove-day-btn">Remove day</button>' : ''}
+      `;
+      row.querySelector('[data-role="tag"]').oninput = e => { day.dayTag = e.target.value; };
+    } else {
+      row.innerHTML = `
+        <input class="day-title-input" value="${escapeHtml(day.label)}" data-role="label" />
+        ${canRemove ? '<button class="remove-day-btn">Remove day</button>' : ''}
+      `;
+      row.querySelector('[data-role="label"]').oninput = e => { day.label = e.target.value; renderMonorail(); };
+    }
+    if(canRemove){
+      row.querySelector('.remove-day-btn').onclick = () => removeDay(day.id);
+    }
+    panel.appendChild(row);
+
+    const detailsAccordion = document.createElement('div');
+    detailsAccordion.className = 'accordion' + (expandedDetails.has(day.id) ? ' open' : '');
+
+    const nightStay = getStayForDayIndex(trip, dayIndex);
+    const detailsSummaryParts = [];
+    if(nightStay) detailsSummaryParts.push(nightStay.hotel);
+    if(day.ropeDrop) detailsSummaryParts.push('Rope drop ' + formatTime(day.ropeDrop));
+    const detailsSummary = detailsSummaryParts.length ? detailsSummaryParts.join(' · ') : 'Hotel & rope drop time';
+
+    const detailsHeader = document.createElement('button');
+    detailsHeader.type = 'button';
+    detailsHeader.className = 'accordion-header';
+    detailsHeader.innerHTML = `
+      <span class="accordion-title">🏨 Day details</span>
+      <span class="accordion-summary">${escapeHtml(detailsSummary)}</span>
+      <span class="chevron">▾</span>
+    `;
+    detailsHeader.onclick = () => {
+      if(expandedDetails.has(day.id)) expandedDetails.delete(day.id);
+      else expandedDetails.add(day.id);
+      render();
+    };
+    detailsAccordion.appendChild(detailsHeader);
+
+    const detailsBody = document.createElement('div');
+    detailsBody.className = 'accordion-body';
+
+    const infoRow1 = document.createElement('div');
+    infoRow1.className = 'day-info-row day-details-hotel-row';
+    infoRow1.innerHTML = `
+      <div class="day-info-field" style="flex:1 1 100%;">
+        <label>Tonight's hotel</label>
+        <div class="day-title-display" style="padding:8px 10px;background:var(--cream);border-radius:9px;font-size:14px;">${nightStay ? escapeHtml(nightStay.hotel) : 'No stay set — manage in Trip Details'}</div>
+      </div>
+    `;
+    detailsBody.appendChild(infoRow1);
+
+    const infoRow3 = document.createElement('div');
+    infoRow3.className = 'day-info-row day-details-ropedrop-row';
+    infoRow3.innerHTML = `
+      <div class="day-info-field day-info-field-time day-info-field-full">
+        <label for="rope-${day.id}">Rope drop target</label>
+        <input id="rope-${day.id}" type="time" value="${day.ropeDrop || ''}" data-role="ropeDrop" />
+      </div>
+    `;
+    infoRow3.querySelector('[data-role="ropeDrop"]').oninput = e => { day.ropeDrop = e.target.value; };
+    detailsBody.appendChild(infoRow3);
+
+    detailsAccordion.appendChild(detailsBody);
+    panel.appendChild(detailsAccordion);
+
+    const sorted = [...day.items].sort((a,b) => (a.time||'').localeCompare(b.time||''));
+
+    SECTIONS.forEach(sec => {
+      const allSectionItems = sorted.filter(i => getItemSection(i) === sec.key);
+      const items = allSectionItems.filter(itemMatchesFilter);
+      if(items.length === 0) return;
+
+      const header = document.createElement('div');
+      header.className = `section-header section-${sec.key}`;
+      const mainPlanItem = getMainPlanForSection(day, sec.key);
+      const currentPark = mainPlanItem ? mainPlanItem.name : '';
+      const showCrowd = CROWD_LEVEL_PARKS.includes(currentPark);
+      const currentCrowd = showCrowd ? getCrowdLevel(trip, day.id, currentPark) : '';
+      const crowdClass = getCrowdClass(currentCrowd);
+      header.innerHTML = `
+        <span class="dot"></span>
+        <span class="label">${sec.label}</span>
+        ${currentPark ? `<span class="section-main-plan-display">${escapeHtml(currentPark)}</span>` : ''}
+        ${currentCrowd ? `<span class="section-crowd-badge ${crowdClass}" title="Crowd level — set in Trip Details">Crowd: ${currentCrowd}</span>` : ''}
+        <span class="rule"></span>
+        <button type="button" class="section-add-btn" title="Add item to ${sec.label}">+</button>
+      `;
+      const sectionFormKey = day.id + ':' + sec.key;
+      header.querySelector('.section-add-btn').onclick = () => {
+        const wasOpen = expandedSectionAddForm.has(sectionFormKey);
+        if(wasOpen) expandedSectionAddForm.delete(sectionFormKey);
+        else expandedSectionAddForm.add(sectionFormKey);
+        render();
+        if(!wasOpen){
+          requestAnimationFrame(() => {
+            const formEl = document.querySelector(`[data-section-form-key="${sectionFormKey}"]`);
+            if(formEl) formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        }
+      };
+      panel.appendChild(header);
+
+      if(expandedSectionAddForm.has(sectionFormKey)){
+        const inlineForm = buildItemFieldsForm(
+          day,
+          { status: 'tentative', section: sec.key },
+          'Add to ' + sec.label,
+          (values) => {
+            day.items.push(Object.assign({ id: cryptoId() }, values));
+            expandedSectionAddForm.delete(sectionFormKey);
+            render();
+          },
+          () => {
+            expandedSectionAddForm.delete(sectionFormKey);
+            render();
+          }
+        );
+        inlineForm.classList.add('nested', 'section-inline-add-form');
+        inlineForm.setAttribute('data-section-form-key', sectionFormKey);
+        panel.appendChild(inlineForm);
+      }
+
+      items.forEach(item => panel.appendChild(renderItemCard(day, item)));
+    });
+
+    if(day.items.length === 0){
+      const emptyDay = document.createElement('div');
+      emptyDay.className = 'empty-state';
+      emptyDay.textContent = 'Nothing planned yet. Add an item below to get started — its time will place it in Morning, Afternoon, or Evening automatically.';
+      panel.appendChild(emptyDay);
+    } else if(activeTravelerFilter.length > 0 && !day.items.some(itemMatchesFilter)){
+      const emptyFiltered = document.createElement('div');
+      emptyFiltered.className = 'empty-state';
+      emptyFiltered.textContent = 'Nothing for the selected travelers on this day.';
+      panel.appendChild(emptyFiltered);
+    }
+
+    const addAccordion = document.createElement('div');
+    addAccordion.className = 'accordion accent' + (expandedAddForm.has(day.id) ? ' open' : '');
+
+    const addHeader = document.createElement('button');
+    addHeader.type = 'button';
+    addHeader.className = 'accordion-header';
+    addHeader.innerHTML = `
+      <span class="accordion-title">+ Add item</span>
+      <span class="accordion-summary"></span>
+      <span class="chevron">▾</span>
+    `;
+    addHeader.onclick = () => {
+      if(expandedAddForm.has(day.id)) expandedAddForm.delete(day.id);
+      else expandedAddForm.add(day.id);
+      render();
+    };
+    addAccordion.appendChild(addHeader);
+
+    const addBody = document.createElement('div');
+    addBody.className = 'accordion-body';
+    const addForm = renderAddForm(day);
+    addForm.classList.add('nested');
+    addBody.appendChild(addForm);
+    addAccordion.appendChild(addBody);
+
+    panel.appendChild(addAccordion);
+
+    const notesBlock = document.createElement('div');
+    notesBlock.className = 'day-notes-block' + (day.notes ? '' : ' print-hide-if-empty');
+    notesBlock.innerHTML = `
+      <label for="notes-${day.id}">Day notes</label>
+      <textarea id="notes-${day.id}" placeholder="Anything else worth remembering for this day...">${escapeHtml(day.notes || '')}</textarea>
+    `;
+    notesBlock.querySelector('textarea').oninput = e => { day.notes = e.target.value; };
+    panel.appendChild(notesBlock);
+
+    container.appendChild(panel);
+  });
+}
+
+function renderItemCard(day, item){
+  if(editingItems.has(item.id)){
+    const editWrap = document.createElement('div');
+    editWrap.className = 'item-card item-card-editing';
+    const inner = document.createElement('div');
+    inner.className = `item-tab tab-${item.type}`;
+    editWrap.appendChild(inner);
+    const body = document.createElement('div');
+    body.className = 'item-body';
+    const editInitial = pendingMainPlanEdit.has(item.id)
+      ? Object.assign({}, item, { isMainPlan: true })
+      : item;
+    pendingMainPlanEdit.delete(item.id);
+    const form = buildItemFieldsForm(
+      day,
+      editInitial,
+      'Save changes',
+      (values) => {
+        Object.assign(item, values);
+        editingItems.delete(item.id);
+        render();
+      },
+      () => {
+        editingItems.delete(item.id);
+        render();
+      }
+    );
+    form.classList.add('nested');
+    body.appendChild(form);
+    editWrap.appendChild(body);
+    return editWrap;
+  }
+
+  const card = document.createElement('div');
+  card.className = 'item-card';
+  const typeInfo = TYPES.find(t=>t.key===item.type) || TYPES[0];
+  const status = item.status === 'confirmed' ? 'confirmed' : 'tentative';
+  const statusLabel = status === 'confirmed' ? '✓ Confirmed' : '◌ Tentative';
+  const mealService = MEAL_SERVICES.find(m => m.key === item.mealService);
+  const mealPeriod = MEAL_PERIODS.find(p => p.key === item.mealPeriod);
+  let mealBadgeLabel = '';
+  if(mealService){
+    const iconPart = mealService.icon ? mealService.icon + ' ' : '';
+    mealBadgeLabel = mealService.key === 'snack'
+      ? `${iconPart}Snack`
+      : `${iconPart}${mealPeriod ? mealPeriod.label + ' · ' : ''}${mealService.label}`;
+  }
+  const travelerNames = Array.isArray(item.travelerIds)
+    ? item.travelerIds.map(id => getTravelerName(id)).filter(Boolean)
+    : [];
+
+  const compactLine2Parts = [statusLabel];
+  if(item.isMainPlan) compactLine2Parts.push('📌 Main Plan');
+  if(mealBadgeLabel) compactLine2Parts.push(mealBadgeLabel);
+  if(travelerNames.length) compactLine2Parts.push(travelerNames.join(', '));
+  if(item.confirmationNumber) compactLine2Parts.push('Conf #: ' + item.confirmationNumber);
+  if(item.notes) compactLine2Parts.push(item.notes);
+
+  card.innerHTML = `
+    <div class="item-tab tab-${item.type}"></div>
+    <div class="item-body">
+      <div class="item-content-full">
+        <div class="item-top-row">
+          <span class="item-time">${item.time ? formatTime(item.time) : 'No time set'}</span>
+          <span class="item-type-badge">${typeInfo.icon} ${typeInfo.label}</span>
+        </div>
+        <div class="item-name">${escapeHtml(item.name)}</div>
+        <div class="item-badges-row">
+          ${item.isMainPlan ? '<span class="item-main-plan-badge">📌 Main Plan</span>' : ''}
+          <span class="item-status status-${status}">${statusLabel}</span>
+          ${mealBadgeLabel ? `<span class="item-meal-badge">${mealBadgeLabel}</span>` : ''}
+          ${travelerNames.map(n => `<span class="item-traveler-badge">${escapeHtml(n)}</span>`).join('')}
+        </div>
+        ${item.confirmationNumber ? `<div class="item-confirmation"><span>Confirmation #</span> ${escapeHtml(item.confirmationNumber)}</div>` : ''}
+        ${item.notes ? `<div class="item-notes">${escapeHtml(item.notes)}</div>` : ''}
+      </div>
+      <div class="item-content-compact">
+        <div class="item-compact-line1">${item.time ? formatTime(item.time) + ' · ' : ''}${escapeHtml(item.name)}</div>
+        <div class="item-compact-line2">${escapeHtml(compactLine2Parts.join(' · '))}</div>
+      </div>
+      <div class="item-actions">
+        <button data-role="toggle-status">${status === 'confirmed' ? 'Mark tentative' : 'Mark confirmed'}</button>
+        <button data-role="edit">Edit</button>
+        <button data-role="main-plan">${item.isMainPlan ? 'Unset Main Plan' : '📌 Set as Main Plan'}</button>
+        <button data-role="calendar" title="Add this item to your calendar">📅 Calendar</button>
+        <button data-role="del">Delete</button>
+      </div>
+    </div>
+  `;
+  card.querySelector('[data-role="del"]').onclick = () => {
+    if(!confirm(`Delete "${item.name}"?`)) return;
+    day.items = day.items.filter(i => i.id !== item.id);
+    render();
+  };
+  card.querySelector('[data-role="toggle-status"]').onclick = () => {
+    item.status = status === 'confirmed' ? 'tentative' : 'confirmed';
+    render();
+  };
+  card.querySelector('[data-role="edit"]').onclick = () => {
+    editingItems.add(item.id);
+    render();
+  };
+  card.querySelector('[data-role="main-plan"]').onclick = () => {
+    if(item.isMainPlan){
+      item.isMainPlan = false;
+      render();
+    } else {
+      pendingMainPlanEdit.add(item.id);
+      editingItems.add(item.id);
+      render();
+    }
+  };
+  card.querySelector('[data-role="calendar"]').onclick = () => {
+    const trip = getActiveTrip();
+    const ics = generateSingleItemICS(trip, day, item);
+    if(!ics) return;
+    const safeName = (item.name || 'event').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+    const blob = new Blob([ics], {type:'text/calendar'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${safeName}.ics`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  return card;
+}
+
+function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
+  const wrap = document.createElement('div');
+  wrap.className = 'add-form';
+  let pendingStatus = initial.status === 'confirmed' ? 'confirmed' : 'tentative';
+  wrap.innerHTML = `
+    <div class="form-row">
+      <input type="time" data-f="time" value="${initial.time || ''}" />
+      <select data-f="type">${TYPES.map(t=>`<option value="${t.key}" ${t.key===initial.type?'selected':''}>${t.icon} ${t.label}</option>`).join('')}</select>
+    </div>
+    <div class="form-row" data-role="section-row">
+      <select data-f="section">
+        <option value="">Choose a section...</option>
+        ${SECTIONS.map(s=>`<option value="${s.key}" ${s.key===initial.section?'selected':''}>${s.label}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-row" data-role="meal-row">
+      <select data-f="mealService">
+        <option value="">Service type...</option>
+        ${MEAL_SERVICES.map(m=>`<option value="${m.key}" ${m.key===initial.mealService?'selected':''}>${m.icon ? m.icon+' ' : ''}${m.label}</option>`).join('')}
+      </select>
+      <select data-f="mealPeriod" data-role="meal-period-select">
+        <option value="">Meal...</option>
+        ${MEAL_PERIODS.map(p=>`<option value="${p.key}" ${p.key===initial.mealPeriod?'selected':''}>${p.label === 'B' ? 'Breakfast' : p.label === 'L' ? 'Lunch' : 'Dinner'}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-row">
+      <input type="text" data-f="name" placeholder="e.g. Hollywood Studios, Be Our Guest lunch" value="${escapeHtml(initial.name || '')}" />
+      <select data-f="namePark" style="display:none;">
+        <option value="">Choose a park...</option>
+        ${PARKS.filter(p=>p).map(p=>`<option value="${p}" ${p===initial.name?'selected':''}>${p}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-row">
+      <label class="main-plan-checkbox-label">
+        <input type="checkbox" data-f="isMainPlanCheckbox" ${initial.isMainPlan ? 'checked' : ''} />
+        <span data-role="main-plan-label">📌 Main plan for this part of the day</span>
+      </label>
+    </div>
+    <div data-role="who-wrap"></div>
+    <div class="status-toggle-row">
+      <button type="button" data-status="tentative" class="${pendingStatus === 'tentative' ? 'on-tentative' : ''}">Tentative</button>
+      <button type="button" data-status="confirmed" class="${pendingStatus === 'confirmed' ? 'on-confirmed' : ''}">Confirmed</button>
+    </div>
+    <div class="form-row">
+      <input type="text" data-f="confirmationNumber" placeholder="Confirmation # (optional)" value="${escapeHtml(initial.confirmationNumber || '')}" />
+    </div>
+    <div class="form-row">
+      <textarea data-f="notes" placeholder="Notes (who's going, what to bring...)">${escapeHtml(initial.notes || '')}</textarea>
+    </div>
+    <div class="form-row">
+      <button type="button" class="submit-btn" data-role="submit">${submitLabel}</button>
+      ${onCancel ? '<button type="button" class="cancel-btn" data-role="cancel">Cancel</button>' : ''}
+    </div>
+  `;
+  const timeInput = wrap.querySelector('[data-f="time"]');
+  const sectionRow = wrap.querySelector('[data-role="section-row"]');
+  const sectionSelect = wrap.querySelector('[data-f="section"]');
+  const syncSectionVisibility = () => {
+    sectionRow.style.display = timeInput.value ? 'none' : '';
+  };
+  syncSectionVisibility();
+
+  const getCurrentFormSection = () => {
+    if(timeInput.value){
+      const match = SECTIONS.find(s => s.test(timeInput.value));
+      return match ? match.key : '';
+    }
+    return sectionSelect.value;
+  };
+
+  const nameInput = wrap.querySelector('[data-f="name"]');
+  const namePark = wrap.querySelector('[data-f="namePark"]');
+  const mainPlanCheckbox = wrap.querySelector('[data-f="isMainPlanCheckbox"]');
+  const mainPlanLabel = wrap.querySelector('[data-role="main-plan-label"]');
+  const syncMainPlanUI = () => {
+    const section = getCurrentFormSection();
+    const sectionLabel = section ? (SECTIONS.find(s=>s.key===section)||{}).label : '';
+    if(!section){
+      mainPlanCheckbox.disabled = true;
+      mainPlanLabel.textContent = '📌 Main plan (choose a time or section first)';
+    } else {
+      mainPlanCheckbox.disabled = false;
+      mainPlanLabel.textContent = `📌 Main plan for the ${sectionLabel}`;
+    }
+    const isChecked = mainPlanCheckbox.checked && !mainPlanCheckbox.disabled;
+    nameInput.style.display = isChecked ? 'none' : '';
+    namePark.style.display = isChecked ? '' : 'none';
+  };
+  syncMainPlanUI();
+  timeInput.addEventListener('input', () => { syncSectionVisibility(); syncMainPlanUI(); });
+  sectionSelect.addEventListener('change', syncMainPlanUI);
+  mainPlanCheckbox.addEventListener('change', syncMainPlanUI);
+
+  const typeSelect = wrap.querySelector('[data-f="type"]');
+  const mealRow = wrap.querySelector('[data-role="meal-row"]');
+  const mealServiceSelect = wrap.querySelector('[data-f="mealService"]');
+  const mealPeriodSelect = wrap.querySelector('[data-role="meal-period-select"]');
+  const syncMealVisibility = () => {
+    const isDining = typeSelect.value === 'dining';
+    mealRow.style.display = isDining ? '' : 'none';
+    mealPeriodSelect.style.display = (isDining && mealServiceSelect.value !== 'snack') ? '' : 'none';
+  };
+  syncMealVisibility();
+  typeSelect.addEventListener('change', syncMealVisibility);
+  mealServiceSelect.addEventListener('change', syncMealVisibility);
+
+  const trip = getActiveTrip();
+  const tripTravelers = (trip && Array.isArray(trip.travelerIds))
+    ? trip.travelerIds.map(id => ({ id, name: getTravelerName(id) })).filter(t => t.name)
+    : [];
+  let pendingTravelerIds = Array.isArray(initial.travelerIds) ? initial.travelerIds.slice() : [];
+  const whoWrap = wrap.querySelector('[data-role="who-wrap"]');
+  if(tripTravelers.length >= 2){
+    let whoExpanded = pendingTravelerIds.length > 0;
+    const renderWho = () => {
+      whoWrap.innerHTML = '';
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'who-toggle-link';
+      toggle.textContent = whoExpanded ? 'Who\'s this for? (hide)' : 'Who\'s this for? (optional)';
+      toggle.onclick = () => { whoExpanded = !whoExpanded; renderWho(); };
+      whoWrap.appendChild(toggle);
+      if(whoExpanded){
+        const checklist = document.createElement('div');
+        checklist.className = 'who-checklist';
+        tripTravelers.forEach(t => {
+          const label = document.createElement('label');
+          const checked = pendingTravelerIds.includes(t.id);
+          label.innerHTML = `<input type="checkbox" ${checked ? 'checked' : ''} /> ${escapeHtml(t.name)}`;
+          label.querySelector('input').onchange = e => {
+            if(e.target.checked){
+              if(!pendingTravelerIds.includes(t.id)) pendingTravelerIds.push(t.id);
+            } else {
+              pendingTravelerIds = pendingTravelerIds.filter(id => id !== t.id);
+            }
+          };
+          checklist.appendChild(label);
+        });
+        whoWrap.appendChild(checklist);
+      }
+    };
+    renderWho();
+  }
+
+  const statusBtns = wrap.querySelectorAll('.status-toggle-row button');
+  statusBtns.forEach(btn => {
+    btn.onclick = () => {
+      pendingStatus = btn.dataset.status;
+      statusBtns.forEach(b => b.classList.remove('on-tentative','on-confirmed'));
+      btn.classList.add(pendingStatus === 'confirmed' ? 'on-confirmed' : 'on-tentative');
+    };
+  });
+  wrap.querySelector('[data-role="submit"]').onclick = () => {
+    const isMainPlan = mainPlanCheckbox.checked && !mainPlanCheckbox.disabled;
+    const name = isMainPlan ? namePark.value : wrap.querySelector('[data-f="name"]').value.trim();
+    if(!name){ alert(isMainPlan ? 'Choose a park for the main plan.' : 'Give it a name first.'); return; }
+    const time = timeInput.value;
+    const section = sectionSelect.value;
+    if(!time && !section){
+      alert('Pick a time, or choose Morning, Afternoon, or Evening for this item.');
+      return;
+    }
+    const type = typeSelect.value;
+    const mealService = mealServiceSelect.value;
+    const mealPeriod = mealPeriodSelect.value;
+    if(type === 'dining'){
+      if(!mealService){
+        alert('Choose a service type for this dining item (QS, TS, 2TS, Snack, or In-Room).');
+        return;
+      }
+      if(mealService !== 'snack' && !mealPeriod){
+        alert('Choose a meal (Breakfast, Lunch, or Dinner) for this dining item.');
+        return;
+      }
+    }
+    if(isMainPlan){
+      const finalSection = getCurrentFormSection();
+      const currentHolder = day.items.find(i => i.id !== initial.id && i.isMainPlan && getItemSection(i) === finalSection);
+      if(currentHolder){
+        const sectionLabel = (SECTIONS.find(s=>s.key===finalSection)||{}).label || finalSection;
+        if(!confirm(`This replaces "${currentHolder.name}" as the main plan for the ${sectionLabel} — continue?`)) return;
+        currentHolder.isMainPlan = false;
+      }
+    }
+    onSubmit({
+      time,
+      section,
+      type,
+      name,
+      isMainPlan,
+      status: pendingStatus,
+      mealService: type === 'dining' ? mealService : '',
+      mealPeriod: (type === 'dining' && mealService !== 'snack') ? mealPeriod : '',
+      confirmationNumber: wrap.querySelector('[data-f="confirmationNumber"]').value.trim(),
+      notes: wrap.querySelector('[data-f="notes"]').value.trim(),
+      travelerIds: pendingTravelerIds.slice()
+    });
+  };
+  if(onCancel){
+    wrap.querySelector('[data-role="cancel"]').onclick = onCancel;
+  }
+  return wrap;
+}
+
+function renderAddForm(day){
+  return buildItemFieldsForm(
+    day,
+    { status: 'tentative' },
+    'Add to Day',
+    (values) => {
+      day.items.push(Object.assign({ id: cryptoId() }, values));
+      expandedAddForm.delete(day.id);
+      render();
+    }
+  );
+}
+
+function formatTime(t){
+  const [h,m] = t.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2,'0')} ${period}`;
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str || '';
+  return d.innerHTML;
+}
+
+function ensureEssentialPackingItems(trip){
+  if(!Array.isArray(trip.packingItems)) trip.packingItems = [];
+  appData.packingMaster.filter(mi => mi.essential).forEach(mi => {
+    const exists = trip.packingItems.some(pi => !pi.custom && pi.itemId === mi.id);
+    if(!exists){
+      trip.packingItems.push({ id: cryptoId(), custom:false, itemId: mi.id, checked:false });
+    }
+  });
+}
+function addPackingItemToTrip(trip, masterItem){
+  const exists = trip.packingItems.some(pi => !pi.custom && pi.itemId === masterItem.id);
+  if(!exists){
+    trip.packingItems.push({ id: cryptoId(), custom:false, itemId: masterItem.id, checked:false });
+  }
+}
+function removePackingItemFromTrip(trip, masterItemId){
+  trip.packingItems = trip.packingItems.filter(pi => pi.custom || pi.itemId !== masterItemId);
+}
+
+function renderPackingPanel(){
+  const trip = getActiveTrip();
+  ensureEssentialPackingItems(trip);
+  const wrap = document.getElementById('packingPanelWrap');
+  wrap.innerHTML = '';
+
+  const intro = document.createElement('p');
+  intro.className = 'packing-intro';
+  intro.textContent = "Your packing list for this trip. Tap \"Build Packing List\" to add items from the catalog — anything marked \"Always packed\" (like medications) is included automatically.";
+  wrap.appendChild(intro);
+
+  const btnRow = document.createElement('div');
+  btnRow.className = 'packing-btn-row';
+
+  const printBtn = document.createElement('button');
+  printBtn.type = 'button';
+  printBtn.className = 'print-packing-btn';
+  printBtn.textContent = '🖨️ Print';
+  printBtn.onclick = printPackingList;
+  btnRow.appendChild(printBtn);
+
+  const buildBtn = document.createElement('button');
+  buildBtn.type = 'button';
+  buildBtn.className = 'print-packing-btn build-list-btn';
+  buildBtn.textContent = '🧳 Build Packing List';
+  buildBtn.onclick = openBuildPackingListModal;
+  btnRow.appendChild(buildBtn);
+
+  wrap.appendChild(btnRow);
+
+  const categories = [...new Set(appData.packingMaster.map(i=>i.category))];
+
+  const activeCats = categories.filter(cat => {
+    const items = appData.packingMaster.filter(i=>i.category===cat);
+    const hasIncludedItem = items.some(mi => trip.packingItems.some(pi => !pi.custom && pi.itemId === mi.id));
+    const hasCustomInCat = trip.packingItems.some(pi => pi.custom && pi.category === cat);
+    return hasIncludedItem || hasCustomInCat;
+  });
+
+  const customRows = trip.packingItems.filter(pi=>pi.custom && !pi.category);
+
+  if(activeCats.length===0 && customRows.length===0){
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = 'Nothing on your packing list yet. Tap "Build Packing List" above to add items, or use the quick-add below for something just for this trip.';
+    wrap.appendChild(empty);
+  }
+
+  activeCats.forEach(cat => {
+    const items = appData.packingMaster.filter(i=>i.category===cat);
+    const allEssential = items.length>0 && items.every(i=>i.essential);
+    const block = document.createElement('div');
+    block.className = 'packing-category-block';
+    const title = document.createElement('div');
+    title.className = 'packing-category-title';
+    title.innerHTML = `${escapeHtml(cat)} ${allEssential ? '<span class="essential-tag">Always packed</span>' : ''}`;
+    block.appendChild(title);
+    items.forEach(mi => {
+      const row = trip.packingItems.find(pi=>!pi.custom && pi.itemId===mi.id);
+      if(!row) return;
+      block.appendChild(renderPackingItemRow(trip, mi.name, row, false, mi.essential));
+    });
+    const customInCat = trip.packingItems.filter(pi => pi.custom && pi.category === cat);
+    customInCat.forEach(ci => block.appendChild(renderPackingItemRow(trip, ci.name, ci, true)));
+    wrap.appendChild(block);
+  });
+
+  if(customRows.length){
+    const block = document.createElement('div');
+    block.className = 'packing-category-block';
+    const title = document.createElement('div');
+    title.className = 'packing-category-title';
+    title.textContent = 'Just for this trip';
+    block.appendChild(title);
+    customRows.forEach(row => block.appendChild(renderPackingItemRow(trip, row.name, row, true)));
+    wrap.appendChild(block);
+  }
+
+  const addRow = document.createElement('div');
+  addRow.className = 'packing-add-row packing-sticky-addrow';
+  addRow.innerHTML = `<input type="text" placeholder="Add a trip-only item (e.g. conference badge)" /><button type="button">Add</button>`;
+  const input = addRow.querySelector('input');
+  const addBtn = addRow.querySelector('button');
+  addBtn.onclick = () => {
+    const name = input.value.trim();
+    if(!name) return;
+    trip.packingItems.push({ id: cryptoId(), custom:true, name, checked:false });
+    input.value = '';
+    render();
+  };
+  input.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); addBtn.click(); } });
+  wrap.appendChild(addRow);
+
+  const manageBtn = document.createElement('button');
+  manageBtn.type = 'button';
+  manageBtn.className = 'manage-list-link';
+  manageBtn.textContent = 'Edit Catalog';
+  manageBtn.onclick = openMasterEditor;
+  wrap.appendChild(manageBtn);
+
+  const footerEl = document.querySelector('footer.toolbar');
+  if(footerEl) document.documentElement.style.setProperty('--footer-height', footerEl.offsetHeight + 'px');
+}
+
+function renderPackingItemRow(trip, name, row, isCustom, essential){
+  const el = document.createElement('div');
+  el.className = 'item-card packing-item-card' + (row.checked ? ' checked' : '');
+  const canRemove = !essential;
+  el.innerHTML = `
+    <div class="item-tab ${essential ? 'tab-packing-essential' : 'tab-packing-regular'}"></div>
+    <div class="item-body">
+      <div class="packing-item-inner">
+        <input type="checkbox" ${row.checked ? 'checked' : ''} />
+        <span class="packing-item-name">${escapeHtml(name)}</span>
+        ${canRemove ? '<button type="button" class="del-item">Remove</button>' : ''}
+      </div>
+    </div>
+  `;
+  el.querySelector('input').onchange = () => { row.checked = !row.checked; render(); };
+  if(canRemove){
+    el.querySelector('.del-item').onclick = () => {
+      if(isCustom){
+        trip.packingItems = trip.packingItems.filter(pi => pi !== row);
+      } else {
+        removePackingItemFromTrip(trip, row.itemId);
+      }
+      render();
+    };
+  }
+  return el;
+}
+
+function openMasterEditor(){
+  renderMasterEditor();
+  document.getElementById('masterEditorOverlay').classList.add('active');
+}
+function closeMasterEditor(){
+  document.getElementById('masterEditorOverlay').classList.remove('active');
+  render();
+}
+document.getElementById('masterEditorCloseBtn').onclick = closeMasterEditor;
+
+function openBuildPackingListModal(){
+  renderBuildPackingListModal();
+  document.getElementById('buildPackingListOverlay').classList.add('active');
+}
+function closeBuildPackingListModal(){
+  document.getElementById('buildPackingListOverlay').classList.remove('active');
+  render();
+}
+document.getElementById('buildPackingListCloseBtn').onclick = closeBuildPackingListModal;
+
+function renderBuildPackingListModal(){
+  const trip = getActiveTrip();
+  const body = document.getElementById('buildPackingListBody');
+  body.innerHTML = '';
+  const categories = [...new Set(appData.packingMaster.map(i=>i.category))];
+
+  categories.forEach(cat => {
+    const items = appData.packingMaster.filter(i=>i.category===cat);
+    const allEssential = items.length>0 && items.every(i=>i.essential);
+    const addableItems = items.filter(i => !i.essential);
+
+    const block = document.createElement('div');
+    block.className = 'packing-category-block';
+
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex;align-items:center;gap:8px;';
+    const title = document.createElement('div');
+    title.className = 'packing-category-title';
+    title.style.marginBottom = '0';
+    title.innerHTML = `${escapeHtml(cat)} ${allEssential ? '<span class="essential-tag">Always packed</span>' : ''}`;
+    header.appendChild(title);
+    if(addableItems.length){
+      const addAllBtn = document.createElement('button');
+      addAllBtn.type = 'button';
+      addAllBtn.className = 'build-list-addall-btn';
+      addAllBtn.textContent = '+ Add all';
+      addAllBtn.onclick = () => {
+        addableItems.forEach(mi => addPackingItemToTrip(trip, mi));
+        renderBuildPackingListModal();
+      };
+      header.appendChild(addAllBtn);
+    }
+    block.appendChild(header);
+
+    items.forEach(mi => {
+      const row = document.createElement('div');
+      row.className = 'catalog-item-row';
+      if(mi.essential){
+        row.innerHTML = `
+          <span class="catalog-item-name">${escapeHtml(mi.name)}</span>
+          <span class="essential-tag">Always packed</span>
+        `;
+      } else {
+        const included = trip.packingItems.some(pi => !pi.custom && pi.itemId === mi.id);
+        row.innerHTML = `
+          <span class="catalog-item-name">${escapeHtml(mi.name)}</span>
+          <div class="catalog-item-actions">
+            <button type="button" class="catalog-toggle-btn ${included ? 'active-pack' : ''}">${included ? 'Added ✓' : '+ Add'}</button>
+          </div>
+        `;
+        row.querySelector('button').onclick = () => {
+          if(included){
+            removePackingItemFromTrip(trip, mi.id);
+          } else {
+            addPackingItemToTrip(trip, mi);
+          }
+          renderBuildPackingListModal();
+        };
+      }
+      block.appendChild(row);
+    });
+
+    body.appendChild(block);
+  });
+}
+
+function openThemePicker(){
+  renderThemePicker();
+  document.getElementById('themePickerOverlay').classList.add('active');
+}
+function closeThemePicker(){
+  document.getElementById('themePickerOverlay').classList.remove('active');
+  render();
+}
+document.getElementById('themePickerCloseBtn').onclick = closeThemePicker;
+
+function renderThemePicker(){
+  const body = document.getElementById('themePickerBody');
+  body.innerHTML = '';
+  const grid = document.createElement('div');
+  grid.className = 'theme-card-grid';
+  THEMES.forEach(theme => {
+    const isActive = (appData.theme || 'green') === theme.key;
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'theme-card' + (isActive ? ' active' : '');
+    card.innerHTML = `
+      <span class="swatch-set">
+        ${theme.swatches.map(c => `<span class="swatch" style="background:${c}"></span>`).join('')}
+      </span>
+      <span class="theme-name">${theme.label}</span>
+      ${isActive ? '<span class="theme-check">✓</span>' : ''}
+    `;
+    card.onclick = () => {
+      appData.theme = theme.key;
+      renderThemePicker();
+      document.documentElement.setAttribute('data-theme', appData.theme);
+    };
+    grid.appendChild(card);
+  });
+  body.appendChild(grid);
+}
+
+function renderMasterEditor(){
+  const body = document.getElementById('masterEditorBody');
+  body.innerHTML = '';
+  const categories = [...new Set(appData.packingMaster.map(i=>i.category))];
+
+  categories.forEach(cat => {
+    const items = appData.packingMaster.filter(i=>i.category===cat);
+    const title = document.createElement('div');
+    title.className = 'packing-category-title';
+    title.textContent = cat;
+    body.appendChild(title);
+    items.forEach(mi => {
+      const row = document.createElement('div');
+      row.className = 'master-item-row';
+      row.innerHTML = `
+        <input type="text" value="${escapeHtml(mi.name)}" data-role="name" />
+        <select data-role="category">${categories.map(c=>`<option value="${escapeHtml(c)}" ${c===mi.category?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select>
+        <label class="ess-label"><input type="checkbox" data-role="essential" ${mi.essential?'checked':''} /> Always pack</label>
+        <button type="button" class="del-item">Remove</button>
+      `;
+      row.querySelector('[data-role="name"]').oninput = e => { mi.name = e.target.value; };
+      row.querySelector('[data-role="category"]').onchange = e => { mi.category = e.target.value; };
+      row.querySelector('[data-role="essential"]').onchange = e => { mi.essential = e.target.checked; };
+      row.querySelector('.del-item').onclick = () => {
+        appData.packingMaster = appData.packingMaster.filter(i=>i.id!==mi.id);
+        renderMasterEditor();
+      };
+      body.appendChild(row);
+    });
+  });
+
+  const addRow = document.createElement('div');
+  addRow.className = 'master-add-row';
+  addRow.innerHTML = `
+    <input type="text" placeholder="New item name" data-f="name" />
+    <select data-f="category">
+      ${categories.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}
+      <option value="__new__">+ New category</option>
+    </select>
+    <button type="button">Add item</button>
+  `;
+  addRow.querySelector('button').onclick = () => {
+    const nameInput = addRow.querySelector('[data-f="name"]');
+    const name = nameInput.value.trim();
+    if(!name) return;
+    let category = addRow.querySelector('[data-f="category"]').value;
+    if(category === '__new__'){
+      category = prompt('New category name:');
+      if(!category || !category.trim()) return;
+      category = category.trim();
+    }
+    appData.packingMaster.push({ id: cryptoId(), name, category, essential:false });
+    nameInput.value = '';
+    renderMasterEditor();
+  };
+  body.appendChild(addRow);
+}
+
+function getGroceryItemName(gi){
+  if(gi.custom) return gi.name;
+  const master = appData.groceryMaster.find(m => m.id === gi.itemId);
+  return master ? master.name : '(removed item)';
+}
+function getGroceryItemCategory(gi){
+  if(gi.custom) return 'Custom';
+  const master = appData.groceryMaster.find(m => m.id === gi.itemId);
+  return master ? master.category : 'Other';
+}
+
+function syncGroceryToPacking(trip, groceryItem){
+  if(!Array.isArray(trip.packingItems)) trip.packingItems = [];
+  const linkIdx = trip.packingItems.findIndex(pi => pi.linkedGroceryId === groceryItem.id);
+  if(groceryItem.channel === 'pack'){
+    const name = getGroceryItemName(groceryItem);
+    if(linkIdx >= 0){
+      trip.packingItems[linkIdx].name = name;
+    } else {
+      trip.packingItems.push({
+        id: cryptoId(),
+        custom: true,
+        name,
+        category: 'Food/Room Supplies',
+        checked: false,
+        linkedGroceryId: groceryItem.id
+      });
+    }
+  } else if(linkIdx >= 0){
+    trip.packingItems.splice(linkIdx, 1);
+  }
+}
+function removeGroceryPackingLink(trip, groceryItemId){
+  if(!Array.isArray(trip.packingItems)) return;
+  trip.packingItems = trip.packingItems.filter(pi => pi.linkedGroceryId !== groceryItemId);
+}
+
+function renderGroceryPanel(){
+  const trip = getActiveTrip();
+  if(!Array.isArray(trip.groceryItems)) trip.groceryItems = [];
+  const wrap = document.getElementById('groceryPanelWrap');
+  wrap.innerHTML = '';
+
+  const intro = document.createElement('p');
+  intro.className = 'packing-intro';
+  intro.textContent = "Nothing is added automatically. Browse the catalog below and choose Pack or Deliver for anything that applies to this trip.";
+  wrap.appendChild(intro);
+
+  if(trip.groceryItems.length > 0){
+    ['pack','delivery'].forEach(channel => {
+      const channelItems = trip.groceryItems.filter(gi => gi.channel === channel);
+      if(channelItems.length === 0) return;
+      const heading = document.createElement('div');
+      heading.className = 'grocery-channel-heading';
+      heading.textContent = channel === 'pack' ? '🧳 Packing With Us' : '📦 Ordering for Delivery';
+      wrap.appendChild(heading);
+
+      const categories = [...new Set(channelItems.map(gi => getGroceryItemCategory(gi)))];
+      categories.forEach(catName => {
+        const catLabel = document.createElement('div');
+        catLabel.className = 'grocery-category-label';
+        catLabel.textContent = catName;
+        wrap.appendChild(catLabel);
+        channelItems.filter(gi => getGroceryItemCategory(gi) === catName).forEach(gi => {
+          wrap.appendChild(renderGroceryItemRow(trip, getGroceryItemName(gi), gi));
+        });
+      });
+    });
+  }
+
+  const catalogHeading = document.createElement('div');
+  catalogHeading.className = 'grocery-channel-heading';
+  catalogHeading.textContent = 'Add from catalog';
+  wrap.appendChild(catalogHeading);
+
+  const catalogCategories = [...new Set(appData.groceryMaster.map(i => i.category))];
+  catalogCategories.forEach(cat => {
+    const catLabel = document.createElement('div');
+    catLabel.className = 'grocery-category-label';
+    catLabel.textContent = cat;
+    wrap.appendChild(catLabel);
+    const block = document.createElement('div');
+    block.style.cssText = 'background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:2px 10px;margin-bottom:10px;';
+    appData.groceryMaster.filter(i => i.category === cat).forEach(mi => {
+      block.appendChild(renderGroceryCatalogRow(trip, mi));
+    });
+    wrap.appendChild(block);
+  });
+
+  const addRow = document.createElement('div');
+  addRow.className = 'packing-add-row';
+  addRow.innerHTML = `
+    <input type="text" placeholder="Add a trip-only grocery item" />
+    <select>
+      <option value="pack">Pack</option>
+      <option value="delivery">Deliver</option>
+    </select>
+    <button type="button">Add</button>
+  `;
+  const nameInput = addRow.querySelector('input');
+  const channelSelect = addRow.querySelector('select');
+  const addBtn = addRow.querySelector('button');
+  addBtn.onclick = () => {
+    const name = nameInput.value.trim();
+    if(!name) return;
+    const newItem = { id: cryptoId(), custom:true, name, channel: channelSelect.value, checked:false };
+    trip.groceryItems.push(newItem);
+    syncGroceryToPacking(trip, newItem);
+    render();
+  };
+  nameInput.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); addBtn.click(); } });
+  wrap.appendChild(addRow);
+
+  const manageBtn = document.createElement('button');
+  manageBtn.type = 'button';
+  manageBtn.className = 'manage-list-link';
+  manageBtn.textContent = 'Manage grocery catalog';
+  manageBtn.onclick = openGroceryMasterEditor;
+  wrap.appendChild(manageBtn);
+}
+
+function renderGroceryCatalogRow(trip, masterItem){
+  const el = document.createElement('div');
+  el.className = 'catalog-item-row';
+  const existing = trip.groceryItems.find(gi => !gi.custom && gi.itemId === masterItem.id);
+  el.innerHTML = `
+    <span class="catalog-item-name">${escapeHtml(masterItem.name)}</span>
+    <div class="catalog-item-actions">
+      <button type="button" class="catalog-toggle-btn ${existing && existing.channel==='pack' ? 'active-pack' : ''}" data-channel="pack">Pack</button>
+      <button type="button" class="catalog-toggle-btn ${existing && existing.channel==='delivery' ? 'active-delivery' : ''}" data-channel="delivery">Deliver</button>
+    </div>
+  `;
+  el.querySelectorAll('.catalog-toggle-btn').forEach(btn => {
+    btn.onclick = () => {
+      const channel = btn.dataset.channel;
+      const idx = trip.groceryItems.findIndex(gi => !gi.custom && gi.itemId === masterItem.id);
+      if(idx >= 0){
+        const gi = trip.groceryItems[idx];
+        if(gi.channel === channel){
+          removeGroceryPackingLink(trip, gi.id);
+          trip.groceryItems.splice(idx, 1);
+        } else {
+          gi.channel = channel;
+          syncGroceryToPacking(trip, gi);
+        }
+      } else {
+        const newItem = { id: cryptoId(), itemId: masterItem.id, custom:false, channel, checked:false };
+        trip.groceryItems.push(newItem);
+        syncGroceryToPacking(trip, newItem);
+      }
+      render();
+    };
+  });
+  return el;
+}
+
+function renderGroceryItemRow(trip, name, gi){
+  const el = document.createElement('div');
+  el.className = 'item-card packing-item-card' + (gi.checked ? ' checked' : '');
+  el.innerHTML = `
+    <div class="item-tab ${gi.channel === 'pack' ? 'tab-grocery-pack' : 'tab-grocery-delivery'}"></div>
+    <div class="item-body">
+      <div class="packing-item-inner">
+        <input type="checkbox" ${gi.checked ? 'checked' : ''} />
+        <span class="packing-item-name">${escapeHtml(name)}</span>
+        <button type="button" class="del-item">Remove</button>
+      </div>
+    </div>
+  `;
+  el.querySelector('input').onchange = () => { gi.checked = !gi.checked; render(); };
+  el.querySelector('.del-item').onclick = () => {
+    removeGroceryPackingLink(trip, gi.id);
+    trip.groceryItems = trip.groceryItems.filter(x => x !== gi);
+    render();
+  };
+  return el;
+}
+
+function openGroceryMasterEditor(){
+  renderGroceryMasterEditor();
+  document.getElementById('groceryMasterEditorOverlay').classList.add('active');
+}
+function closeGroceryMasterEditor(){
+  document.getElementById('groceryMasterEditorOverlay').classList.remove('active');
+  render();
+}
+document.getElementById('groceryMasterEditorCloseBtn').onclick = closeGroceryMasterEditor;
+
+function renderGroceryMasterEditor(){
+  const body = document.getElementById('groceryMasterEditorBody');
+  body.innerHTML = '';
+  const categories = [...new Set(appData.groceryMaster.map(i=>i.category))];
+
+  categories.forEach(cat => {
+    const items = appData.groceryMaster.filter(i=>i.category===cat);
+    const title = document.createElement('div');
+    title.className = 'packing-category-title';
+    title.textContent = cat;
+    body.appendChild(title);
+    items.forEach(mi => {
+      const row = document.createElement('div');
+      row.className = 'master-item-row';
+      row.innerHTML = `
+        <input type="text" value="${escapeHtml(mi.name)}" data-role="name" />
+        <select data-role="category">${categories.map(c=>`<option value="${escapeHtml(c)}" ${c===mi.category?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select>
+        <button type="button" class="del-item">Remove</button>
+      `;
+      row.querySelector('[data-role="name"]').oninput = e => { mi.name = e.target.value; };
+      row.querySelector('[data-role="category"]').onchange = e => { mi.category = e.target.value; };
+      row.querySelector('.del-item').onclick = () => {
+        appData.groceryMaster = appData.groceryMaster.filter(i=>i.id!==mi.id);
+        renderGroceryMasterEditor();
+      };
+      body.appendChild(row);
+    });
+  });
+
+  const addRow = document.createElement('div');
+  addRow.className = 'master-add-row';
+  addRow.innerHTML = `
+    <input type="text" placeholder="New item name" data-f="name" />
+    <select data-f="category">
+      ${categories.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}
+      <option value="__new__">+ New category</option>
+    </select>
+    <button type="button">Add item</button>
+  `;
+  addRow.querySelector('button').onclick = () => {
+    const nameInput = addRow.querySelector('[data-f="name"]');
+    const name = nameInput.value.trim();
+    if(!name) return;
+    let category = addRow.querySelector('[data-f="category"]').value;
+    if(category === '__new__'){
+      category = prompt('New category name:');
+      if(!category || !category.trim()) return;
+      category = category.trim();
+    }
+    appData.groceryMaster.push({ id: cryptoId(), name, category });
+    nameInput.value = '';
+    renderGroceryMasterEditor();
+  };
+  body.appendChild(addRow);
+}
+
+document.getElementById('tripTitle').addEventListener('input', e => {
+  getActiveTrip().title = e.target.textContent;
+  renderTripSwitcher();
+});
+
+function getTripSummaryText(trip){
+  const parts = [];
+  if(trip.startDate){
+    parts.push(formatTripDateRange(trip));
+  }
+  if(Array.isArray(trip.stays) && trip.stays.length){
+    parts.push(trip.stays[0].hotel + (trip.stays.length > 1 ? ` +${trip.stays.length - 1} more` : ''));
+  }
+  if(Array.isArray(trip.travelerIds) && trip.travelerIds.length){
+    parts.push(trip.travelerIds.map(getTravelerName).filter(Boolean).join(', '));
+  }
+  return parts.length ? parts.join(' · ') : 'Tap to set up dates, hotel & more';
+}
+
+function renderTripSummaryTrigger(trip){
+  const btn = document.getElementById('tripSummaryTrigger');
+  const isOpen = expandedTripDetails.has(trip.id);
+  btn.classList.toggle('open', isOpen);
+  btn.querySelector('.trip-summary-text').textContent = getTripSummaryText(trip);
+  btn.onclick = () => {
+    if(isOpen) expandedTripDetails.delete(trip.id);
+    else expandedTripDetails.add(trip.id);
+    render();
+  };
+}
+
+let initializedTripSubsectionDefaults = new Set();
+function ensureTripSubsectionDefaults(trip){
+  if(initializedTripSubsectionDefaults.has(trip.id)) return;
+  expandedTripSubsections.add(trip.id + ':basics');
+  initializedTripSubsectionDefaults.add(trip.id);
+}
+
+function renderTripSubsection(container, trip, key, icon, title, summaryText, buildFn){
+  const stateKey = trip.id + ':' + key;
+  const isOpen = expandedTripSubsections.has(stateKey);
+  const sub = document.createElement('div');
+  sub.className = 'accordion trip-subsection-' + key + (isOpen ? ' open' : '');
+  const header = document.createElement('button');
+  header.type = 'button';
+  header.className = 'accordion-header';
+  header.innerHTML = `
+    <span class="accordion-title">${icon} ${title}</span>
+    <span class="accordion-summary">${escapeHtml(summaryText)}</span>
+    <span class="chevron">▾</span>
+  `;
+  header.onclick = () => {
+    if(isOpen) expandedTripSubsections.delete(stateKey);
+    else expandedTripSubsections.add(stateKey);
+    render();
+  };
+  sub.appendChild(header);
+  const body = document.createElement('div');
+  body.className = 'accordion-body';
+  buildFn(body);
+  sub.appendChild(body);
+  container.appendChild(sub);
+}
+
+function renderTripDetails(trip){
+  const wrap = document.getElementById('tripDetailsWrap');
+  wrap.innerHTML = '';
+  wrap.style.display = expandedTripDetails.has(trip.id) ? '' : 'none';
+  ensureTripSubsectionDefaults(trip);
+
+  if(!Array.isArray(trip.travelerIds)) trip.travelerIds = [];
+  if(!Array.isArray(trip.stays)) trip.stays = [];
+
+  // --- Trip Basics ---
+  const basicsSummary = [
+    trip.startDate ? formatTripDateRange(trip) : 'No start date',
+    trip.travelerIds.length ? `${trip.travelerIds.length} traveler${trip.travelerIds.length===1?'':'s'}` : null
+  ].filter(Boolean).join(' · ');
+
+  renderTripSubsection(wrap, trip, 'basics', '📅', 'Trip Basics', basicsSummary, body => {
+    const fieldsWrap = document.createElement('div');
+    fieldsWrap.className = 'trip-basics-fields';
+
+    const row1 = document.createElement('div');
+    row1.className = 'day-info-row';
+    row1.innerHTML = `
+      <div class="day-info-field day-info-field-full">
+        <label for="tripStartDate">Start date</label>
+        <input type="date" id="tripStartDate" value="${trip.startDate || ''}" />
+      </div>
+    `;
+    row1.querySelector('#tripStartDate').addEventListener('change', e => {
+      trip.startDate = e.target.value;
+      render();
+    });
+    fieldsWrap.appendChild(row1);
+
+    if(!trip.startDate){
+      const rowFallback = document.createElement('div');
+      rowFallback.className = 'day-info-row';
+      rowFallback.innerHTML = `
+        <div class="day-info-field day-info-field-full">
+          <label for="tripDatesFallback">Dates (until a start date is set)</label>
+          <input type="text" id="tripDatesFallback" placeholder="e.g. Oct 12–17, 2026" value="${escapeHtml(trip.dates || '')}" />
+        </div>
+      `;
+      rowFallback.querySelector('#tripDatesFallback').oninput = e => { trip.dates = e.target.value; };
+      fieldsWrap.appendChild(rowFallback);
+    }
+
+    const row1b = document.createElement('div');
+    row1b.className = 'day-info-row';
+    row1b.innerHTML = `
+      <div class="day-info-field">
+        <label for="tripLength">Trip length (nights)</label>
+        <input type="number" id="tripLength" min="1" value="${Math.max(1, trip.days.length - 1)}" />
+      </div>
+    `;
+    row1b.querySelector('#tripLength').addEventListener('change', e => {
+      const ok = setTripLength(trip, parseInt(e.target.value, 10));
+      if(!ok) e.target.value = Math.max(1, trip.days.length - 1);
+      render();
+    });
+    fieldsWrap.appendChild(row1b);
+    body.appendChild(fieldsWrap);
+
+    const nightsCount = Math.max(1, trip.days.length - 1);
+    const printFact = document.createElement('div');
+    printFact.className = 'print-only-fact';
+    printFact.textContent = `Start date: ${trip.startDate ? formatTripDateRange(trip) : (trip.dates || 'Not set')} · Trip length: ${nightsCount} night${nightsCount === 1 ? '' : 's'}`;
+    body.appendChild(printFact);
+
+    const travelersLabel = document.createElement('div');
+    travelersLabel.className = 'packing-category-title';
+    travelersLabel.style.marginTop = '4px';
+    travelersLabel.textContent = "Who's going";
+    body.appendChild(travelersLabel);
+
+    if(trip.travelerIds.length === 0){
+      const emptyNote = document.createElement('div');
+      emptyNote.className = 'section-empty-note';
+      emptyNote.textContent = 'No travelers added yet.';
+      body.appendChild(emptyNote);
+    } else {
+      const chipRow = document.createElement('div');
+      chipRow.className = 'traveler-chip-row';
+      trip.travelerIds.forEach(tid => {
+        const name = getTravelerName(tid);
+        if(!name) return;
+        const chip = document.createElement('span');
+        chip.className = 'traveler-chip';
+        chip.innerHTML = `${escapeHtml(name)} <button type="button" aria-label="Remove ${escapeHtml(name)}">×</button>`;
+        chip.querySelector('button').onclick = () => {
+          trip.travelerIds = trip.travelerIds.filter(id => id !== tid);
+          render();
+        };
+        chipRow.appendChild(chip);
+      });
+      body.appendChild(chipRow);
+    }
+
+    const addTravelerRow = document.createElement('div');
+    addTravelerRow.className = 'packing-add-row';
+    addTravelerRow.innerHTML = `
+      <input type="text" placeholder="Add a traveler by name" list="travelerSuggestions" />
+      <datalist id="travelerSuggestions">
+        ${appData.travelers.map(t => `<option value="${escapeHtml(t.name)}"></option>`).join('')}
+      </datalist>
+      <button type="button">Add</button>
+    `;
+    const travelerInput = addTravelerRow.querySelector('input');
+    const addTravelerBtn = addTravelerRow.querySelector('button');
+    const submitTraveler = () => {
+      const name = travelerInput.value.trim();
+      if(!name) return;
+      const id = getOrCreateTraveler(name);
+      if(id && !trip.travelerIds.includes(id)) trip.travelerIds.push(id);
+      render();
+    };
+    addTravelerBtn.onclick = submitTraveler;
+    travelerInput.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); submitTraveler(); } });
+    body.appendChild(addTravelerRow);
+  });
+
+  // --- Lodging & Dining ---
+  const windows = getDiningWindows(trip);
+  const lodgingSummary = trip.stays.length
+    ? (trip.stays[0].hotel + (trip.stays.length > 1 ? ` +${trip.stays.length - 1} more` : ''))
+    : 'No stays added yet';
+
+  renderTripSubsection(wrap, trip, 'lodging', '🏨', 'Lodging & Dining', lodgingSummary, body => {
+    if(trip.stays.length === 0){
+      const emptyNote = document.createElement('div');
+      emptyNote.className = 'section-empty-note';
+      emptyNote.textContent = 'No stays added yet.';
+      body.appendChild(emptyNote);
+    }
+
+    trip.stays.forEach(stay => {
+      const card = document.createElement('div');
+      card.className = 'stay-card';
+      const dayOptions = trip.days.map((d, i) => `<option value="${d.id}" ${d.id===stay.startDayId?'selected':''}>${escapeHtml(getDayDisplayLabel(trip, i, d, true))}</option>`).join('');
+      const startDayIdx = trip.days.findIndex(d => d.id === stay.startDayId);
+      const startDayLabel = startDayIdx !== -1 ? getDayDisplayLabel(trip, startDayIdx, trip.days[startDayIdx], true) : 'Not set';
+      const roomTypeText = stay.roomType === 'Other' ? (stay.roomTypeOther || 'Other') : (stay.roomType || 'Not set');
+      card.innerHTML = `
+        <div class="day-info-row">
+          <div class="day-info-field">
+            <label>Hotel</label>
+            <input type="text" placeholder="e.g. Pop Century" value="${escapeHtml(stay.hotel || '')}" data-role="hotel" />
+          </div>
+          <div class="day-info-field">
+            <label>Starts</label>
+            <select data-role="startDayId">${dayOptions}</select>
+          </div>
+        </div>
+        <div class="day-info-row">
+          <div class="day-info-field">
+            <label>Hotel confirmation</label>
+            <input type="text" placeholder="e.g. 512851093927" value="${escapeHtml(stay.hotelConfirmation || '')}" data-role="hotelConfirmation" />
+          </div>
+          <div class="day-info-field">
+            <label>Room type</label>
+            <select data-role="roomType">
+              <option value="">No room type set</option>
+              ${ROOM_TYPES.map(rt=>`<option value="${rt}" ${rt===(stay.roomType||'')?'selected':''}>${rt}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        ${stay.roomType === 'Other' ? `
+        <div class="day-info-row">
+          <div class="day-info-field" style="flex:1 1 100%;">
+            <label>Describe room type</label>
+            <input type="text" placeholder="e.g. Bunk Bed Suite" value="${escapeHtml(stay.roomTypeOther || '')}" data-role="roomTypeOther" />
+          </div>
+        </div>` : ''}
+        <div class="print-only-fact">Hotel: ${escapeHtml(stay.hotel || 'Not set')} · Starts: ${escapeHtml(startDayLabel)}</div>
+        <div class="print-only-fact">Confirmation: ${escapeHtml(stay.hotelConfirmation || 'None')} · Room type: ${escapeHtml(roomTypeText)}</div>
+        <button type="button" class="stay-card-remove">Remove this stay</button>
+      `;
+      card.querySelector('[data-role="hotel"]').oninput = e => { stay.hotel = e.target.value; };
+      card.querySelector('[data-role="hotelConfirmation"]').oninput = e => { stay.hotelConfirmation = e.target.value; };
+      card.querySelector('[data-role="startDayId"]').onchange = e => { stay.startDayId = e.target.value; render(); };
+      card.querySelector('[data-role="roomType"]').onchange = e => { stay.roomType = e.target.value; render(); };
+      const roomTypeOtherInput = card.querySelector('[data-role="roomTypeOther"]');
+      if(roomTypeOtherInput){
+        roomTypeOtherInput.oninput = e => { stay.roomTypeOther = e.target.value; };
+      }
+      card.querySelector('.stay-card-remove').onclick = () => {
+        trip.stays = trip.stays.filter(s => s.id !== stay.id);
+        render();
+      };
+      body.appendChild(card);
+    });
+
+    const addStayBtn = document.createElement('button');
+    addStayBtn.type = 'button';
+    addStayBtn.className = 'add-stay-btn';
+    addStayBtn.textContent = '+ Add a stay';
+    addStayBtn.onclick = () => {
+      trip.stays.push({
+        id: cryptoId(),
+        hotel: '',
+        hotelConfirmation: '',
+        roomType: '',
+        roomTypeOther: '',
+        startDayId: trip.days[0].id
+      });
+      render();
+    };
+    body.appendChild(addStayBtn);
+
+    if(windows.length > 0){
+      const diningBlock = document.createElement('div');
+      diningBlock.className = 'dining-reservations-block';
+
+      const diningLabel = document.createElement('div');
+      diningLabel.className = 'packing-category-title';
+      diningLabel.style.marginTop = '18px';
+      diningLabel.textContent = 'Dining reservations';
+      diningBlock.appendChild(diningLabel);
+
+      const diningRow = document.createElement('div');
+      diningRow.className = 'dining-reminder-row';
+      windows.forEach(w => {
+        const pill = document.createElement('div');
+        pill.className = 'dining-reminder-pill state-' + w.state;
+        let html = `🍽️ <span class="resort-name">${escapeHtml(w.resortName)}</span>: `;
+        if(w.state === 'before'){
+          html += `Opens in ${w.daysUntilOpen} day${w.daysUntilOpen === 1 ? '' : 's'} <span class="sub">(${formatShortDate(w.windowOpenDate)})</span>`;
+        } else {
+          html += `Dining reservations can now be made <span class="sub">(opened ${formatShortDate(w.windowOpenDate)})</span>`;
+        }
+        if(w.nights > 10){
+          html += ` <span class="sub">· covers first 10 nights of this stay</span>`;
+        }
+        pill.innerHTML = html;
+        diningRow.appendChild(pill);
+      });
+      diningBlock.appendChild(diningRow);
+
+      const manageBtn = document.createElement('button');
+      manageBtn.type = 'button';
+      manageBtn.className = 'dining-reminder-manage-link';
+      manageBtn.textContent = 'Manage Disney resorts list';
+      manageBtn.onclick = openResortsMasterEditor;
+      diningBlock.appendChild(manageBtn);
+
+      body.appendChild(diningBlock);
+    }
+  });
+
+  // --- Crowd Levels ---
+  const crowdSlots = getCrowdLevelSlots(trip);
+  const crowdSetCount = crowdSlots.filter(s => getCrowdLevel(trip, s.dayId, s.park)).length;
+  const crowdSummary = crowdSlots.length
+    ? `${crowdSetCount} of ${crowdSlots.length} set`
+    : 'Nothing to set yet';
+
+  renderTripSubsection(wrap, trip, 'crowd', '🎢', 'Crowd Levels', crowdSummary, body => {
+    if(crowdSlots.length === 0){
+      const emptyNote = document.createElement('div');
+      emptyNote.className = 'section-empty-note';
+      emptyNote.textContent = 'Flag an item as the Main Plan for a Morning, Afternoon, or Evening (Magic Kingdom, EPCOT, Hollywood Studios, or Animal Kingdom), and it\'ll show up here to set a crowd level — or add one to check below before you\'ve decided.';
+      body.appendChild(emptyNote);
+    } else {
+      crowdSlots.forEach(slot => {
+        const val = getCrowdLevel(trip, slot.dayId, slot.park);
+        const row = document.createElement('div');
+        row.className = 'crowd-entry-row';
+        row.innerHTML = `
+          <span class="crowd-entry-label">${escapeHtml(slot.dayLabel)}<span class="park-name">${escapeHtml(slot.park)}</span></span>
+          <select aria-label="Crowd level for ${escapeHtml(slot.park)} on ${escapeHtml(slot.dayLabel)}">
+            <option value="">—</option>
+            ${Array.from({length:10}, (_,i)=>i+1).map(n=>`<option value="${n}" ${String(n)===val?'selected':''}>${n}</option>`).join('')}
+          </select>
+          ${slot.removable ? '<button type="button" class="crowd-remove-btn" aria-label="Remove">×</button>' : ''}
+        `;
+        row.querySelector('select').onchange = e => {
+          setCrowdLevel(trip, slot.dayId, slot.park, e.target.value);
+          render();
+        };
+        if(slot.removable){
+          row.querySelector('.crowd-remove-btn').onclick = () => {
+            trip.manualCrowdSlots = (trip.manualCrowdSlots || []).filter(s => !(s.dayId === slot.dayId && s.park === slot.park));
+            setCrowdLevel(trip, slot.dayId, slot.park, '');
+            render();
+          };
+        }
+        body.appendChild(row);
+      });
+    }
+
+    const addSlotLabel = document.createElement('div');
+    addSlotLabel.style.cssText = 'font-size:11.5px;font-weight:600;color:var(--slate);margin:10px 0 4px;';
+    addSlotLabel.textContent = 'Check a park before it\'s assigned to your itinerary:';
+    body.appendChild(addSlotLabel);
+
+    const addSlotRow = document.createElement('div');
+    addSlotRow.className = 'packing-add-row';
+    addSlotRow.innerHTML = `
+      <select aria-label="Day">
+        ${trip.days.map((d,i) => `<option value="${d.id}">${escapeHtml(getDayDisplayLabel(trip, i, d, true))}</option>`).join('')}
+      </select>
+      <select aria-label="Park">
+        ${CROWD_LEVEL_PARKS.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('')}
+      </select>
+      <button type="button">+ Add</button>
+    `;
+    const [daySelect, parkSelect] = addSlotRow.querySelectorAll('select');
+    addSlotRow.querySelector('button').onclick = () => {
+      if(!Array.isArray(trip.manualCrowdSlots)) trip.manualCrowdSlots = [];
+      const dayId = daySelect.value;
+      const park = parkSelect.value;
+      const alreadyTracked = getCrowdLevelSlots(trip).some(s => s.dayId === dayId && s.park === park);
+      if(!alreadyTracked){
+        trip.manualCrowdSlots.push({ dayId, park });
+      }
+      render();
+    };
+    body.appendChild(addSlotRow);
+  });
+
+  // --- Trip Overview ---
+  const overviewSummary = `${trip.days.length} day${trip.days.length === 1 ? '' : 's'} · tap a day to jump in`;
+  renderTripSubsection(wrap, trip, 'overview', '🗓️', 'Trip Overview', overviewSummary, body => {
+    renderOverview(trip, body);
+  });
+
+  // --- Share & Export ---
+  renderTripSubsection(wrap, trip, 'share', '📤', 'Share & Export', 'Print, calendar export', body => {
+    const printItineraryBtn = document.createElement('button');
+    printItineraryBtn.type = 'button';
+    printItineraryBtn.className = 'print-packing-btn';
+    printItineraryBtn.textContent = '🖨️ Print itinerary';
+    printItineraryBtn.onclick = printItinerary;
+    body.appendChild(printItineraryBtn);
+
+    if(trip.travelerIds.length > 0){
+      const filterSummary = activeTravelerFilter.length === 0
+        ? 'All Plans'
+        : activeTravelerFilter.map(id => getTravelerName(id)).filter(Boolean).join(', ');
+      const exportBtn = document.createElement('button');
+      exportBtn.type = 'button';
+      exportBtn.className = 'add-stay-btn';
+      exportBtn.textContent = `📅 Export to Calendar (${filterSummary})`;
+      exportBtn.title = 'Exports whatever the traveler filter on the Itinerary tab is currently set to';
+      exportBtn.onclick = () => {
+        const ics = generateICS(trip);
+        if(!ics) return;
+        const safeTitle = (trip.title || 'trip').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+        const blob = new Blob([ics], {type:'text/calendar'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${safeTitle}-calendar.ics`;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+      body.appendChild(exportBtn);
+    }
+  });
+}
+
+function openResortsMasterEditor(){
+  renderResortsMasterEditor();
+  document.getElementById('resortsMasterEditorOverlay').classList.add('active');
+}
+function closeResortsMasterEditor(){
+  document.getElementById('resortsMasterEditorOverlay').classList.remove('active');
+  render();
+}
+document.getElementById('resortsMasterEditorCloseBtn').onclick = closeResortsMasterEditor;
+
+function renderResortsMasterEditor(){
+  const body = document.getElementById('resortsMasterEditorBody');
+  body.innerHTML = '';
+  appData.disneyResorts.forEach(resort => {
+    const row = document.createElement('div');
+    row.className = 'master-item-row';
+    row.innerHTML = `
+      <input type="text" value="${escapeHtml(resort.name)}" data-role="name" />
+      <input type="text" value="${escapeHtml((resort.nicknames||[]).join(', '))}" placeholder="Nicknames, comma separated" data-role="nicknames" />
+      <button type="button" class="del-item">Remove</button>
+    `;
+    row.querySelector('[data-role="name"]').oninput = e => { resort.name = e.target.value; };
+    row.querySelector('[data-role="nicknames"]').oninput = e => {
+      resort.nicknames = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+    };
+    row.querySelector('.del-item').onclick = () => {
+      appData.disneyResorts = appData.disneyResorts.filter(r => r.id !== resort.id);
+      renderResortsMasterEditor();
+    };
+    body.appendChild(row);
+  });
+
+  const addRow = document.createElement('div');
+  addRow.className = 'master-add-row';
+  addRow.innerHTML = `
+    <input type="text" placeholder="Resort name" data-f="name" />
+    <input type="text" placeholder="Nicknames, comma separated" data-f="nicknames" style="flex:1;min-width:140px;" />
+    <button type="button">Add resort</button>
+  `;
+  addRow.querySelector('button').onclick = () => {
+    const nameInput = addRow.querySelector('[data-f="name"]');
+    const nickInput = addRow.querySelector('[data-f="nicknames"]');
+    const name = nameInput.value.trim();
+    if(!name) return;
+    const nicknames = nickInput.value.split(',').map(s => s.trim()).filter(Boolean);
+    appData.disneyResorts.push({ id: cryptoId(), name, nicknames });
+    nameInput.value = '';
+    nickInput.value = '';
+    renderResortsMasterEditor();
+  };
+  body.appendChild(addRow);
+}
+
+document.getElementById('saveBtn').onclick = () => {
+  const blob = new Blob([JSON.stringify(appData, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `park-days-trips.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  markSaved();
+};
+
+document.getElementById('loadInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = evt => {
+    try{
+      const loaded = JSON.parse(evt.target.result);
+      let normalized;
+      if(Array.isArray(loaded.trips)){
+        normalized = loaded;
+      } else if(Array.isArray(loaded.days)){
+        // legacy single-trip file
+        normalized = { trips: [ { id: cryptoId(), title: loaded.title || 'Our Disney World Trip', dates: loaded.dates || '', party: loaded.party || '', days: loaded.days } ], activeTripId: null };
+      } else {
+        throw new Error('bad format');
+      }
+      // backfill new fields for older data
+      if(!Array.isArray(normalized.packingMaster) || normalized.packingMaster.length === 0){
+        normalized.packingMaster = defaultPackingMaster();
+      }
+      // migrate renamed packing category
+      normalized.packingMaster.forEach(mi => {
+        if(mi.category === 'Trip Needs / Food for Suite') mi.category = 'Food/Room Supplies';
+      });
+      (normalized.trips || []).forEach(t => {
+        if(Array.isArray(t.packingCategories)){
+          t.packingCategories = t.packingCategories.map(c => c === 'Trip Needs / Food for Suite' ? 'Food/Room Supplies' : c);
+        }
+        (t.packingItems || []).forEach(pi => {
+          if(pi.category === 'Trip Needs / Food for Suite') pi.category = 'Food/Room Supplies';
+        });
+      });
+      if(!Array.isArray(normalized.groceryMaster) || normalized.groceryMaster.length === 0){
+        normalized.groceryMaster = defaultGroceryMaster();
+      }
+      if(!Array.isArray(normalized.disneyResorts) || normalized.disneyResorts.length === 0){
+        normalized.disneyResorts = defaultDisneyResorts();
+      }
+      if(!Array.isArray(normalized.travelers)){
+        normalized.travelers = [];
+      }
+      if(!normalized.theme || !THEMES.some(t => t.key === normalized.theme)){
+        normalized.theme = 'green';
+      }
+      normalized.trips.forEach(trip => {
+        if(!trip.id) trip.id = cryptoId();
+        if(trip.startDate === undefined) trip.startDate = '';
+        if(!Array.isArray(trip.packingCategories)) trip.packingCategories = [];
+        if(!Array.isArray(trip.packingItems)) trip.packingItems = [];
+        if(!Array.isArray(trip.groceryItems)) trip.groceryItems = [];
+        trip.groceryItems.forEach(gi => {
+          if(!gi.id) gi.id = cryptoId();
+        });
+        trip.packingItems.forEach(pi => {
+          if(pi.custom && pi.category === undefined) pi.category = '';
+        });
+        trip.days.forEach(day => {
+          if(!day.id) day.id = cryptoId();
+          if(day.dayTag === undefined) day.dayTag = '';
+          if(!day.parks){
+            const legacyPark = day.park || '';
+            day.parks = { morning: legacyPark, afternoon: legacyPark, evening: legacyPark };
+          }
+          ['morning','afternoon','evening'].forEach(sec => {
+            if(day.parks[sec] === 'Resort Rest') day.parks[sec] = 'Resort';
+          });
+          if(!day.crowdLevels){
+            day.crowdLevels = { morning: "", afternoon: "", evening: "" };
+          }
+          if(day.hotel === undefined) day.hotel = '';
+          if(day.hotelConfirmation === undefined) day.hotelConfirmation = '';
+          if(day.roomType === undefined) day.roomType = '';
+          if(day.roomTypeOther === undefined) day.roomTypeOther = '';
+          if(day.ropeDrop === undefined) day.ropeDrop = '';
+          if(day.notes === undefined) day.notes = '';
+          (day.items||[]).forEach(item => {
+            if(!item.id) item.id = cryptoId();
+            if(item.type === 'ride' || item.type === 'show') item.type = 'activity';
+            if(item.status === undefined) item.status = 'tentative';
+            if(item.confirmationNumber === undefined) item.confirmationNumber = '';
+            if(item.section === undefined) item.section = '';
+            if(item.mealService === undefined) item.mealService = '';
+            if(item.mealPeriod === undefined) item.mealPeriod = '';
+            if(!Array.isArray(item.travelerIds)) item.travelerIds = [];
+          });
+        });
+        if(!Array.isArray(trip.stays)) trip.stays = [];
+        if(!Array.isArray(trip.travelerIds)) trip.travelerIds = [];
+        if(!trip.crowdLevels || typeof trip.crowdLevels !== 'object' || Array.isArray(trip.crowdLevels)){
+          trip.crowdLevels = {};
+        }
+        if(!Array.isArray(trip.manualCrowdSlots)) trip.manualCrowdSlots = [];
+        migrateDayHotelsToStays(trip);
+        migrateDayCrowdLevelsToTrip(trip);
+        migrateDayParksToMainPlanItems(trip);
+      });
+      appData = normalized;
+      appData.activeTripId = appData.trips[0].id;
+      activeDayId = appData.trips[0].days[0].id;
+      render();
+      markSaved();
+    }catch(err){
+      alert('Could not read that file — make sure it\'s a trip file saved from this planner.');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+function printItinerary(){
+  document.body.classList.remove('printing-packing-list');
+  window.print();
+}
+
+function updateCompactToggleBtn(){
+  const btn = document.getElementById('compactToggleBtn');
+  const isCompact = document.body.classList.contains('compact-items');
+  btn.textContent = isCompact ? '📄 Full View' : '🗜️ Compact View';
+  btn.classList.toggle('active', isCompact);
+  if(typeof renderViewOptionsTrigger === 'function' && document.getElementById('viewOptionsTrigger')){
+    renderViewOptionsTrigger();
+  }
+}
+document.getElementById('compactToggleBtn').onclick = () => {
+  document.body.classList.toggle('compact-items');
+  updateCompactToggleBtn();
+};
+updateCompactToggleBtn();
+
+function printPackingList(){
+  document.body.classList.add('printing-packing-list');
+  const cleanup = () => document.body.classList.remove('printing-packing-list');
+  window.addEventListener('afterprint', cleanup, { once: true });
+  window.print();
+  // Safety-net cleanup only, well outside normal print-dialog interaction time,
+  // in case afterprint somehow doesn't fire in some browser.
+  setTimeout(cleanup, 60000);
+}
+
+render();
+markSaved();
+setInterval(updateUnsavedIndicator, 3000);
+window.addEventListener('beforeunload', e => {
+  if(hasUnsavedChanges()){
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+</script>
+</body>
+</html>
