@@ -238,6 +238,12 @@
   #tripDetailsWrap{
     color:var(--ink);
   }
+  .app-version-line{
+    text-align:center;
+    font-size:10.5px;
+    color:rgba(255,255,255,.5);
+    padding:4px 0 2px;
+  }
   .eyebrow{
     font-size:12px;
     letter-spacing:.14em;
@@ -1592,11 +1598,14 @@
   }
   .packing-btn-row{
     display:flex;
+    flex-wrap:wrap;
     gap:8px;
     margin:0 0 16px;
   }
   .packing-btn-row .print-packing-btn{
     margin:0;
+    flex:1;
+    min-width:100px;
   }
   .build-list-addall-btn{
     flex-shrink:0;
@@ -2027,6 +2036,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
+const APP_VERSION = '1.00';
 const WEEKDAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -2103,7 +2113,7 @@ function buildICSEventLines(day, dayDate, item, dtstamp){
 
   const section = getItemSection(item);
   const mainPlanItem = getMainPlanForSection(day, section);
-  const location = mainPlanItem ? mainPlanItem.name : '';
+  const location = mainPlanItem ? getItemDisplayName(mainPlanItem) : '';
 
   const descParts = [];
   if(item.confirmationNumber) descParts.push('Confirmation #: ' + item.confirmationNumber);
@@ -2346,6 +2356,11 @@ function getItemSection(item){
 
 function getMainPlanForSection(day, sectionKey){
   return day.items.find(i => i.isMainPlan && getItemSection(i) === sectionKey) || null;
+}
+
+function getItemDisplayName(item){
+  if(item.name === 'Other' && item.nameOther) return item.nameOther;
+  return item.name;
 }
 
 function defaultPackingMaster(){
@@ -2613,21 +2628,25 @@ function migrateDayParksToMainPlanItems(trip){
       const park = day.parks[sec];
       if(!park) return;
       const alreadyFlagged = day.items.some(i => i.isMainPlan && getItemSection(i) === sec);
-      if(alreadyFlagged) return;
-      day.items.push({
-        id: cryptoId(),
-        name: park,
-        type: 'activity',
-        status: 'tentative',
-        time: '',
-        section: sec,
-        isMainPlan: true,
-        confirmationNumber: '',
-        mealService: '',
-        mealPeriod: '',
-        notes: '',
-        travelerIds: []
-      });
+      if(!alreadyFlagged){
+        day.items.push({
+          id: cryptoId(),
+          name: park,
+          type: 'activity',
+          status: 'tentative',
+          time: '',
+          section: sec,
+          isMainPlan: true,
+          confirmationNumber: '',
+          mealService: '',
+          mealPeriod: '',
+          notes: '',
+          travelerIds: []
+        });
+      }
+      // Consumed — clear it so this legacy value can never re-trigger creation again,
+      // regardless of whether an item was just created or already existed.
+      day.parks[sec] = '';
     });
   });
 }
@@ -2914,7 +2933,7 @@ function renderOverview(trip, wrap){
     parkRow.className = 'overview-park-row';
     SECTIONS.forEach(sec => {
       const mainPlanItem = getMainPlanForSection(day, sec.key);
-      const park = mainPlanItem ? mainPlanItem.name : '';
+      const park = mainPlanItem ? getItemDisplayName(mainPlanItem) : '';
       const slot = document.createElement('span');
       slot.className = 'overview-park-slot' + (park ? '' : ' unset');
       slot.innerHTML = `<b>${sec.label}</b>${park ? escapeHtml(park) : '—'}`;
@@ -3096,13 +3115,14 @@ function renderDayPanels(){
       header.className = `section-header section-${sec.key}`;
       const mainPlanItem = getMainPlanForSection(day, sec.key);
       const currentPark = mainPlanItem ? mainPlanItem.name : '';
+      const currentParkDisplay = mainPlanItem ? getItemDisplayName(mainPlanItem) : '';
       const showCrowd = CROWD_LEVEL_PARKS.includes(currentPark);
       const currentCrowd = showCrowd ? getCrowdLevel(trip, day.id, currentPark) : '';
       const crowdClass = getCrowdClass(currentCrowd);
       header.innerHTML = `
         <span class="dot"></span>
         <span class="label">${sec.label}</span>
-        ${currentPark ? `<span class="section-main-plan-display">${escapeHtml(currentPark)}</span>` : ''}
+        ${currentParkDisplay ? `<span class="section-main-plan-display">${escapeHtml(currentParkDisplay)}</span>` : ''}
         ${currentCrowd ? `<span class="section-crowd-badge ${crowdClass}" title="Crowd level — set in Trip Details">Crowd: ${currentCrowd}</span>` : ''}
         <span class="rule"></span>
         <button type="button" class="section-add-btn" title="Add item to ${sec.label}">+</button>
@@ -3263,7 +3283,7 @@ function renderItemCard(day, item){
           <span class="item-time">${item.time ? formatTime(item.time) : 'No time set'}</span>
           <span class="item-type-badge">${typeInfo.icon} ${typeInfo.label}</span>
         </div>
-        <div class="item-name">${escapeHtml(item.name)}</div>
+        <div class="item-name">${escapeHtml(getItemDisplayName(item))}</div>
         <div class="item-badges-row">
           ${item.isMainPlan ? '<span class="item-main-plan-badge">📌 Main Plan</span>' : ''}
           <span class="item-status status-${status}">${statusLabel}</span>
@@ -3274,7 +3294,7 @@ function renderItemCard(day, item){
         ${item.notes ? `<div class="item-notes">${escapeHtml(item.notes)}</div>` : ''}
       </div>
       <div class="item-content-compact">
-        <div class="item-compact-line1">${item.time ? formatTime(item.time) + ' · ' : ''}${escapeHtml(item.name)}</div>
+        <div class="item-compact-line1">${item.time ? formatTime(item.time) + ' · ' : ''}${escapeHtml(getItemDisplayName(item))}</div>
         <div class="item-compact-line2">${escapeHtml(compactLine2Parts.join(' · '))}</div>
       </div>
       <div class="item-actions">
@@ -3357,6 +3377,9 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
         ${PARKS.filter(p=>p).map(p=>`<option value="${p}" ${p===initial.name?'selected':''}>${p}</option>`).join('')}
       </select>
     </div>
+    <div class="form-row" data-role="name-other-row" style="display:none;">
+      <input type="text" data-f="nameOther" placeholder="What is it? (e.g. Bocce on the lawn)" value="${escapeHtml(initial.nameOther || '')}" />
+    </div>
     <div class="form-row">
       <label class="main-plan-checkbox-label">
         <input type="checkbox" data-f="isMainPlanCheckbox" ${initial.isMainPlan ? 'checked' : ''} />
@@ -3397,6 +3420,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
 
   const nameInput = wrap.querySelector('[data-f="name"]');
   const namePark = wrap.querySelector('[data-f="namePark"]');
+  const nameOtherRow = wrap.querySelector('[data-role="name-other-row"]');
   const mainPlanCheckbox = wrap.querySelector('[data-f="isMainPlanCheckbox"]');
   const mainPlanLabel = wrap.querySelector('[data-role="main-plan-label"]');
   const syncMainPlanUI = () => {
@@ -3412,11 +3436,13 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
     const isChecked = mainPlanCheckbox.checked && !mainPlanCheckbox.disabled;
     nameInput.style.display = isChecked ? 'none' : '';
     namePark.style.display = isChecked ? '' : 'none';
+    nameOtherRow.style.display = (isChecked && namePark.value === 'Other') ? '' : 'none';
   };
   syncMainPlanUI();
   timeInput.addEventListener('input', () => { syncSectionVisibility(); syncMainPlanUI(); });
   sectionSelect.addEventListener('change', syncMainPlanUI);
   mainPlanCheckbox.addEventListener('change', syncMainPlanUI);
+  namePark.addEventListener('change', syncMainPlanUI);
 
   const typeSelect = wrap.querySelector('[data-f="type"]');
   const mealRow = wrap.querySelector('[data-role="meal-row"]');
@@ -3481,6 +3507,11 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
     const isMainPlan = mainPlanCheckbox.checked && !mainPlanCheckbox.disabled;
     const name = isMainPlan ? namePark.value : wrap.querySelector('[data-f="name"]').value.trim();
     if(!name){ alert(isMainPlan ? 'Choose a park for the main plan.' : 'Give it a name first.'); return; }
+    const nameOther = wrap.querySelector('[data-f="nameOther"]').value.trim();
+    if(isMainPlan && name === 'Other' && !nameOther){
+      alert('Describe what this is (e.g. "Bocce on the lawn").');
+      return;
+    }
     const time = timeInput.value;
     const section = sectionSelect.value;
     if(!time && !section){
@@ -3514,6 +3545,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
       section,
       type,
       name,
+      nameOther: (isMainPlan && name === 'Other') ? nameOther : '',
       isMainPlan,
       status: pendingStatus,
       mealService: type === 'dining' ? mealService : '',
@@ -3555,6 +3587,43 @@ function escapeHtml(str){
   return d.innerHTML;
 }
 
+function generatePackingListText(trip){
+  const categories = [...new Set(appData.packingMaster.map(i=>i.category))];
+  const activeCats = categories.filter(cat => {
+    const items = appData.packingMaster.filter(i=>i.category===cat);
+    const hasIncludedItem = items.some(mi => trip.packingItems.some(pi => !pi.custom && pi.itemId === mi.id));
+    const hasCustomInCat = trip.packingItems.some(pi => pi.custom && pi.category === cat);
+    return hasIncludedItem || hasCustomInCat;
+  });
+
+  const lines = [];
+  activeCats.forEach(cat => {
+    const items = appData.packingMaster.filter(i=>i.category===cat);
+    const catLines = [];
+    items.forEach(mi => {
+      const row = trip.packingItems.find(pi=>!pi.custom && pi.itemId===mi.id);
+      if(!row) return;
+      catLines.push('☐ ' + mi.name);
+    });
+    const customInCat = trip.packingItems.filter(pi => pi.custom && pi.category === cat);
+    customInCat.forEach(ci => catLines.push('☐ ' + ci.name));
+    if(catLines.length){
+      lines.push(cat.toUpperCase());
+      lines.push(...catLines);
+      lines.push('');
+    }
+  });
+
+  const customRows = trip.packingItems.filter(pi => pi.custom && !pi.category);
+  if(customRows.length){
+    lines.push('JUST FOR THIS TRIP');
+    customRows.forEach(row => lines.push('☐ ' + row.name));
+    lines.push('');
+  }
+
+  return lines.join('\n').trim();
+}
+
 function ensureEssentialPackingItems(trip){
   if(!Array.isArray(trip.packingItems)) trip.packingItems = [];
   appData.packingMaster.filter(mi => mi.essential).forEach(mi => {
@@ -3594,6 +3663,26 @@ function renderPackingPanel(){
   printBtn.textContent = '🖨️ Print';
   printBtn.onclick = printPackingList;
   btnRow.appendChild(printBtn);
+
+  const copyBtn = document.createElement('button');
+  copyBtn.type = 'button';
+  copyBtn.className = 'print-packing-btn';
+  copyBtn.textContent = '📋 Copy Text';
+  copyBtn.onclick = async () => {
+    const text = generatePackingListText(trip);
+    if(!text){
+      alert('Nothing on your packing list yet.');
+      return;
+    }
+    try{
+      await navigator.clipboard.writeText(text);
+      copyBtn.textContent = '✓ Copied!';
+      setTimeout(() => { copyBtn.textContent = '📋 Copy Text'; }, 1500);
+    }catch(err){
+      alert('Could not copy automatically. Here\'s your list:\n\n' + text);
+    }
+  };
+  btnRow.appendChild(copyBtn);
 
   const buildBtn = document.createElement('button');
   buildBtn.type = 'button';
@@ -4553,6 +4642,11 @@ function renderTripDetails(trip){
       body.appendChild(exportBtn);
     }
   });
+
+  const versionLine = document.createElement('div');
+  versionLine.className = 'app-version-line';
+  versionLine.textContent = `Park Days · v${APP_VERSION}`;
+  wrap.appendChild(versionLine);
 }
 
 function openResortsMasterEditor(){
