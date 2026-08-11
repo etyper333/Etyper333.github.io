@@ -1104,6 +1104,113 @@
   .tab-rest{background:var(--sage);}
   .tab-travel{background:var(--slate);}
 
+  .timeline-container{
+    position:relative;
+    margin:16px 30px 30px 42px;
+    border-left:1.5px solid var(--line);
+  }
+  .timeline-hour-line{
+    position:absolute;
+    left:0;right:0;
+    height:1px;
+    background:var(--line);
+    opacity:.6;
+  }
+  .timeline-hour-label{
+    position:absolute;
+    left:-38px;
+    top:-6px;
+    width:34px;
+    text-align:right;
+    font-size:9px;
+    color:var(--slate);
+    opacity:.75;
+  }
+  .timeline-block{
+    position:absolute;
+    box-sizing:border-box;
+    border-radius:6px;
+    border:1.5px solid rgba(255,255,255,.5);
+    padding:2px 6px;
+    overflow:hidden;
+    cursor:pointer;
+    color:white;
+    font-size:11px;
+    line-height:1.25;
+  }
+  .timeline-block.status-tentative{
+    border-style:dashed;
+    opacity:.85;
+  }
+  .timeline-block.main-plan{
+    border-color:#fff;
+    border-width:2px;
+    box-shadow:0 0 0 1.5px var(--ink);
+  }
+  .timeline-block-badge{
+    margin-right:2px;
+  }
+  .timeline-block-name{
+    font-weight:700;
+  }
+  .timeline-more-btn{
+    position:absolute;
+    box-sizing:border-box;
+    border-radius:6px;
+    background:var(--slate);
+    color:white;
+    font-size:10.5px;
+    font-weight:700;
+    text-align:center;
+    padding:4px 2px;
+    cursor:pointer;
+    height:24px;
+  }
+  .timeline-landmark{
+    position:absolute;
+    left:0;
+    display:flex;
+    align-items:center;
+    gap:5px;
+    transform:translateY(-50%);
+    cursor:pointer;
+    max-width:calc(100% - 10px);
+  }
+  .timeline-landmark-dot{
+    flex-shrink:0;
+    width:9px;height:9px;
+    border-radius:50%;
+    background:var(--ink);
+    border:2px solid var(--cream);
+    margin-left:-6px;
+  }
+  .timeline-landmark-name{
+    font-size:11px;
+    font-weight:600;
+    color:var(--ink);
+    background:var(--cream);
+    padding:1px 6px;
+    border-radius:8px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .timeline-now-line{
+    position:absolute;
+    left:0;right:0;
+    height:2px;
+    background:var(--coral);
+    z-index:2;
+  }
+  .timeline-now-line::before{
+    content:"";
+    position:absolute;
+    left:-5px;top:-4px;
+    width:8px;height:8px;
+    border-radius:50%;
+    background:var(--coral);
+  }
+
   .item-body{
     flex:1;
     padding:12px 14px;
@@ -1194,6 +1301,28 @@
   .compact-toggle-btn.active{
     background:var(--sky);
     border-color:var(--sky);
+    color:white;
+  }
+  .display-mode-toggle{
+    display:flex;
+    gap:6px;
+    margin-bottom:8px;
+  }
+  .display-mode-btn{
+    flex:1;
+    font-family:'Inter',sans-serif;
+    font-size:12px;
+    font-weight:700;
+    padding:7px;
+    border-radius:9px;
+    border:1.5px solid var(--line);
+    background:var(--paper);
+    color:var(--slate);
+    cursor:pointer;
+  }
+  .display-mode-btn.active{
+    background:var(--coral);
+    border-color:var(--coral);
     color:white;
   }
   .item-meal-badge{
@@ -1966,6 +2095,10 @@
   </button>
   <div class="view-options-body" id="viewOptionsBody" style="display:none;">
     <div class="traveler-filter-row" id="travelerFilterWrap"></div>
+    <div class="display-mode-toggle" id="displayModeToggle">
+      <button type="button" class="display-mode-btn" data-mode="cards">📋 Cards</button>
+      <button type="button" class="display-mode-btn" data-mode="timeline">📅 Timeline</button>
+    </div>
     <button type="button" id="compactToggleBtn" class="compact-toggle-btn">🗜️ Compact View</button>
   </div>
 </div>
@@ -1996,6 +2129,13 @@
     <p class="sub">Add items from the catalog to this trip's packing list. Use "+ Add all" to grab a whole category at once, or add items one at a time.</p>
     <div id="buildPackingListBody"></div>
     <button class="master-editor-close" id="buildPackingListCloseBtn">Done</button>
+  </div>
+</div>
+
+<div class="master-editor-overlay" id="itemEditOverlay">
+  <div class="master-editor">
+    <h2>Edit Item</h2>
+    <div id="itemEditModalBody"></div>
   </div>
 </div>
 
@@ -2036,7 +2176,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.00';
+const APP_VERSION = '1.02';
 const WEEKDAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -2315,6 +2455,50 @@ const TYPES = [
   {key:"travel", label:"Travel", icon:"✈️"},
   {key:"rest", label:"Rest / Hotel", icon:"🛌"},
 ];
+const TYPE_DURATION_DEFAULTS = {
+  activity: 120,
+  logistics: 20,
+  travel: 60,
+  rest: 60,
+};
+const DINING_DURATION_DEFAULTS = {
+  qs: 30,
+  ts: 60,
+  '2ts': 105,
+  snack: 10,
+  inroom: 20,
+};
+function timeToMinutes(t){
+  if(!t) return null;
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+function minutesToTime(mins){
+  const wrapped = ((mins % 1440) + 1440) % 1440;
+  const h = Math.floor(wrapped / 60);
+  const m = wrapped % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+function getDefaultDurationMinutes(item){
+  if(item.type === 'dining'){
+    return DINING_DURATION_DEFAULTS[item.mealService] || 60;
+  }
+  return TYPE_DURATION_DEFAULTS[item.type] || 60;
+}
+function getEffectiveEndTime(item){
+  if(item.endTime) return item.endTime;
+  const startMin = timeToMinutes(item.time);
+  if(startMin === null) return null;
+  return minutesToTime(startMin + getDefaultDurationMinutes(item));
+}
+function getEffectiveDurationMinutes(item){
+  const startMin = timeToMinutes(item.time);
+  if(startMin === null) return 0;
+  const endTime = getEffectiveEndTime(item);
+  let endMin = timeToMinutes(endTime);
+  if(endMin < startMin) endMin += 1440;
+  return Math.max(0, endMin - startMin);
+}
 const STATUSES = [
   {key:"tentative", label:"Tentative"},
   {key:"confirmed", label:"Confirmed"},
@@ -2597,6 +2781,7 @@ let expandedTripSubsections = new Set();
 let lastSavedSnapshot = null;
 let activeTravelerFilter = [];
 let expandedViewOptions = false;
+let itineraryDisplayMode = 'cards';
 
 function itemMatchesFilter(item){
   if(activeTravelerFilter.length === 0) return true;
@@ -2823,7 +3008,8 @@ function renderViewOptionsTrigger(){
     ? 'All Plans'
     : activeTravelerFilter.map(id => getTravelerName(id)).filter(Boolean).join(', ');
   const isCompact = document.body.classList.contains('compact-items');
-  summaryEl.textContent = `${filterSummary} · ${isCompact ? 'Compact View' : 'Full View'}`;
+  const modeLabel = itineraryDisplayMode === 'timeline' ? 'Timeline' : 'Cards';
+  summaryEl.textContent = `${filterSummary} · ${modeLabel} · ${isCompact ? 'Compact View' : 'Full View'}`;
 
   btn.classList.toggle('open', expandedViewOptions);
   bodyEl.style.display = expandedViewOptions ? '' : 'none';
@@ -2831,6 +3017,14 @@ function renderViewOptionsTrigger(){
     expandedViewOptions = !expandedViewOptions;
     renderViewOptionsTrigger();
   };
+
+  document.querySelectorAll('.display-mode-btn').forEach(modeBtn => {
+    modeBtn.classList.toggle('active', modeBtn.dataset.mode === itineraryDisplayMode);
+    modeBtn.onclick = () => {
+      itineraryDisplayMode = modeBtn.dataset.mode;
+      render();
+    };
+  });
 }
 
 function renderItinerarySidebar(trip){
@@ -3021,6 +3215,145 @@ function removeDay(dayId){
   render();
 }
 
+function clusterTimelineItems(entries){
+  const sorted = [...entries].sort((a,b) => a.startMin - b.startMin || (a.item.name||'').localeCompare(b.item.name||''));
+  const clusters = [];
+  let current = null;
+  sorted.forEach(entry => {
+    if(current && entry.startMin < current.maxEnd){
+      current.entries.push(entry);
+      current.maxEnd = Math.max(current.maxEnd, entry.endMin);
+    } else {
+      current = { entries: [entry], maxEnd: entry.endMin };
+      clusters.push(current);
+    }
+  });
+  return clusters.map(c => c.entries);
+}
+
+let expandedTimelineClusters = new Set();
+
+function renderDayTimelineGrid(panel, day, trip){
+  const PIXELS_PER_HOUR = 60;
+  const WINDOW_START_DEFAULT = 6 * 60;
+  const WINDOW_END_DEFAULT = 24 * 60;
+
+  const timedItems = day.items.filter(i => i.time && itemMatchesFilter(i));
+  const entries = timedItems.map(item => {
+    const startMin = timeToMinutes(item.time);
+    const endTimeStr = getEffectiveEndTime(item);
+    let endMin = timeToMinutes(endTimeStr);
+    if(endMin < startMin) endMin += 1440;
+    return { item, startMin, endMin };
+  });
+
+  if(entries.length === 0){
+    const empty = document.createElement('div');
+    empty.className = 'section-empty-note';
+    empty.textContent = 'No timed items yet for this day.';
+    panel.appendChild(empty);
+    return;
+  }
+
+  let windowStart = WINDOW_START_DEFAULT;
+  let windowEnd = WINDOW_END_DEFAULT;
+  entries.forEach(e => {
+    if(e.startMin < windowStart) windowStart = e.startMin;
+    if(e.endMin > windowEnd) windowEnd = e.endMin;
+  });
+
+  const container = document.createElement('div');
+  container.className = 'timeline-container';
+  const totalMinutes = windowEnd - windowStart;
+  const totalHeight = (totalMinutes / 60) * PIXELS_PER_HOUR;
+  container.style.height = totalHeight + 'px';
+
+  const startHour = Math.floor(windowStart / 60);
+  const endHour = Math.ceil(windowEnd / 60);
+  for(let h = startHour; h <= endHour; h++){
+    const top = ((h * 60) - windowStart) / 60 * PIXELS_PER_HOUR;
+    const line = document.createElement('div');
+    line.className = 'timeline-hour-line';
+    line.style.top = top + 'px';
+    const label = document.createElement('span');
+    label.className = 'timeline-hour-label';
+    label.textContent = formatTime(minutesToTime(h * 60));
+    line.appendChild(label);
+    container.appendChild(line);
+  }
+
+  const blockEntries = entries.filter(e => e.endMin > e.startMin);
+  const landmarkEntries = entries.filter(e => e.endMin === e.startMin);
+
+  const clusters = clusterTimelineItems(blockEntries);
+  clusters.forEach(cluster => {
+    const clusterKey = day.id + ':' + cluster[0].startMin;
+    const isExpanded = expandedTimelineClusters.has(clusterKey);
+    const visibleCount = (cluster.length > 2 && !isExpanded) ? 2 : cluster.length;
+    const columnCount = visibleCount + ((cluster.length > 2 && !isExpanded) ? 1 : 0);
+    cluster.slice(0, visibleCount).forEach((entry, i) => {
+      const block = document.createElement('div');
+      const status = entry.item.status === 'confirmed' ? 'confirmed' : 'tentative';
+      block.className = `timeline-block tab-${entry.item.type} status-${status}` + (entry.item.isMainPlan ? ' main-plan' : '');
+      const top = (entry.startMin - windowStart) / 60 * PIXELS_PER_HOUR;
+      const height = Math.max(14, (entry.endMin - entry.startMin) / 60 * PIXELS_PER_HOUR);
+      block.style.top = top + 'px';
+      block.style.height = height + 'px';
+      block.style.left = (i / columnCount * 100) + '%';
+      block.style.width = (100 / columnCount) + '%';
+      block.innerHTML = `
+        ${entry.item.isMainPlan ? '<span class="timeline-block-badge">📌</span>' : ''}
+        <span class="timeline-block-name">${escapeHtml(getItemDisplayName(entry.item))}</span>
+      `;
+      block.onclick = () => openItemEditModal(day, entry.item);
+      container.appendChild(block);
+    });
+    if(cluster.length > 2 && !isExpanded){
+      const moreBtn = document.createElement('div');
+      moreBtn.className = 'timeline-more-btn';
+      const top = (cluster[0].startMin - windowStart) / 60 * PIXELS_PER_HOUR;
+      moreBtn.style.top = top + 'px';
+      moreBtn.style.left = (2 / columnCount * 100) + '%';
+      moreBtn.style.width = (100 / columnCount) + '%';
+      moreBtn.textContent = `+${cluster.length - 2} more`;
+      moreBtn.onclick = () => {
+        expandedTimelineClusters.add(clusterKey);
+        render();
+      };
+      container.appendChild(moreBtn);
+    }
+  });
+
+  landmarkEntries.forEach(entry => {
+    const top = (entry.startMin - windowStart) / 60 * PIXELS_PER_HOUR;
+    const marker = document.createElement('div');
+    marker.className = `timeline-landmark tab-${entry.item.type}`;
+    marker.style.top = top + 'px';
+    marker.innerHTML = `<span class="timeline-landmark-dot"></span><span class="timeline-landmark-name">${escapeHtml(getItemDisplayName(entry.item))}</span>`;
+    marker.onclick = () => openItemEditModal(day, entry.item);
+    container.appendChild(marker);
+  });
+
+  const dayIndex = trip.days.findIndex(d => d.id === day.id);
+  if(trip.startDate && dayIndex !== -1){
+    const dayDate = computeDayDate(trip, dayIndex);
+    const now = new Date();
+    const isToday = dayDate.getFullYear() === now.getFullYear() && dayDate.getMonth() === now.getMonth() && dayDate.getDate() === now.getDate();
+    if(isToday){
+      const nowMin = now.getHours() * 60 + now.getMinutes();
+      if(nowMin >= windowStart && nowMin <= windowEnd){
+        const top = (nowMin - windowStart) / 60 * PIXELS_PER_HOUR;
+        const nowLine = document.createElement('div');
+        nowLine.className = 'timeline-now-line';
+        nowLine.style.top = top + 'px';
+        container.appendChild(nowLine);
+      }
+    }
+  }
+
+  panel.appendChild(container);
+}
+
 function renderDayPanels(){
   const trip = getActiveTrip();
   const container = document.getElementById('dayPanels');
@@ -3106,6 +3439,9 @@ function renderDayPanels(){
 
     const sorted = [...day.items].sort((a,b) => (a.time||'').localeCompare(b.time||''));
 
+    if(itineraryDisplayMode === 'timeline'){
+      renderDayTimelineGrid(panel, day, trip);
+    } else {
     SECTIONS.forEach(sec => {
       const allSectionItems = sorted.filter(i => getItemSection(i) === sec.key);
       const items = allSectionItems.filter(itemMatchesFilter);
@@ -3164,6 +3500,7 @@ function renderDayPanels(){
 
       items.forEach(item => panel.appendChild(renderItemCard(day, item)));
     });
+    }
 
     if(day.items.length === 0){
       const emptyDay = document.createElement('div');
@@ -3354,6 +3691,10 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
       <input type="time" data-f="time" value="${initial.time || ''}" />
       <select data-f="type">${TYPES.map(t=>`<option value="${t.key}" ${t.key===initial.type?'selected':''}>${t.icon} ${t.label}</option>`).join('')}</select>
     </div>
+    <button type="button" class="who-toggle-link" data-role="end-time-toggle"></button>
+    <div class="form-row" data-role="end-time-row" style="display:none;">
+      <input type="time" data-f="endTime" />
+    </div>
     <div class="form-row" data-role="section-row">
       <select data-f="section">
         <option value="">Choose a section...</option>
@@ -3418,6 +3759,51 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
     return sectionSelect.value;
   };
 
+  const endTimeToggle = wrap.querySelector('[data-role="end-time-toggle"]');
+  const endTimeRow = wrap.querySelector('[data-role="end-time-row"]');
+  const endTimeInput = wrap.querySelector('[data-f="endTime"]');
+  const typeSelectForDuration = wrap.querySelector('[data-f="type"]');
+  const mealServiceForDuration = wrap.querySelector('[data-f="mealService"]');
+  let endTimeExpanded = !!initial.endTime;
+  let endTimeSeeded = false;
+
+  const getComputedDefaultEnd = () => {
+    const t = timeInput.value;
+    if(!t) return null;
+    const pseudoItem = { type: typeSelectForDuration.value, time: t, mealService: mealServiceForDuration.value };
+    const startMin = timeToMinutes(t);
+    return minutesToTime(startMin + getDefaultDurationMinutes(pseudoItem));
+  };
+  const syncEndTimeUI = () => {
+    if(!timeInput.value){
+      endTimeToggle.style.display = 'none';
+      endTimeRow.style.display = 'none';
+      return;
+    }
+    endTimeToggle.style.display = '';
+    const defaultEnd = getComputedDefaultEnd();
+    if(!endTimeExpanded){
+      endTimeRow.style.display = 'none';
+      endTimeToggle.textContent = `⏱️ Ends at ${formatTime(defaultEnd)} (adjust)`;
+    } else {
+      endTimeRow.style.display = '';
+      endTimeToggle.textContent = '⏱️ Ends at (hide)';
+      if(!endTimeInput.dataset.userTouched){
+        if(!endTimeSeeded && initial.endTime){
+          endTimeInput.value = initial.endTime;
+          endTimeSeeded = true;
+        } else {
+          endTimeInput.value = defaultEnd;
+        }
+      }
+    }
+  };
+  endTimeToggle.onclick = () => { endTimeExpanded = !endTimeExpanded; syncEndTimeUI(); };
+  endTimeInput.addEventListener('input', () => { endTimeInput.dataset.userTouched = '1'; });
+  syncEndTimeUI();
+  typeSelectForDuration.addEventListener('change', syncEndTimeUI);
+  mealServiceForDuration.addEventListener('change', syncEndTimeUI);
+
   const nameInput = wrap.querySelector('[data-f="name"]');
   const namePark = wrap.querySelector('[data-f="namePark"]');
   const nameOtherRow = wrap.querySelector('[data-role="name-other-row"]');
@@ -3439,7 +3825,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
     nameOtherRow.style.display = (isChecked && namePark.value === 'Other') ? '' : 'none';
   };
   syncMainPlanUI();
-  timeInput.addEventListener('input', () => { syncSectionVisibility(); syncMainPlanUI(); });
+  timeInput.addEventListener('input', () => { syncSectionVisibility(); syncMainPlanUI(); syncEndTimeUI(); });
   sectionSelect.addEventListener('change', syncMainPlanUI);
   mainPlanCheckbox.addEventListener('change', syncMainPlanUI);
   namePark.addEventListener('change', syncMainPlanUI);
@@ -3540,6 +3926,13 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
         currentHolder.isMainPlan = false;
       }
     }
+    let finalEndTime = '';
+    if(endTimeExpanded && time){
+      const freshDefault = minutesToTime(timeToMinutes(time) + getDefaultDurationMinutes({ type, time, mealService }));
+      if(endTimeInput.value && endTimeInput.value !== freshDefault){
+        finalEndTime = endTimeInput.value;
+      }
+    }
     onSubmit({
       time,
       section,
@@ -3547,6 +3940,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
       name,
       nameOther: (isMainPlan && name === 'Other') ? nameOther : '',
       isMainPlan,
+      endTime: finalEndTime,
       status: pendingStatus,
       mealService: type === 'dining' ? mealService : '',
       mealPeriod: (type === 'dining' && mealService !== 'snack') ? mealPeriod : '',
@@ -3804,6 +4198,23 @@ function closeMasterEditor(){
   render();
 }
 document.getElementById('masterEditorCloseBtn').onclick = closeMasterEditor;
+
+function openItemEditModal(day, item){
+  const body = document.getElementById('itemEditModalBody');
+  body.innerHTML = '';
+  const form = buildItemFieldsForm(day, item, 'Save changes', (values) => {
+    Object.assign(item, values);
+    closeItemEditModal();
+  }, () => {
+    closeItemEditModal();
+  });
+  body.appendChild(form);
+  document.getElementById('itemEditOverlay').classList.add('active');
+}
+function closeItemEditModal(){
+  document.getElementById('itemEditOverlay').classList.remove('active');
+  render();
+}
 
 function openBuildPackingListModal(){
   renderBuildPackingListModal();
@@ -4824,7 +5235,17 @@ document.getElementById('loadInput').addEventListener('change', e => {
 
 function printItinerary(){
   document.body.classList.remove('printing-packing-list');
+  const wasTimeline = itineraryDisplayMode === 'timeline';
+  if(wasTimeline){
+    itineraryDisplayMode = 'cards';
+    render();
+  }
   window.print();
+  if(wasTimeline){
+    const restore = () => { itineraryDisplayMode = 'timeline'; render(); };
+    window.addEventListener('afterprint', restore, { once: true });
+    setTimeout(restore, 60000);
+  }
 }
 
 function updateCompactToggleBtn(){
