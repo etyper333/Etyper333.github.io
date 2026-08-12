@@ -385,6 +385,37 @@
     cursor:pointer;
     padding:0;
   }
+  .traveler-color-swatch{
+    border:2px solid rgba(255,255,255,.7) !important;
+    box-shadow:0 0 0 1px rgba(0,0,0,.15);
+  }
+  .traveler-color-grid{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    padding:6px 0 4px;
+  }
+  .traveler-color-option{
+    width:38px;height:38px;
+    border-radius:50%;
+    border:2px solid rgba(0,0,0,.1);
+    cursor:pointer;
+  }
+  .traveler-color-option.selected{
+    border:3px solid var(--ink);
+  }
+  .timeline-block-dots{
+    position:absolute;
+    top:2px;right:3px;
+    display:flex;
+    gap:2px;
+  }
+  .timeline-block-dot{
+    width:7px;height:7px;
+    border-radius:50%;
+    border:1.5px solid rgba(255,255,255,.85);
+    flex-shrink:0;
+  }
   .who-toggle-link{
     font-size:12px;
     font-weight:600;
@@ -396,6 +427,20 @@
     padding:0;
     margin:2px 0 8px;
     display:block;
+  }
+  .clear-time-btn{
+    flex:0 0 auto !important;
+    min-width:0 !important;
+    font-family:'Inter',sans-serif;
+    font-size:11.5px;
+    font-weight:700;
+    color:var(--coral);
+    background:none;
+    border:1.5px solid var(--coral);
+    border-radius:14px;
+    padding:0 10px;
+    cursor:pointer;
+    white-space:nowrap;
   }
   .who-checklist{
     display:flex;
@@ -440,20 +485,49 @@
   }
   .main-plan-checkbox-label{
     display:flex;
-    align-items:center;
+    align-items:flex-start;
     gap:8px;
     font-size:13px;
     font-weight:600;
     color:var(--ink);
     cursor:pointer;
+    width:100%;
   }
   .main-plan-checkbox-label input[type=checkbox]{
     accent-color:var(--coral);
     flex-shrink:0;
+    margin-top:2px;
+  }
+  .main-plan-checkbox-label span{
+    flex:1;
+    min-width:0;
+    white-space:normal;
+    word-wrap:break-word;
   }
   .main-plan-checkbox-label input[type=checkbox]:disabled + span{
     color:var(--slate);
     font-weight:500;
+  }
+  .landmark-checkbox-label{
+    display:flex;
+    align-items:flex-start;
+    gap:8px;
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink);
+    cursor:pointer;
+    width:100%;
+  }
+  .landmark-checkbox-label input[type=checkbox]{
+    accent-color:var(--sky);
+    flex-shrink:0;
+    margin-top:2px;
+  }
+  .landmark-checkbox-label span{
+    flex:1;
+    min-width:0;
+    white-space:normal;
+    word-wrap:break-word;
   }
   .trip-summary-trigger{
     display:flex;
@@ -1104,6 +1178,41 @@
   .tab-rest{background:var(--sage);}
   .tab-travel{background:var(--slate);}
 
+  .timeline-untimed-shelf{
+    margin:10px 16px 4px;
+    padding:10px 12px;
+    background:var(--paper);
+    border:1.5px dashed var(--line);
+    border-radius:12px;
+  }
+  .timeline-untimed-group{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-bottom:6px;
+  }
+  .timeline-untimed-group:last-child{
+    margin-bottom:0;
+  }
+  .timeline-untimed-group-label{
+    font-size:11px;
+    font-weight:700;
+    color:var(--slate);
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    margin-right:2px;
+  }
+  .timeline-untimed-pill{
+    font-family:'Inter',sans-serif;
+    font-size:11.5px;
+    font-weight:700;
+    color:white;
+    border:none;
+    border-radius:12px;
+    padding:4px 10px;
+    cursor:pointer;
+  }
   .timeline-container{
     position:relative;
     margin:16px 30px 30px 42px;
@@ -1165,6 +1274,21 @@
     padding:4px 2px;
     cursor:pointer;
     height:24px;
+  }
+  .timeline-less-btn{
+    position:absolute;
+    left:4px;
+    z-index:3;
+    border-radius:12px;
+    background:var(--ink);
+    color:white;
+    font-size:10px;
+    font-weight:700;
+    text-align:center;
+    padding:3px 10px;
+    cursor:pointer;
+    white-space:nowrap;
+    box-shadow:0 1px 4px rgba(0,0,0,.25);
   }
   .timeline-landmark{
     position:absolute;
@@ -1871,6 +1995,20 @@
     cursor:pointer;
     margin-top:10px;
   }
+  .timeline-modal-delete-btn{
+    display:block;
+    width:100%;
+    text-align:center;
+    background:none;
+    border:1.5px solid var(--coral);
+    color:var(--coral);
+    padding:9px;
+    border-radius:9px;
+    font-weight:700;
+    font-size:12.5px;
+    cursor:pointer;
+    margin-top:4px;
+  }
 
   .status-toggle-row{
     display:flex;
@@ -2139,6 +2277,14 @@
   </div>
 </div>
 
+<div class="master-editor-overlay" id="travelerColorOverlay">
+  <div class="master-editor">
+    <h2>Choose a Color</h2>
+    <div id="travelerColorBody" class="traveler-color-grid"></div>
+    <button class="master-editor-close" id="travelerColorCloseBtn">Done</button>
+  </div>
+</div>
+
 <div class="master-editor-overlay" id="themePickerOverlay">
   <div class="master-editor">
     <h2>Choose a Theme</h2>
@@ -2176,7 +2322,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.02';
+const APP_VERSION = '1.10';
 const WEEKDAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -2518,6 +2664,11 @@ const MEAL_PERIODS = [
 const ROOM_TYPES = [
   "Studio","One-Bedroom","Two-Bedroom","Grand Villa","Treehouse Villa","Cabin","Standard Room","Other"
 ];
+const TRAVELER_PALETTE = [
+  "#E4572E", "#F2A93B", "#E8C547", "#8BC34A", "#43A047",
+  "#26A69A", "#2E9BC4", "#3B6FC4", "#7B5CC4", "#B15CC4",
+  "#D6579E", "#EC7EA8", "#8D6E52", "#6B7480"
+];
 const THEMES = [
   {key:"green", label:"Classic Green", swatches:["#1F4D3A","#2F8F5A","#8FA33C"]},
   {key:"fort-wilderness", label:"Fort Wilderness", swatches:["#5C3A21","#B33F23","#C9862F"]},
@@ -2575,14 +2726,35 @@ function defaultPackingMaster(){
   ];
 }
 
+function ensureTravelerColors(){
+  appData.travelers.forEach((t, i) => {
+    if(!t.color) t.color = TRAVELER_PALETTE[i % TRAVELER_PALETTE.length];
+  });
+}
+
 function getOrCreateTraveler(name){
   const norm = name.trim().toLowerCase();
   if(!norm) return null;
   const existing = appData.travelers.find(t => t.name.trim().toLowerCase() === norm);
   if(existing) return existing.id;
-  const newTraveler = { id: cryptoId(), name: name.trim() };
+  const color = TRAVELER_PALETTE[appData.travelers.length % TRAVELER_PALETTE.length];
+  const newTraveler = { id: cryptoId(), name: name.trim(), color };
   appData.travelers.push(newTraveler);
   return newTraveler.id;
+}
+function getTravelerColor(id){
+  const t = appData.travelers.find(t => t.id === id);
+  return (t && t.color) ? t.color : '#7A8C7E';
+}
+function getItemTravelerColors(item, trip){
+  if(!Array.isArray(item.travelerIds) || item.travelerIds.length === 0) return [];
+  const rosterOrder = (Array.isArray(trip.travelerIds) ? trip.travelerIds : []).filter(id => item.travelerIds.includes(id));
+  const colors = [];
+  rosterOrder.forEach(id => {
+    const c = getTravelerColor(id);
+    if(!colors.includes(c)) colors.push(c);
+  });
+  return colors;
 }
 
 function migratePartyToTravelers(trip){
@@ -2842,6 +3014,7 @@ function render(){
   const trip = getActiveTrip();
   migrateDayHotelsToStays(trip);
   migratePartyToTravelers(trip);
+  ensureTravelerColors();
   migrateDayCrowdLevelsToTrip(trip);
   migrateDayParksToMainPlanItems(trip);
   document.getElementById('tripTitle').textContent = trip.title;
@@ -3238,6 +3411,32 @@ function renderDayTimelineGrid(panel, day, trip){
   const WINDOW_START_DEFAULT = 6 * 60;
   const WINDOW_END_DEFAULT = 24 * 60;
 
+  const untimedItems = day.items.filter(i => !i.time && itemMatchesFilter(i));
+  if(untimedItems.length){
+    const shelf = document.createElement('div');
+    shelf.className = 'timeline-untimed-shelf';
+    SECTIONS.forEach(sec => {
+      const secItems = untimedItems.filter(i => getItemSection(i) === sec.key);
+      if(secItems.length === 0) return;
+      const group = document.createElement('div');
+      group.className = 'timeline-untimed-group';
+      const label = document.createElement('span');
+      label.className = 'timeline-untimed-group-label';
+      label.textContent = sec.label + ':';
+      group.appendChild(label);
+      secItems.forEach(item => {
+        const pill = document.createElement('button');
+        pill.type = 'button';
+        pill.className = `timeline-untimed-pill tab-${item.type}`;
+        pill.textContent = getItemDisplayName(item);
+        pill.onclick = () => openItemEditModal(day, item);
+        group.appendChild(pill);
+      });
+      shelf.appendChild(group);
+    });
+    panel.appendChild(shelf);
+  }
+
   const timedItems = day.items.filter(i => i.time && itemMatchesFilter(i));
   const entries = timedItems.map(item => {
     const startMin = timeToMinutes(item.time);
@@ -3248,10 +3447,12 @@ function renderDayTimelineGrid(panel, day, trip){
   });
 
   if(entries.length === 0){
-    const empty = document.createElement('div');
-    empty.className = 'section-empty-note';
-    empty.textContent = 'No timed items yet for this day.';
-    panel.appendChild(empty);
+    if(untimedItems.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'section-empty-note';
+      empty.textContent = 'No timed items yet for this day.';
+      panel.appendChild(empty);
+    }
     return;
   }
 
@@ -3296,12 +3497,17 @@ function renderDayTimelineGrid(panel, day, trip){
       const status = entry.item.status === 'confirmed' ? 'confirmed' : 'tentative';
       block.className = `timeline-block tab-${entry.item.type} status-${status}` + (entry.item.isMainPlan ? ' main-plan' : '');
       const top = (entry.startMin - windowStart) / 60 * PIXELS_PER_HOUR;
-      const height = Math.max(14, (entry.endMin - entry.startMin) / 60 * PIXELS_PER_HOUR);
+      const height = Math.max(20, (entry.endMin - entry.startMin) / 60 * PIXELS_PER_HOUR);
       block.style.top = top + 'px';
       block.style.height = height + 'px';
       block.style.left = (i / columnCount * 100) + '%';
       block.style.width = (100 / columnCount) + '%';
+      const travelerColors = getItemTravelerColors(entry.item, trip);
+      const dotsHtml = travelerColors.length
+        ? `<span class="timeline-block-dots">${travelerColors.map(c => `<span class="timeline-block-dot" style="background:${c};"></span>`).join('')}</span>`
+        : '';
       block.innerHTML = `
+        ${dotsHtml}
         ${entry.item.isMainPlan ? '<span class="timeline-block-badge">📌</span>' : ''}
         <span class="timeline-block-name">${escapeHtml(getItemDisplayName(entry.item))}</span>
       `;
@@ -3321,6 +3527,17 @@ function renderDayTimelineGrid(panel, day, trip){
         render();
       };
       container.appendChild(moreBtn);
+    } else if(cluster.length > 2 && isExpanded){
+      const lessBtn = document.createElement('div');
+      lessBtn.className = 'timeline-less-btn';
+      const top = (cluster[0].startMin - windowStart) / 60 * PIXELS_PER_HOUR;
+      lessBtn.style.top = Math.max(0, top - 20) + 'px';
+      lessBtn.textContent = '▲ Show less';
+      lessBtn.onclick = () => {
+        expandedTimelineClusters.delete(clusterKey);
+        render();
+      };
+      container.appendChild(lessBtn);
     }
   });
 
@@ -3689,7 +3906,14 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   wrap.innerHTML = `
     <div class="form-row">
       <input type="time" data-f="time" value="${initial.time || ''}" />
+      <button type="button" class="clear-time-btn" data-role="clear-time" style="display:none;">✕ Clear time</button>
       <select data-f="type">${TYPES.map(t=>`<option value="${t.key}" ${t.key===initial.type?'selected':''}>${t.icon} ${t.label}</option>`).join('')}</select>
+    </div>
+    <div class="form-row landmark-row">
+      <label class="landmark-checkbox-label">
+        <input type="checkbox" data-f="isLandmarkCheckbox" />
+        <span>📍 No duration — just a moment in time</span>
+      </label>
     </div>
     <button type="button" class="who-toggle-link" data-role="end-time-toggle"></button>
     <div class="form-row" data-role="end-time-row" style="display:none;">
@@ -3744,12 +3968,23 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
     </div>
   `;
   const timeInput = wrap.querySelector('[data-f="time"]');
+  const clearTimeBtn = wrap.querySelector('[data-role="clear-time"]');
   const sectionRow = wrap.querySelector('[data-role="section-row"]');
   const sectionSelect = wrap.querySelector('[data-f="section"]');
   const syncSectionVisibility = () => {
     sectionRow.style.display = timeInput.value ? 'none' : '';
+    clearTimeBtn.style.display = timeInput.value ? '' : 'none';
+    if(!sectionSelect.value && !timeInput.value && initial.section){
+      sectionSelect.value = initial.section;
+    }
   };
   syncSectionVisibility();
+  clearTimeBtn.onclick = () => {
+    timeInput.value = '';
+    syncSectionVisibility();
+    syncMainPlanUI();
+    syncEndTimeUI();
+  };
 
   const getCurrentFormSection = () => {
     if(timeInput.value){
@@ -3764,7 +3999,11 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   const endTimeInput = wrap.querySelector('[data-f="endTime"]');
   const typeSelectForDuration = wrap.querySelector('[data-f="type"]');
   const mealServiceForDuration = wrap.querySelector('[data-f="mealService"]');
-  let endTimeExpanded = !!initial.endTime;
+  const landmarkCheckbox = wrap.querySelector('[data-f="isLandmarkCheckbox"]');
+  const landmarkRow = wrap.querySelector('.landmark-row');
+  const isInitiallyLandmark = !!(initial.time && initial.endTime && initial.endTime === initial.time);
+  landmarkCheckbox.checked = isInitiallyLandmark;
+  let endTimeExpanded = !!initial.endTime && !isInitiallyLandmark;
   let endTimeSeeded = false;
 
   const getComputedDefaultEnd = () => {
@@ -3775,7 +4014,8 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
     return minutesToTime(startMin + getDefaultDurationMinutes(pseudoItem));
   };
   const syncEndTimeUI = () => {
-    if(!timeInput.value){
+    landmarkRow.style.display = timeInput.value ? '' : 'none';
+    if(!timeInput.value || landmarkCheckbox.checked){
       endTimeToggle.style.display = 'none';
       endTimeRow.style.display = 'none';
       return;
@@ -3800,6 +4040,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   };
   endTimeToggle.onclick = () => { endTimeExpanded = !endTimeExpanded; syncEndTimeUI(); };
   endTimeInput.addEventListener('input', () => { endTimeInput.dataset.userTouched = '1'; });
+  landmarkCheckbox.addEventListener('change', syncEndTimeUI);
   syncEndTimeUI();
   typeSelectForDuration.addEventListener('change', syncEndTimeUI);
   mealServiceForDuration.addEventListener('change', syncEndTimeUI);
@@ -3904,6 +4145,10 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
       alert('Pick a time, or choose Morning, Afternoon, or Evening for this item.');
       return;
     }
+    if(landmarkCheckbox.checked && !time){
+      alert('A moment in time needs an actual time — pick one, or uncheck "No duration."');
+      return;
+    }
     const type = typeSelect.value;
     const mealService = mealServiceSelect.value;
     const mealPeriod = mealPeriodSelect.value;
@@ -3927,7 +4172,9 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
       }
     }
     let finalEndTime = '';
-    if(endTimeExpanded && time){
+    if(landmarkCheckbox.checked && time){
+      finalEndTime = time;
+    } else if(endTimeExpanded && time){
       const freshDefault = minutesToTime(timeToMinutes(time) + getDefaultDurationMinutes({ type, time, mealService }));
       if(endTimeInput.value && endTimeInput.value !== freshDefault){
         finalEndTime = endTimeInput.value;
@@ -4199,6 +4446,34 @@ function closeMasterEditor(){
 }
 document.getElementById('masterEditorCloseBtn').onclick = closeMasterEditor;
 
+function openTravelerColorPicker(travelerId){
+  const body = document.getElementById('travelerColorBody');
+  body.innerHTML = '';
+  const currentColor = getTravelerColor(travelerId);
+  TRAVELER_PALETTE.forEach(color => {
+    const swatch = document.createElement('button');
+    swatch.type = 'button';
+    swatch.className = 'traveler-color-option' + (color === currentColor ? ' selected' : '');
+    swatch.style.background = color;
+    swatch.onclick = () => {
+      const takenBy = appData.travelers.find(t => t.id !== travelerId && t.color === color);
+      if(takenBy){
+        if(!confirm(`${takenBy.name} is also using this color — use it anyway?`)) return;
+      }
+      const traveler = appData.travelers.find(t => t.id === travelerId);
+      if(traveler) traveler.color = color;
+      document.getElementById('travelerColorOverlay').classList.remove('active');
+      render();
+    };
+    body.appendChild(swatch);
+  });
+  document.getElementById('travelerColorOverlay').classList.add('active');
+}
+document.getElementById('travelerColorCloseBtn').onclick = () => {
+  document.getElementById('travelerColorOverlay').classList.remove('active');
+  render();
+};
+
 function openItemEditModal(day, item){
   const body = document.getElementById('itemEditModalBody');
   body.innerHTML = '';
@@ -4208,6 +4483,16 @@ function openItemEditModal(day, item){
   }, () => {
     closeItemEditModal();
   });
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'timeline-modal-delete-btn';
+  deleteBtn.textContent = 'Delete this item';
+  deleteBtn.onclick = () => {
+    if(!confirm(`Delete "${item.name}"?`)) return;
+    day.items = day.items.filter(i => i.id !== item.id);
+    closeItemEditModal();
+  };
+  form.appendChild(deleteBtn);
   body.appendChild(form);
   document.getElementById('itemEditOverlay').classList.add('active');
 }
@@ -4782,10 +5067,13 @@ function renderTripDetails(trip){
         if(!name) return;
         const chip = document.createElement('span');
         chip.className = 'traveler-chip';
-        chip.innerHTML = `${escapeHtml(name)} <button type="button" aria-label="Remove ${escapeHtml(name)}">×</button>`;
-        chip.querySelector('button').onclick = () => {
+        chip.innerHTML = `<button type="button" class="traveler-color-swatch" style="background:${getTravelerColor(tid)};" aria-label="Change color for ${escapeHtml(name)}"></button> ${escapeHtml(name)} <button type="button" class="traveler-chip-remove" aria-label="Remove ${escapeHtml(name)}">×</button>`;
+        chip.querySelector('.traveler-chip-remove').onclick = () => {
           trip.travelerIds = trip.travelerIds.filter(id => id !== tid);
           render();
+        };
+        chip.querySelector('.traveler-color-swatch').onclick = () => {
+          openTravelerColorPicker(tid);
         };
         chipRow.appendChild(chip);
       });
