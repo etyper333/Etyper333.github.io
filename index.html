@@ -2201,6 +2201,8 @@
 </head>
 <body>
 
+<datalist id="parkSuggestions"></datalist>
+
 <nav class="trip-switcher" id="tripSwitcher"></nav>
 
 <header class="hero">
@@ -2323,7 +2325,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.11';
+const APP_VERSION = '1.14';
 const WEEKDAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -2594,6 +2596,10 @@ function setTripLength(trip, nights){
 }
 
 const PARKS = ["","Magic Kingdom","EPCOT","Hollywood Studios","Animal Kingdom","Disney Springs","Typhoon Lagoon","Blizzard Beach","Pool Time","Resort","Off-site / Travel Day","Other"];
+document.getElementById('parkSuggestions').innerHTML = PARKS
+  .filter(p => p && p !== 'Other')
+  .map(p => `<option value="${p}"></option>`)
+  .join('');
 const CROWD_LEVEL_PARKS = ["Magic Kingdom","EPCOT","Hollywood Studios","Animal Kingdom"];
 const TYPES = [
   {key:"activity", label:"Activity", icon:"🎡"},
@@ -2979,6 +2985,17 @@ function getActiveTrip(){
   return appData.trips.find(t => t.id === appData.activeTripId);
 }
 
+function migrateOtherNamedItemsToPlainNames(trip){
+  trip.days.forEach(day => {
+    day.items.forEach(item => {
+      if(item.name === 'Other' && item.nameOther){
+        item.name = item.nameOther;
+        item.nameOther = '';
+      }
+    });
+  });
+}
+
 function migrateDayParksToMainPlanItems(trip){
   trip.days.forEach(day => {
     if(!day.parks) return;
@@ -3018,6 +3035,7 @@ function render(){
   ensureTravelerColors();
   migrateDayCrowdLevelsToTrip(trip);
   migrateDayParksToMainPlanItems(trip);
+  migrateOtherNamedItemsToPlainNames(trip);
   document.getElementById('tripTitle').textContent = trip.title;
   renderTripSummaryTrigger(trip);
   renderTripDetails(trip);
@@ -3215,17 +3233,15 @@ function renderItinerarySidebar(trip){
     .sort((a,b) => (a.time||'').localeCompare(b.time||''));
 
   const crowdFacts = [];
-  SECTIONS.forEach(sec => {
-    const mainPlanItem = getMainPlanForSection(day, sec.key);
-    const park = mainPlanItem ? mainPlanItem.name : '';
-    if(!CROWD_LEVEL_PARKS.includes(park)) return;
-    const val = getCrowdLevel(trip, day.id, park);
-    if(!val) return;
-    const key = park;
-    if(!crowdFacts.some(f => f.park === key)){
-      crowdFacts.push({ park, val });
-    }
-  });
+  getCrowdLevelSlots(trip)
+    .filter(s => s.dayId === day.id)
+    .forEach(slot => {
+      const val = getCrowdLevel(trip, day.id, slot.park);
+      if(!val) return;
+      if(!crowdFacts.some(f => f.park === slot.park)){
+        crowdFacts.push({ park: slot.park, val });
+      }
+    });
 
   const block = document.createElement('div');
   block.className = 'sidebar-block';
@@ -3937,14 +3953,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
       </select>
     </div>
     <div class="form-row">
-      <input type="text" data-f="name" placeholder="e.g. Hollywood Studios, Be Our Guest lunch" value="${escapeHtml(initial.name || '')}" />
-      <select data-f="namePark" style="display:none;">
-        <option value="">Choose a park...</option>
-        ${PARKS.filter(p=>p).map(p=>`<option value="${p}" ${p===initial.name?'selected':''}>${p}</option>`).join('')}
-      </select>
-    </div>
-    <div class="form-row" data-role="name-other-row" style="display:none;">
-      <input type="text" data-f="nameOther" placeholder="What is it? (e.g. Bocce on the lawn)" value="${escapeHtml(initial.nameOther || '')}" />
+      <input type="text" data-f="name" list="parkSuggestions" placeholder="e.g. Hollywood Studios, Be Our Guest lunch" value="${escapeHtml(initial.name || '')}" />
     </div>
     <div class="form-row">
       <label class="main-plan-checkbox-label">
@@ -4005,7 +4014,6 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   const isInitiallyLandmark = !!(initial.time && initial.endTime && initial.endTime === initial.time);
   landmarkCheckbox.checked = isInitiallyLandmark;
   let endTimeExpanded = !!initial.endTime && !isInitiallyLandmark;
-  let endTimeSeeded = false;
 
   const getComputedDefaultEnd = () => {
     const t = timeInput.value;
@@ -4013,6 +4021,11 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
     const pseudoItem = { type: typeSelectForDuration.value, time: t, mealService: mealServiceForDuration.value };
     const startMin = timeToMinutes(t);
     return minutesToTime(startMin + getDefaultDurationMinutes(pseudoItem));
+  };
+  const getDisplayEndTimeValue = () => {
+    if(endTimeInput.dataset.userTouched) return endTimeInput.value;
+    if(initial.endTime && !isInitiallyLandmark) return initial.endTime;
+    return getComputedDefaultEnd();
   };
   const syncEndTimeUI = () => {
     landmarkRow.style.display = timeInput.value ? '' : 'none';
@@ -4022,20 +4035,15 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
       return;
     }
     endTimeToggle.style.display = '';
-    const defaultEnd = getComputedDefaultEnd();
+    const displayValue = getDisplayEndTimeValue();
     if(!endTimeExpanded){
       endTimeRow.style.display = 'none';
-      endTimeToggle.textContent = `⏱️ Ends at ${formatTime(defaultEnd)} (adjust)`;
+      endTimeToggle.textContent = `⏱️ Ends at ${formatTime(displayValue)} (adjust)`;
     } else {
       endTimeRow.style.display = '';
       endTimeToggle.textContent = '⏱️ Ends at (hide)';
       if(!endTimeInput.dataset.userTouched){
-        if(!endTimeSeeded && initial.endTime){
-          endTimeInput.value = initial.endTime;
-          endTimeSeeded = true;
-        } else {
-          endTimeInput.value = defaultEnd;
-        }
+        endTimeInput.value = displayValue;
       }
     }
   };
@@ -4047,8 +4055,6 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   mealServiceForDuration.addEventListener('change', syncEndTimeUI);
 
   const nameInput = wrap.querySelector('[data-f="name"]');
-  const namePark = wrap.querySelector('[data-f="namePark"]');
-  const nameOtherRow = wrap.querySelector('[data-role="name-other-row"]');
   const mainPlanCheckbox = wrap.querySelector('[data-f="isMainPlanCheckbox"]');
   const mainPlanLabel = wrap.querySelector('[data-role="main-plan-label"]');
   const syncMainPlanUI = () => {
@@ -4061,16 +4067,10 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
       mainPlanCheckbox.disabled = false;
       mainPlanLabel.textContent = `📌 Main plan for the ${sectionLabel}`;
     }
-    const isChecked = mainPlanCheckbox.checked && !mainPlanCheckbox.disabled;
-    nameInput.style.display = isChecked ? 'none' : '';
-    namePark.style.display = isChecked ? '' : 'none';
-    nameOtherRow.style.display = (isChecked && namePark.value === 'Other') ? '' : 'none';
   };
   syncMainPlanUI();
   timeInput.addEventListener('input', () => { syncSectionVisibility(); syncMainPlanUI(); syncEndTimeUI(); });
   sectionSelect.addEventListener('change', syncMainPlanUI);
-  mainPlanCheckbox.addEventListener('change', syncMainPlanUI);
-  namePark.addEventListener('change', syncMainPlanUI);
 
   const typeSelect = wrap.querySelector('[data-f="type"]');
   const mealRow = wrap.querySelector('[data-role="meal-row"]');
@@ -4133,13 +4133,8 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   });
   wrap.querySelector('[data-role="submit"]').onclick = () => {
     const isMainPlan = mainPlanCheckbox.checked && !mainPlanCheckbox.disabled;
-    const name = isMainPlan ? namePark.value : wrap.querySelector('[data-f="name"]').value.trim();
-    if(!name){ alert(isMainPlan ? 'Choose a park for the main plan.' : 'Give it a name first.'); return; }
-    const nameOther = wrap.querySelector('[data-f="nameOther"]').value.trim();
-    if(isMainPlan && name === 'Other' && !nameOther){
-      alert('Describe what this is (e.g. "Bocce on the lawn").');
-      return;
-    }
+    const name = wrap.querySelector('[data-f="name"]').value.trim();
+    if(!name){ alert('Give it a name first.'); return; }
     const time = timeInput.value;
     const section = sectionSelect.value;
     if(!time && !section){
@@ -4186,7 +4181,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
       section,
       type,
       name,
-      nameOther: (isMainPlan && name === 'Other') ? nameOther : '',
+      nameOther: '',
       isMainPlan,
       endTime: finalEndTime,
       status: pendingStatus,
@@ -5508,6 +5503,7 @@ document.getElementById('loadInput').addEventListener('change', e => {
         migrateDayHotelsToStays(trip);
         migrateDayCrowdLevelsToTrip(trip);
         migrateDayParksToMainPlanItems(trip);
+        migrateOtherNamedItemsToPlainNames(trip);
       });
       appData = normalized;
       appData.activeTripId = appData.trips[0].id;
