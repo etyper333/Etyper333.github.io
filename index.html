@@ -2335,7 +2335,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.16';
+const APP_VERSION = '1.17';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -2477,6 +2477,122 @@ async function syncAllTripsToSupabase(){
   }
   return allDeletedByOthers;
 }
+
+// --- Scoped, single-record sync: used by individual "Save changes" actions so staleness
+// is caught immediately, at the moment you edit something, not just at the next big Save. ---
+function showRemovedByOtherMessage(result){
+  if(!result || result.ok) return;
+  alert(`Heads up: "${result.name}" was removed by someone else since you last looked, so this change wasn't saved.`);
+}
+
+function handleDayFieldBlur(trip, day){
+  syncSingleDayUpdate(day).then(result => {
+    if(!result.ok){
+      trip.days = trip.days.filter(d => d.id !== day.id);
+      if(activeDayId === day.id && trip.days.length){
+        activeDayId = trip.days[0].id;
+      }
+      render();
+      showRemovedByOtherMessage(result);
+    }
+  });
+}
+
+function handleTripFieldBlur(trip){
+  syncSingleTripUpdate(trip).then(result => {
+    if(!result.ok){
+      if(appData.trips.length > 1){
+        appData.trips = appData.trips.filter(t => t.id !== trip.id);
+        if(appData.activeTripId === trip.id){
+          appData.activeTripId = appData.trips[0].id;
+          activeDayId = appData.trips[0].days[0].id;
+        }
+        render();
+      }
+      showRemovedByOtherMessage(result);
+    }
+  });
+}
+
+async function syncSingleTripUpdate(trip){
+  if(!trip.supabaseId) return { ok: true };
+  try{
+    const { data: updateResult } = await supabaseClient.from('trips').update({
+      title: trip.title, dates: trip.dates || '', start_date: trip.startDate || null
+    }).eq('id', trip.supabaseId).select();
+    if(!updateResult || updateResult.length === 0){
+      return { ok: false, type: 'trip', name: trip.title || 'this trip' };
+    }
+    return { ok: true };
+  }catch(err){
+    console.warn('Could not sync trip update:', err);
+    return { ok: true }; // network hiccup -- don't block on a best-effort check
+  }
+}
+
+async function syncSingleDayUpdate(day){
+  if(!day.supabaseId) return { ok: true };
+  try{
+    const { data: updateResult } = await supabaseClient.from('days').update({
+      label: day.label || '', day_tag: day.dayTag || '', rope_drop: day.ropeDrop || null, notes: day.notes || ''
+    }).eq('id', day.supabaseId).select();
+    if(!updateResult || updateResult.length === 0){
+      return { ok: false, type: 'day', name: day.label || 'this day' };
+    }
+    return { ok: true };
+  }catch(err){
+    console.warn('Could not sync day update:', err);
+    return { ok: true };
+  }
+}
+
+async function syncSingleItemUpdate(item, trip){
+  if(!item.supabaseId) return { ok: true };
+  try{
+    const itemPayload = {
+      time: item.time || null, end_time: item.endTime || null, section: item.section || '',
+      type: item.type || '', name: item.name || '', is_main_plan: !!item.isMainPlan,
+      status: item.status || 'tentative', confirmation_number: item.confirmationNumber || '',
+      meal_service: item.mealService || '', meal_period: item.mealPeriod || '', notes: item.notes || ''
+    };
+    const { data: updateResult } = await supabaseClient.from('items').update(itemPayload).eq('id', item.supabaseId).select();
+    if(!updateResult || updateResult.length === 0){
+      return { ok: false, type: 'item', name: item.name || 'this item' };
+    }
+    await supabaseClient.from('item_travelers').delete().eq('item_id', item.supabaseId);
+    const tagRows = (Array.isArray(item.travelerIds) ? item.travelerIds : [])
+      .map(localTid => (trip.supabaseTravelerMap ? trip.supabaseTravelerMap[localTid] : null))
+      .filter(Boolean)
+      .map(supaTid => ({ item_id: item.supabaseId, traveler_id: supaTid }));
+    if(tagRows.length){
+      await supabaseClient.from('item_travelers').insert(tagRows);
+    }
+    return { ok: true };
+  }catch(err){
+    console.warn('Could not sync item update:', err);
+    return { ok: true };
+  }
+}
+
+async function syncSingleTravelerUpdate(trip, travelerId){
+  const supaId = trip.supabaseTravelerMap && trip.supabaseTravelerMap[travelerId];
+  if(!supaId) return { ok: true };
+  const traveler = appData.travelers.find(t => t.id === travelerId);
+  if(!traveler) return { ok: true };
+  try{
+    const { data: updateResult } = await supabaseClient.from('travelers').update({
+      name: traveler.name, color: traveler.color || null
+    }).eq('id', supaId).select();
+    if(!updateResult || updateResult.length === 0){
+      return { ok: false, type: 'traveler', name: traveler.name || 'this traveler' };
+    }
+    return { ok: true };
+  }catch(err){
+    console.warn('Could not sync traveler update:', err);
+    return { ok: true };
+  }
+}
+
 const WEEKDAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -3761,12 +3877,14 @@ function renderDayPanels(){
         ${canRemove ? '<button class="remove-day-btn">Remove day</button>' : ''}
       `;
       row.querySelector('[data-role="tag"]').oninput = e => { day.dayTag = e.target.value; };
+      row.querySelector('[data-role="tag"]').onblur = () => handleDayFieldBlur(trip, day);
     } else {
       row.innerHTML = `
         <input class="day-title-input" value="${escapeHtml(day.label)}" data-role="label" />
         ${canRemove ? '<button class="remove-day-btn">Remove day</button>' : ''}
       `;
       row.querySelector('[data-role="label"]').oninput = e => { day.label = e.target.value; renderMonorail(); };
+      row.querySelector('[data-role="label"]').onblur = () => handleDayFieldBlur(trip, day);
     }
     if(canRemove){
       row.querySelector('.remove-day-btn').onclick = () => removeDay(day.id);
@@ -3819,6 +3937,7 @@ function renderDayPanels(){
       </div>
     `;
     infoRow3.querySelector('[data-role="ropeDrop"]').oninput = e => { day.ropeDrop = e.target.value; };
+    infoRow3.querySelector('[data-role="ropeDrop"]').onblur = () => handleDayFieldBlur(trip, day);
     detailsBody.appendChild(infoRow3);
 
     detailsAccordion.appendChild(detailsBody);
@@ -3935,6 +4054,7 @@ function renderDayPanels(){
       <textarea id="notes-${day.id}" placeholder="Anything else worth remembering for this day...">${escapeHtml(day.notes || '')}</textarea>
     `;
     notesBlock.querySelector('textarea').oninput = e => { day.notes = e.target.value; };
+    notesBlock.querySelector('textarea').onblur = () => handleDayFieldBlur(trip, day);
     panel.appendChild(notesBlock);
 
     container.appendChild(panel);
@@ -3962,6 +4082,13 @@ function renderItemCard(day, item){
         Object.assign(item, values);
         editingItems.delete(item.id);
         render();
+        syncSingleItemUpdate(item, getActiveTrip()).then(result => {
+          if(!result.ok){
+            day.items = day.items.filter(i => i.id !== item.id);
+            render();
+            showRemovedByOtherMessage(result);
+          }
+        });
       },
       () => {
         editingItems.delete(item.id);
@@ -4599,7 +4726,7 @@ function closeMasterEditor(){
 }
 document.getElementById('masterEditorCloseBtn').onclick = closeMasterEditor;
 
-function openTravelerColorPicker(travelerId){
+function openTravelerColorPicker(trip, travelerId){
   const body = document.getElementById('travelerColorBody');
   body.innerHTML = '';
   const currentColor = getTravelerColor(travelerId);
@@ -4617,6 +4744,14 @@ function openTravelerColorPicker(travelerId){
       if(traveler) traveler.color = color;
       document.getElementById('travelerColorOverlay').classList.remove('active');
       render();
+      syncSingleTravelerUpdate(trip, travelerId).then(result => {
+        if(!result.ok){
+          trip.travelerIds = trip.travelerIds.filter(id => id !== travelerId);
+          if(trip.supabaseTravelerMap) delete trip.supabaseTravelerMap[travelerId];
+          render();
+          showRemovedByOtherMessage(result);
+        }
+      });
     };
     body.appendChild(swatch);
   });
@@ -4633,6 +4768,13 @@ function openItemEditModal(day, item){
   const form = buildItemFieldsForm(day, item, 'Save changes', (values) => {
     Object.assign(item, values);
     closeItemEditModal();
+    syncSingleItemUpdate(item, getActiveTrip()).then(result => {
+      if(!result.ok){
+        day.items = day.items.filter(i => i.id !== item.id);
+        render();
+        showRemovedByOtherMessage(result);
+      }
+    });
   }, () => {
     closeItemEditModal();
   });
@@ -5076,6 +5218,9 @@ document.getElementById('tripTitle').addEventListener('input', e => {
   getActiveTrip().title = e.target.textContent;
   renderTripSwitcher();
 });
+document.getElementById('tripTitle').addEventListener('blur', () => {
+  handleTripFieldBlur(getActiveTrip());
+});
 
 function getTripSummaryText(trip){
   const parts = [];
@@ -5166,6 +5311,7 @@ function renderTripDetails(trip){
     row1.querySelector('#tripStartDate').addEventListener('change', e => {
       trip.startDate = e.target.value;
       render();
+      handleTripFieldBlur(trip);
     });
     fieldsWrap.appendChild(row1);
 
@@ -5179,6 +5325,7 @@ function renderTripDetails(trip){
         </div>
       `;
       rowFallback.querySelector('#tripDatesFallback').oninput = e => { trip.dates = e.target.value; };
+      rowFallback.querySelector('#tripDatesFallback').onblur = () => handleTripFieldBlur(trip);
       fieldsWrap.appendChild(rowFallback);
     }
 
@@ -5230,7 +5377,7 @@ function renderTripDetails(trip){
           render();
         };
         chip.querySelector('.traveler-color-swatch').onclick = () => {
-          openTravelerColorPicker(tid);
+          openTravelerColorPicker(trip, tid);
         };
         chipRow.appendChild(chip);
       });
