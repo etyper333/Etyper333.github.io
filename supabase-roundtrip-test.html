@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Supabase Round-Trip Test</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  body{ font-family: -apple-system, sans-serif; padding: 24px; max-width: 720px; margin: 0 auto; line-height: 1.5; }
+  h1{ font-size: 20px; }
+  h2{ font-size: 16px; margin-top: 28px; }
+  #fileInput{ margin: 12px 0; }
+  button{ font-size: 15px; padding: 10px 18px; border-radius: 8px; border: none; background: #2f6fed; color: white; cursor: pointer; }
+  button:disabled{ background: #aaa; }
+  .log{ font-size: 13px; padding: 8px 10px; border-radius: 6px; margin: 4px 0; }
+  .log.ok{ background: #d4f4dd; }
+  .log.fail{ background: #fbdada; }
+  .log.info{ background: #eee; }
+  .summary-table{ width: 100%; border-collapse: collapse; margin: 10px 0; }
+  .summary-table td, .summary-table th{ border: 1px solid #ddd; padding: 6px 10px; text-align: left; font-size: 13px; }
+  .summary-table th{ background: #f5f5f5; }
+  .match{ color: #1a7a3c; font-weight: 700; }
+  .mismatch{ color: #b3261e; font-weight: 700; }
+  pre{ background: #f5f5f5; padding: 12px; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<h1>🧪 Supabase Round-Trip Test</h1>
+<p>This pushes one real trip's worth of data — trip, days, items, travelers, and who's tagged where — into your actual Supabase tables, then reads it all back and compares counts. This does not touch your real app's local save file at all.</p>
+
+<p><strong>Step 1:</strong> Upload a trip file freshly saved from the real app (use "Save All Trips" to export one, then pick it here):</p>
+<input type="file" id="fileInput" accept="application/json" />
+
+<p><strong>Step 2:</strong></p>
+<button id="runBtn" disabled>Run Round-Trip Test</button>
+
+<div id="log"></div>
+<div id="summary"></div>
+
+<script>
+  const SUPABASE_URL = 'https://tiinlcgakvobajeaitsr.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_bns5qH6pn0P5aXAUdVCTYg__MijW9d3';
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let loadedData = null;
+  const fileInput = document.getElementById('fileInput');
+  const runBtn = document.getElementById('runBtn');
+  const logEl = document.getElementById('log');
+  const summaryEl = document.getElementById('summary');
+
+  function log(msg, kind){
+    const div = document.createElement('div');
+    div.className = 'log ' + (kind || 'info');
+    div.textContent = msg;
+    logEl.appendChild(div);
+  }
+
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        loadedData = JSON.parse(evt.target.result);
+        runBtn.disabled = false;
+        log('File loaded. Ready to run the test.', 'ok');
+      } catch(err){
+        log('Could not read that file as JSON: ' + err.message, 'fail');
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  runBtn.addEventListener('click', async () => {
+    runBtn.disabled = true;
+    logEl.innerHTML = '';
+    summaryEl.innerHTML = '';
+
+    if(!loadedData || !Array.isArray(loadedData.trips) || loadedData.trips.length === 0){
+      log('No trip found in that file.', 'fail');
+      return;
+    }
+
+    // Use whichever trip is marked active, or just the first one
+    const sourceTrip = loadedData.trips.find(t => t.id === loadedData.activeTripId) || loadedData.trips[0];
+    const allTravelers = Array.isArray(loadedData.travelers) ? loadedData.travelers : [];
+    const relevantTravelerIds = Array.isArray(sourceTrip.travelerIds) ? sourceTrip.travelerIds : [];
+    const relevantTravelers = allTravelers.filter(t => relevantTravelerIds.includes(t.id));
+
+    log(`Working with trip: "${sourceTrip.title}" — ${sourceTrip.days.length} day(s), ${relevantTravelers.length} traveler(s).`, 'info');
+
+    // Original counts, for comparison later
+    const originalCounts = {
+      days: sourceTrip.days.length,
+      items: sourceTrip.days.reduce((sum, d) => sum + d.items.length, 0),
+      travelers: relevantTravelers.length,
+      tags: sourceTrip.days.reduce((sum, d) => sum + d.items.reduce((s, i) => s + (Array.isArray(i.travelerIds) ? i.travelerIds.length : 0), 0), 0)
+    };
+
+    try {
+      // 1. Insert the trip
+      log('Inserting trip...', 'info');
+      const { data: tripRow, error: tripErr } = await supabaseClient
+        .from('trips')
+        .insert([{ title: sourceTrip.title, dates: sourceTrip.dates || '', start_date: sourceTrip.startDate || null }])
+        .select()
+        .single();
+      if(tripErr) throw new Error('trips insert failed: ' + tripErr.message);
+      const newTripId = tripRow.id;
+      log('✓ Trip inserted.', 'ok');
+
+      // 2. Insert travelers, building an old-id -> new-id map
+      const travelerIdMap = {};
+      for(const t of relevantTravelers){
+        const { data: travRow, error: travErr } = await supabaseClient
+          .from('travelers')
+          .insert([{ trip_id: newTripId, name: t.name, color: t.color || null }])
+          .select()
+          .single();
+        if(travErr) throw new Error('travelers insert failed: ' + travErr.message);
+        travelerIdMap[t.id] = travRow.id;
+      }
+      log(`✓ ${relevantTravelers.length} traveler(s) inserted.`, 'ok');
+
+      // 3. Insert days, then items within each day, then item_travelers tags
+      let itemCount = 0;
+      let tagCount = 0;
+      for(const day of sourceTrip.days){
+        const { data: dayRow, error: dayErr } = await supabaseClient
+          .from('days')
+          .insert([{
+            trip_id: newTripId,
+            label: day.label || '',
+            day_tag: day.dayTag || '',
+            rope_drop: day.ropeDrop || null,
+            notes: day.notes || ''
+          }])
+          .select()
+          .single();
+        if(dayErr) throw new Error('days insert failed: ' + dayErr.message);
+        const newDayId = dayRow.id;
+
+        for(const item of day.items){
+          const { data: itemRow, error: itemErr } = await supabaseClient
+            .from('items')
+            .insert([{
+              day_id: newDayId,
+              time: item.time || null,
+              end_time: item.endTime || null,
+              section: item.section || '',
+              type: item.type || '',
+              name: item.name || '',
+              is_main_plan: !!item.isMainPlan,
+              status: item.status || 'tentative',
+              confirmation_number: item.confirmationNumber || '',
+              meal_service: item.mealService || '',
+              meal_period: item.mealPeriod || '',
+              notes: item.notes || ''
+            }])
+            .select()
+            .single();
+          if(itemErr) throw new Error('items insert failed: ' + itemErr.message);
+          itemCount++;
+
+          if(Array.isArray(item.travelerIds)){
+            for(const oldTravelerId of item.travelerIds){
+              const newTravelerId = travelerIdMap[oldTravelerId];
+              if(!newTravelerId) continue; // traveler not part of this trip's roster, skip
+              const { error: tagErr } = await supabaseClient
+                .from('item_travelers')
+                .insert([{ item_id: itemRow.id, traveler_id: newTravelerId }]);
+              if(tagErr) throw new Error('item_travelers insert failed: ' + tagErr.message);
+              tagCount++;
+            }
+          }
+        }
+      }
+      log(`✓ ${sourceTrip.days.length} day(s), ${itemCount} item(s), and ${tagCount} traveler tag(s) inserted.`, 'ok');
+
+      // 4. Read everything back
+      log('Reading everything back from Supabase...', 'info');
+      const { data: readDays } = await supabaseClient.from('days').select('*').eq('trip_id', newTripId);
+      const dayIds = readDays.map(d => d.id);
+      const { data: readItems } = await supabaseClient.from('items').select('*').in('day_id', dayIds);
+      const { data: readTravelers } = await supabaseClient.from('travelers').select('*').eq('trip_id', newTripId);
+      const itemIds = readItems.map(i => i.id);
+      const { data: readTags } = itemIds.length
+        ? await supabaseClient.from('item_travelers').select('*').in('item_id', itemIds)
+        : { data: [] };
+
+      const readCounts = {
+        days: readDays.length,
+        items: readItems.length,
+        travelers: readTravelers.length,
+        tags: readTags.length
+      };
+
+      // 5. Show a comparison summary
+      let html = '<h2>Comparison</h2><table class="summary-table"><tr><th></th><th>Original file</th><th>Now in Supabase</th><th></th></tr>';
+      ['days','items','travelers','tags'].forEach(key => {
+        const isMatch = originalCounts[key] === readCounts[key];
+        html += `<tr><td>${key}</td><td>${originalCounts[key]}</td><td>${readCounts[key]}</td><td class="${isMatch ? 'match' : 'mismatch'}">${isMatch ? '✓ match' : '✗ MISMATCH'}</td></tr>`;
+      });
+      html += '</table>';
+      summaryEl.innerHTML = html;
+
+      const allMatch = Object.keys(originalCounts).every(k => originalCounts[k] === readCounts[k]);
+      log(allMatch ? '✅ Round trip successful — everything matches.' : '⚠️ Some counts don\'t match — see table above.', allMatch ? 'ok' : 'fail');
+
+    } catch(err){
+      log('❌ ' + err.message, 'fail');
+    }
+  });
+</script>
+
+</body>
+</html>
