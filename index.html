@@ -1487,6 +1487,11 @@
     padding:0;
     text-decoration:underline;
   }
+  .item-actions button:disabled{
+    opacity:.6;
+    cursor:default;
+    text-decoration:none;
+  }
 
   .empty-state{
     text-align:center;
@@ -2010,6 +2015,10 @@
     cursor:pointer;
     margin-top:4px;
   }
+  .timeline-modal-delete-btn:disabled{
+    opacity:.6;
+    cursor:default;
+  }
 
   .status-toggle-row{
     display:flex;
@@ -2326,7 +2335,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.15';
+const APP_VERSION = '1.16';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -2335,7 +2344,41 @@ const SUPABASE_URL = 'https://tiinlcgakvobajeaitsr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_bns5qH6pn0P5aXAUdVCTYg__MijW9d3';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+async function deleteItemFromSupabaseNow(item){
+  if(!item.supabaseId) return;
+  try{
+    await supabaseClient.from('items').delete().eq('id', item.supabaseId);
+  }catch(err){
+    console.warn('Could not delete item from Supabase (it may remain there until cleaned up):', err);
+  }
+}
+async function deleteDayFromSupabaseNow(day){
+  if(!day.supabaseId) return;
+  try{
+    await supabaseClient.from('days').delete().eq('id', day.supabaseId);
+  }catch(err){
+    console.warn('Could not delete day from Supabase (it may remain there until cleaned up):', err);
+  }
+}
+async function deleteTravelerFromSupabaseNow(trip, travelerId){
+  const supaId = trip.supabaseTravelerMap && trip.supabaseTravelerMap[travelerId];
+  if(!supaId) return;
+  try{
+    await supabaseClient.from('travelers').delete().eq('id', supaId);
+    delete trip.supabaseTravelerMap[travelerId];
+  }catch(err){
+    console.warn('Could not delete traveler from Supabase (may remain there until cleaned up):', err);
+  }
+}
+
+// Sync never infers deletion from absence -- it only inserts new things and updates
+// existing ones. Deletions are pushed immediately at the moment of local deletion
+// (see the delete*FromSupabaseNow functions above). If an update matches nothing here,
+// that means someone else deleted it since we last looked -- tracked and reported
+// back rather than silently ignored.
 async function syncTripToSupabase(trip, allTravelers){
+  const deletedByOthers = [];
+
   if(trip.supabaseId){
     await supabaseClient.from('trips').update({
       title: trip.title, dates: trip.dates || '', start_date: trip.startDate || null
@@ -2364,18 +2407,17 @@ async function syncTripToSupabase(trip, allTravelers){
       trip.supabaseTravelerMap[localId] = data.id;
     }
   }
-  for(const mappedLocalId of Object.keys(trip.supabaseTravelerMap)){
-    if(!currentTravelerIds.includes(mappedLocalId)){
-      await supabaseClient.from('travelers').delete().eq('id', trip.supabaseTravelerMap[mappedLocalId]);
-      delete trip.supabaseTravelerMap[mappedLocalId];
-    }
-  }
 
   for(const day of trip.days){
     if(day.supabaseId){
-      await supabaseClient.from('days').update({
+      const { data: updateResult } = await supabaseClient.from('days').update({
         label: day.label || '', day_tag: day.dayTag || '', rope_drop: day.ropeDrop || null, notes: day.notes || ''
-      }).eq('id', day.supabaseId);
+      }).eq('id', day.supabaseId).select();
+      if(!updateResult || updateResult.length === 0){
+        deletedByOthers.push({ type: 'day', name: day.label || 'a day' });
+        day._deletedByOther = true;
+        continue;
+      }
     } else {
       const { data, error } = await supabaseClient.from('days').insert([{
         trip_id: trip.supabaseId, label: day.label || '', day_tag: day.dayTag || '', rope_drop: day.ropeDrop || null, notes: day.notes || ''
@@ -2392,7 +2434,12 @@ async function syncTripToSupabase(trip, allTravelers){
         meal_service: item.mealService || '', meal_period: item.mealPeriod || '', notes: item.notes || ''
       };
       if(item.supabaseId){
-        await supabaseClient.from('items').update(itemPayload).eq('id', item.supabaseId);
+        const { data: updateResult } = await supabaseClient.from('items').update(itemPayload).eq('id', item.supabaseId).select();
+        if(!updateResult || updateResult.length === 0){
+          deletedByOthers.push({ type: 'item', name: item.name || 'an item' });
+          item._deletedByOther = true;
+          continue;
+        }
       } else {
         const { data, error } = await supabaseClient.from('items').insert([{ ...itemPayload, day_id: day.supabaseId }]).select().single();
         if(error) throw error;
@@ -2409,33 +2456,26 @@ async function syncTripToSupabase(trip, allTravelers){
       }
     }
 
-    const currentItemSupaIds = day.items.map(i => i.supabaseId).filter(Boolean);
-    const { data: existingItems } = await supabaseClient.from('items').select('id').eq('day_id', day.supabaseId);
-    for(const existing of (existingItems || [])){
-      if(!currentItemSupaIds.includes(existing.id)){
-        await supabaseClient.from('items').delete().eq('id', existing.id);
-      }
-    }
+    day.items = day.items.filter(i => !i._deletedByOther);
   }
 
-  const currentDaySupaIds = trip.days.map(d => d.supabaseId).filter(Boolean);
-  const { data: existingDays } = await supabaseClient.from('days').select('id').eq('trip_id', trip.supabaseId);
-  for(const existing of (existingDays || [])){
-    if(!currentDaySupaIds.includes(existing.id)){
-      await supabaseClient.from('days').delete().eq('id', existing.id);
-    }
-  }
+  trip.days = trip.days.filter(d => !d._deletedByOther);
+
+  return deletedByOthers;
 }
 
 async function syncAllTripsToSupabase(){
+  const allDeletedByOthers = [];
   for(const trip of appData.trips){
     try{
-      await syncTripToSupabase(trip, appData.travelers);
+      const deleted = await syncTripToSupabase(trip, appData.travelers);
+      allDeletedByOthers.push(...deleted);
       console.log(`✓ Synced "${trip.title}" to Supabase.`);
     }catch(err){
       console.warn(`Supabase sync failed for "${trip.title}" (your local save was not affected):`, err);
     }
   }
+  return allDeletedByOthers;
 }
 const WEEKDAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -3500,7 +3540,7 @@ function addDayAtStart(){
   render();
 }
 
-function removeDay(dayId){
+async function removeDay(dayId){
   const trip = getActiveTrip();
   if(trip.days.length <= 1) return;
   const idx = trip.days.findIndex(d => d.id === dayId);
@@ -3509,6 +3549,8 @@ function removeDay(dayId){
     return;
   }
   if(!confirm('Remove this day and its plans?')) return;
+  const dayToRemove = trip.days.find(d => d.id === dayId);
+  await deleteDayFromSupabaseNow(dayToRemove);
   trip.days = trip.days.filter(d => d.id !== dayId);
   if(activeDayId === dayId){
     activeDayId = trip.days[0].id;
@@ -3988,8 +4030,12 @@ function renderItemCard(day, item){
       </div>
     </div>
   `;
-  card.querySelector('[data-role="del"]').onclick = () => {
+  card.querySelector('[data-role="del"]').onclick = async () => {
     if(!confirm(`Delete "${item.name}"?`)) return;
+    const delBtn = card.querySelector('[data-role="del"]');
+    delBtn.disabled = true;
+    delBtn.textContent = 'Deleting…';
+    await deleteItemFromSupabaseNow(item);
     day.items = day.items.filter(i => i.id !== item.id);
     render();
   };
@@ -4594,8 +4640,11 @@ function openItemEditModal(day, item){
   deleteBtn.type = 'button';
   deleteBtn.className = 'timeline-modal-delete-btn';
   deleteBtn.textContent = 'Delete this item';
-  deleteBtn.onclick = () => {
+  deleteBtn.onclick = async () => {
     if(!confirm(`Delete "${item.name}"?`)) return;
+    deleteBtn.disabled = true;
+    deleteBtn.textContent = 'Deleting…';
+    await deleteItemFromSupabaseNow(item);
     day.items = day.items.filter(i => i.id !== item.id);
     closeItemEditModal();
   };
@@ -5175,7 +5224,8 @@ function renderTripDetails(trip){
         const chip = document.createElement('span');
         chip.className = 'traveler-chip';
         chip.innerHTML = `<button type="button" class="traveler-color-swatch" style="background:${getTravelerColor(tid)};" aria-label="Change color for ${escapeHtml(name)}"></button> ${escapeHtml(name)} <button type="button" class="traveler-chip-remove" aria-label="Remove ${escapeHtml(name)}">×</button>`;
-        chip.querySelector('.traveler-chip-remove').onclick = () => {
+        chip.querySelector('.traveler-chip-remove').onclick = async () => {
+          await deleteTravelerFromSupabaseNow(trip, tid);
           trip.travelerIds = trip.travelerIds.filter(id => id !== tid);
           render();
         };
@@ -5509,8 +5559,9 @@ function renderResortsMasterEditor(){
 }
 
 document.getElementById('saveBtn').onclick = async () => {
+  let deletedByOthers = [];
   try{
-    await syncAllTripsToSupabase();
+    deletedByOthers = await syncAllTripsToSupabase();
   }catch(err){
     console.warn('Supabase sync step had an issue (local save proceeding regardless):', err);
   }
@@ -5522,6 +5573,12 @@ document.getElementById('saveBtn').onclick = async () => {
   a.click();
   URL.revokeObjectURL(url);
   markSaved();
+  if(deletedByOthers.length){
+    render();
+    const names = deletedByOthers.map(d => `"${d.name}"`).join(', ');
+    const plural = deletedByOthers.length > 1;
+    alert(`Heads up: ${plural ? 'these were' : 'this was'} removed by someone else since you last looked, so any changes you made ${plural ? "weren't" : "wasn't"} saved: ${names}`);
+  }
 };
 
 document.getElementById('loadInput').addEventListener('change', e => {
