@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Supabase Read-Back Test</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  body{ font-family: -apple-system, sans-serif; padding: 24px; max-width: 720px; margin: 0 auto; line-height: 1.5; }
+  h1{ font-size: 20px; }
+  h2{ font-size: 16px; margin-top: 28px; }
+  button{ font-size: 15px; padding: 10px 18px; border-radius: 8px; border: none; background: #2f6fed; color: white; cursor: pointer; }
+  button:disabled{ background: #aaa; }
+  .log{ font-size: 13px; padding: 8px 10px; border-radius: 6px; margin: 4px 0; }
+  .log.ok{ background: #d4f4dd; }
+  .log.fail{ background: #fbdada; }
+  .log.info{ background: #eee; }
+  .summary-table{ width: 100%; border-collapse: collapse; margin: 10px 0; }
+  .summary-table td, .summary-table th{ border: 1px solid #ddd; padding: 6px 10px; text-align: left; font-size: 13px; }
+  .summary-table th{ background: #f5f5f5; }
+  .match{ color: #1a7a3c; font-weight: 700; }
+  .mismatch{ color: #b3261e; font-weight: 700; }
+  pre{ background: #f5f5f5; padding: 12px; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; font-size: 12px; max-height: 400px; overflow-y: auto; }
+</style>
+</head>
+<body>
+
+<h1>🧪 Supabase Read-Back Test</h1>
+<p>This pulls a trip back <em>out</em> of Supabase — reassembling trip, days, items, and traveler tags from five separate tables back into one nested structure — and compares it against a fresh local export of the same trip. This doesn't change anything in Supabase or in your local file.</p>
+
+<p><strong>Step 1:</strong> Upload a trip file that's already been saved at least once since the background sync went live (so it has a Supabase ID recorded):</p>
+<input type="file" id="fileInput" accept="application/json" />
+
+<p><strong>Step 2:</strong></p>
+<button id="runBtn" disabled>Run Read-Back Test</button>
+
+<div id="log"></div>
+<div id="summary"></div>
+<div id="details"></div>
+
+<script>
+  const SUPABASE_URL = 'https://tiinlcgakvobajeaitsr.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_bns5qH6pn0P5aXAUdVCTYg__MijW9d3';
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let loadedData = null;
+  const fileInput = document.getElementById('fileInput');
+  const runBtn = document.getElementById('runBtn');
+  const logEl = document.getElementById('log');
+  const summaryEl = document.getElementById('summary');
+  const detailsEl = document.getElementById('details');
+
+  function log(msg, kind){
+    const div = document.createElement('div');
+    div.className = 'log ' + (kind || 'info');
+    div.textContent = msg;
+    logEl.appendChild(div);
+  }
+
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        loadedData = JSON.parse(evt.target.result);
+        runBtn.disabled = false;
+        log('File loaded. Ready to run the test.', 'ok');
+      } catch(err){
+        log('Could not read that file as JSON: ' + err.message, 'fail');
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  async function reconstructTripFromSupabase(tripSupabaseId){
+    const { data: tripRows, error: tripErr } = await supabaseClient.from('trips').select('*').eq('id', tripSupabaseId);
+    if(tripErr) throw new Error('trips read failed: ' + tripErr.message);
+    if(!tripRows || tripRows.length === 0) throw new Error('This trip was not found in Supabase.');
+    const tripRow = tripRows[0];
+
+    const { data: travelerRows } = await supabaseClient.from('travelers').select('*').eq('trip_id', tripSupabaseId);
+    const { data: dayRows } = await supabaseClient.from('days').select('*').eq('trip_id', tripSupabaseId);
+    const dayIds = dayRows.map(d => d.id);
+    const { data: itemRows } = dayIds.length
+      ? await supabaseClient.from('items').select('*').in('day_id', dayIds)
+      : { data: [] };
+    const itemIds = itemRows.map(i => i.id);
+    const { data: tagRows } = itemIds.length
+      ? await supabaseClient.from('item_travelers').select('*').in('item_id', itemIds)
+      : { data: [] };
+
+    return {
+      title: tripRow.title,
+      dates: tripRow.dates,
+      startDate: tripRow.start_date,
+      days: dayRows.map(dayRow => ({
+        label: dayRow.label,
+        dayTag: dayRow.day_tag,
+        ropeDrop: dayRow.rope_drop,
+        notes: dayRow.notes,
+        items: itemRows.filter(i => i.day_id === dayRow.id).map(itemRow => ({
+          time: itemRow.time,
+          endTime: itemRow.end_time,
+          section: itemRow.section,
+          type: itemRow.type,
+          name: itemRow.name,
+          isMainPlan: itemRow.is_main_plan,
+          status: itemRow.status,
+          confirmationNumber: itemRow.confirmation_number,
+          travelerIds: tagRows.filter(t => t.item_id === itemRow.id).map(t => t.traveler_id)
+        }))
+      })),
+      travelers: travelerRows.map(t => ({ name: t.name, color: t.color }))
+    };
+  }
+
+  runBtn.addEventListener('click', async () => {
+    runBtn.disabled = true;
+    logEl.innerHTML = '';
+    summaryEl.innerHTML = '';
+    detailsEl.innerHTML = '';
+
+    if(!loadedData || !Array.isArray(loadedData.trips) || loadedData.trips.length === 0){
+      log('No trip found in that file.', 'fail');
+      return;
+    }
+
+    const sourceTrip = loadedData.trips.find(t => t.id === loadedData.activeTripId) || loadedData.trips[0];
+
+    if(!sourceTrip.supabaseId){
+      log('This trip has no Supabase ID recorded yet — save it at least once in the real app first, then export a fresh file and try again.', 'fail');
+      return;
+    }
+
+    log(`Working with trip: "${sourceTrip.title}"`, 'info');
+    log('Reconstructing from Supabase...', 'info');
+
+    try {
+      const rebuilt = await reconstructTripFromSupabase(sourceTrip.supabaseId);
+
+      const allTravelers = Array.isArray(loadedData.travelers) ? loadedData.travelers : [];
+      const relevantTravelerIds = Array.isArray(sourceTrip.travelerIds) ? sourceTrip.travelerIds : [];
+      const originalCounts = {
+        days: sourceTrip.days.length,
+        items: sourceTrip.days.reduce((sum, d) => sum + d.items.length, 0),
+        travelers: relevantTravelerIds.length,
+        tags: sourceTrip.days.reduce((sum, d) => sum + d.items.reduce((s, i) => s + (Array.isArray(i.travelerIds) ? i.travelerIds.length : 0), 0), 0)
+      };
+      const rebuiltCounts = {
+        days: rebuilt.days.length,
+        items: rebuilt.days.reduce((sum, d) => sum + d.items.length, 0),
+        travelers: rebuilt.travelers.length,
+        tags: rebuilt.days.reduce((sum, d) => sum + d.items.reduce((s, i) => s + i.travelerIds.length, 0), 0)
+      };
+
+      let html = '<h2>Comparison</h2><table class="summary-table"><tr><th></th><th>Original file</th><th>Rebuilt from Supabase</th><th></th></tr>';
+      ['days','items','travelers','tags'].forEach(key => {
+        const isMatch = originalCounts[key] === rebuiltCounts[key];
+        html += `<tr><td>${key}</td><td>${originalCounts[key]}</td><td>${rebuiltCounts[key]}</td><td class="${isMatch ? 'match' : 'mismatch'}">${isMatch ? '✓ match' : '✗ MISMATCH'}</td></tr>`;
+      });
+      html += '</table>';
+
+      // Content-level spot check: do the item names match as sets, regardless of order?
+      const originalNames = sourceTrip.days.flatMap(d => d.items.map(i => i.name)).sort();
+      const rebuiltNames = rebuilt.days.flatMap(d => d.items.map(i => i.name)).sort();
+      const namesMatch = JSON.stringify(originalNames) === JSON.stringify(rebuiltNames);
+      html += `<p>Item names ${namesMatch ? '<span class="match">✓ match exactly</span>' : '<span class="mismatch">✗ do not match</span>'}</p>`;
+
+      summaryEl.innerHTML = html;
+
+      const allMatch = Object.keys(originalCounts).every(k => originalCounts[k] === rebuiltCounts[k]) && namesMatch;
+      log(allMatch ? '✅ Read-back successful — the rebuilt trip matches the original.' : '⚠️ Something doesn\'t match — see comparison above.', allMatch ? 'ok' : 'fail');
+
+      detailsEl.innerHTML = '<h2>Full rebuilt trip (for reference)</h2><pre>' + JSON.stringify(rebuilt, null, 2) + '</pre>';
+
+    } catch(err){
+      log('❌ ' + err.message, 'fail');
+    }
+  });
+</script>
+
+</body>
+</html>
