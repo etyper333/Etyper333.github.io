@@ -2198,6 +2198,7 @@
     @page{margin:0.5in;}
   }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -2325,7 +2326,117 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.14';
+const APP_VERSION = '1.15';
+
+// --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
+// This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
+// to the console — your local file is always the trusted copy.
+const SUPABASE_URL = 'https://tiinlcgakvobajeaitsr.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_bns5qH6pn0P5aXAUdVCTYg__MijW9d3';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+async function syncTripToSupabase(trip, allTravelers){
+  if(trip.supabaseId){
+    await supabaseClient.from('trips').update({
+      title: trip.title, dates: trip.dates || '', start_date: trip.startDate || null
+    }).eq('id', trip.supabaseId);
+  } else {
+    const { data, error } = await supabaseClient.from('trips').insert([{
+      title: trip.title, dates: trip.dates || '', start_date: trip.startDate || null
+    }]).select().single();
+    if(error) throw error;
+    trip.supabaseId = data.id;
+  }
+
+  if(!trip.supabaseTravelerMap) trip.supabaseTravelerMap = {};
+  const currentTravelerIds = Array.isArray(trip.travelerIds) ? trip.travelerIds : [];
+  for(const localId of currentTravelerIds){
+    const traveler = allTravelers.find(t => t.id === localId);
+    if(!traveler) continue;
+    const existingSupaId = trip.supabaseTravelerMap[localId];
+    if(existingSupaId){
+      await supabaseClient.from('travelers').update({ name: traveler.name, color: traveler.color || null }).eq('id', existingSupaId);
+    } else {
+      const { data, error } = await supabaseClient.from('travelers').insert([{
+        trip_id: trip.supabaseId, name: traveler.name, color: traveler.color || null
+      }]).select().single();
+      if(error) throw error;
+      trip.supabaseTravelerMap[localId] = data.id;
+    }
+  }
+  for(const mappedLocalId of Object.keys(trip.supabaseTravelerMap)){
+    if(!currentTravelerIds.includes(mappedLocalId)){
+      await supabaseClient.from('travelers').delete().eq('id', trip.supabaseTravelerMap[mappedLocalId]);
+      delete trip.supabaseTravelerMap[mappedLocalId];
+    }
+  }
+
+  for(const day of trip.days){
+    if(day.supabaseId){
+      await supabaseClient.from('days').update({
+        label: day.label || '', day_tag: day.dayTag || '', rope_drop: day.ropeDrop || null, notes: day.notes || ''
+      }).eq('id', day.supabaseId);
+    } else {
+      const { data, error } = await supabaseClient.from('days').insert([{
+        trip_id: trip.supabaseId, label: day.label || '', day_tag: day.dayTag || '', rope_drop: day.ropeDrop || null, notes: day.notes || ''
+      }]).select().single();
+      if(error) throw error;
+      day.supabaseId = data.id;
+    }
+
+    for(const item of day.items){
+      const itemPayload = {
+        time: item.time || null, end_time: item.endTime || null, section: item.section || '',
+        type: item.type || '', name: item.name || '', is_main_plan: !!item.isMainPlan,
+        status: item.status || 'tentative', confirmation_number: item.confirmationNumber || '',
+        meal_service: item.mealService || '', meal_period: item.mealPeriod || '', notes: item.notes || ''
+      };
+      if(item.supabaseId){
+        await supabaseClient.from('items').update(itemPayload).eq('id', item.supabaseId);
+      } else {
+        const { data, error } = await supabaseClient.from('items').insert([{ ...itemPayload, day_id: day.supabaseId }]).select().single();
+        if(error) throw error;
+        item.supabaseId = data.id;
+      }
+
+      await supabaseClient.from('item_travelers').delete().eq('item_id', item.supabaseId);
+      const tagRows = (Array.isArray(item.travelerIds) ? item.travelerIds : [])
+        .map(localTid => trip.supabaseTravelerMap[localTid])
+        .filter(Boolean)
+        .map(supaTid => ({ item_id: item.supabaseId, traveler_id: supaTid }));
+      if(tagRows.length){
+        await supabaseClient.from('item_travelers').insert(tagRows);
+      }
+    }
+
+    const currentItemSupaIds = day.items.map(i => i.supabaseId).filter(Boolean);
+    const { data: existingItems } = await supabaseClient.from('items').select('id').eq('day_id', day.supabaseId);
+    for(const existing of (existingItems || [])){
+      if(!currentItemSupaIds.includes(existing.id)){
+        await supabaseClient.from('items').delete().eq('id', existing.id);
+      }
+    }
+  }
+
+  const currentDaySupaIds = trip.days.map(d => d.supabaseId).filter(Boolean);
+  const { data: existingDays } = await supabaseClient.from('days').select('id').eq('trip_id', trip.supabaseId);
+  for(const existing of (existingDays || [])){
+    if(!currentDaySupaIds.includes(existing.id)){
+      await supabaseClient.from('days').delete().eq('id', existing.id);
+    }
+  }
+}
+
+async function syncAllTripsToSupabase(){
+  for(const trip of appData.trips){
+    try{
+      await syncTripToSupabase(trip, appData.travelers);
+      console.log(`✓ Synced "${trip.title}" to Supabase.`);
+    }catch(err){
+      console.warn(`Supabase sync failed for "${trip.title}" (your local save was not affected):`, err);
+    }
+  }
+}
 const WEEKDAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -5397,7 +5508,12 @@ function renderResortsMasterEditor(){
   body.appendChild(addRow);
 }
 
-document.getElementById('saveBtn').onclick = () => {
+document.getElementById('saveBtn').onclick = async () => {
+  try{
+    await syncAllTripsToSupabase();
+  }catch(err){
+    console.warn('Supabase sync step had an issue (local save proceeding regardless):', err);
+  }
   const blob = new Blob([JSON.stringify(appData, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
