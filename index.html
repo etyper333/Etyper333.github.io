@@ -2379,7 +2379,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.18';
+const APP_VERSION = '1.19';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -2645,10 +2645,10 @@ async function fetchRemoteTripData(supabaseTripId){
   const tripRow = tripRows[0];
 
   const { data: travelerRows } = await supabaseClient.from('travelers').select('*').eq('trip_id', supabaseTripId);
-  const { data: dayRows } = await supabaseClient.from('days').select('*').eq('trip_id', supabaseTripId);
+  const { data: dayRows } = await supabaseClient.from('days').select('*').eq('trip_id', supabaseTripId).order('created_at', { ascending: true });
   const dayIds = dayRows.map(d => d.id);
   const { data: itemRows } = dayIds.length
-    ? await supabaseClient.from('items').select('*').in('day_id', dayIds)
+    ? await supabaseClient.from('items').select('*').in('day_id', dayIds).order('created_at', { ascending: true })
     : { data: [] };
   const itemIds = itemRows.map(i => i.id);
   const { data: tagRows } = itemIds.length
