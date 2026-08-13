@@ -244,6 +244,50 @@
     color:rgba(255,255,255,.5);
     padding:4px 0 2px;
   }
+  .share-link-wrap{
+    margin-top:14px;
+    padding-top:14px;
+    border-top:1px solid var(--line);
+  }
+  .share-link-label{
+    display:block;
+    font-size:12px;
+    font-weight:700;
+    color:var(--ink);
+    margin-bottom:6px;
+  }
+  .share-link-row{
+    display:flex;
+    gap:8px;
+  }
+  .share-link-input{
+    flex:1;
+    min-width:0;
+    font-family:'Inter',sans-serif;
+    font-size:12px;
+    padding:9px 10px;
+    border-radius:9px;
+    border:1.5px solid var(--line);
+    background:var(--cream);
+    color:var(--ink);
+  }
+  .share-link-copy-btn{
+    flex-shrink:0;
+    font-family:'Inter',sans-serif;
+    font-size:12.5px;
+    font-weight:700;
+    padding:0 14px;
+    border-radius:9px;
+    border:none;
+    background:var(--sky);
+    color:white;
+    cursor:pointer;
+  }
+  .share-link-note{
+    font-size:11.5px;
+    color:var(--slate);
+    margin:6px 0 0;
+  }
   .eyebrow{
     font-size:12px;
     letter-spacing:.14em;
@@ -2335,7 +2379,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.17';
+const APP_VERSION = '1.18';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -2590,6 +2634,170 @@ async function syncSingleTravelerUpdate(trip, travelerId){
   }catch(err){
     console.warn('Could not sync traveler update:', err);
     return { ok: true };
+  }
+}
+
+// --- Shared trip loading (trip-code links) ---
+async function fetchRemoteTripData(supabaseTripId){
+  const { data: tripRows, error: tripErr } = await supabaseClient.from('trips').select('*').eq('id', supabaseTripId);
+  if(tripErr) throw new Error('trips read failed: ' + tripErr.message);
+  if(!tripRows || tripRows.length === 0) throw new Error('Trip not found in Supabase.');
+  const tripRow = tripRows[0];
+
+  const { data: travelerRows } = await supabaseClient.from('travelers').select('*').eq('trip_id', supabaseTripId);
+  const { data: dayRows } = await supabaseClient.from('days').select('*').eq('trip_id', supabaseTripId);
+  const dayIds = dayRows.map(d => d.id);
+  const { data: itemRows } = dayIds.length
+    ? await supabaseClient.from('items').select('*').in('day_id', dayIds)
+    : { data: [] };
+  const itemIds = itemRows.map(i => i.id);
+  const { data: tagRows } = itemIds.length
+    ? await supabaseClient.from('item_travelers').select('*').in('item_id', itemIds)
+    : { data: [] };
+
+  return {
+    title: tripRow.title, dates: tripRow.dates || '', startDate: tripRow.start_date || '',
+    travelers: travelerRows.map(t => ({ supabaseId: t.id, name: t.name, color: t.color })),
+    days: dayRows.map(dayRow => ({
+      supabaseId: dayRow.id, label: dayRow.label || '', dayTag: dayRow.day_tag || '',
+      ropeDrop: dayRow.rope_drop || '', notes: dayRow.notes || '',
+      items: itemRows.filter(i => i.day_id === dayRow.id).map(itemRow => ({
+        supabaseId: itemRow.id, time: itemRow.time || '', endTime: itemRow.end_time || '',
+        section: itemRow.section || '', type: itemRow.type || '', name: itemRow.name || '',
+        isMainPlan: !!itemRow.is_main_plan, status: itemRow.status || 'tentative',
+        confirmationNumber: itemRow.confirmation_number || '', mealService: itemRow.meal_service || '',
+        mealPeriod: itemRow.meal_period || '', notes: itemRow.notes || '',
+        travelerSupaIds: tagRows.filter(t => t.item_id === itemRow.id).map(t => t.traveler_id)
+      }))
+    }))
+  };
+}
+
+// Merges fresh remote itinerary data into an EXISTING local trip, matching days/items/
+// travelers by their supabaseId so local ids (and things like which day is active) stay
+// stable across repeat visits. Local-only fields (stays, crowdLevels, packing, groceries)
+// are never touched here.
+function mergeRemoteIntoLocalTrip(localTrip, remoteData, allTravelers){
+  localTrip.title = remoteData.title;
+  localTrip.dates = remoteData.dates;
+  localTrip.startDate = remoteData.startDate;
+
+  if(!localTrip.supabaseTravelerMap) localTrip.supabaseTravelerMap = {};
+  const existingSupaToLocal = {};
+  Object.keys(localTrip.supabaseTravelerMap).forEach(localId => {
+    existingSupaToLocal[localTrip.supabaseTravelerMap[localId]] = localId;
+  });
+
+  const newTravelerIds = [];
+  remoteData.travelers.forEach(remoteT => {
+    let localId = existingSupaToLocal[remoteT.supabaseId];
+    if(localId){
+      const existingTraveler = allTravelers.find(t => t.id === localId);
+      if(existingTraveler){ existingTraveler.name = remoteT.name; existingTraveler.color = remoteT.color; }
+    } else {
+      localId = cryptoId();
+      allTravelers.push({ id: localId, name: remoteT.name, color: remoteT.color });
+      localTrip.supabaseTravelerMap[localId] = remoteT.supabaseId;
+    }
+    existingSupaToLocal[remoteT.supabaseId] = localId;
+    newTravelerIds.push(localId);
+  });
+  Object.keys(localTrip.supabaseTravelerMap).forEach(localId => {
+    if(!newTravelerIds.includes(localId)) delete localTrip.supabaseTravelerMap[localId];
+  });
+  localTrip.travelerIds = newTravelerIds;
+
+  const existingDaysBySupaId = {};
+  (localTrip.days || []).forEach(d => { if(d.supabaseId) existingDaysBySupaId[d.supabaseId] = d; });
+
+  localTrip.days = remoteData.days.map(remoteDay => {
+    let localDay = existingDaysBySupaId[remoteDay.supabaseId];
+    if(!localDay){
+      localDay = { id: cryptoId(), supabaseId: remoteDay.supabaseId, items: [] };
+    }
+    localDay.label = remoteDay.label;
+    localDay.dayTag = remoteDay.dayTag;
+    localDay.ropeDrop = remoteDay.ropeDrop;
+    localDay.notes = remoteDay.notes;
+
+    const existingItemsBySupaId = {};
+    (localDay.items || []).forEach(i => { if(i.supabaseId) existingItemsBySupaId[i.supabaseId] = i; });
+
+    localDay.items = remoteDay.items.map(remoteItem => {
+      let localItem = existingItemsBySupaId[remoteItem.supabaseId];
+      if(!localItem){
+        localItem = { id: cryptoId(), supabaseId: remoteItem.supabaseId };
+      }
+      localItem.time = remoteItem.time;
+      localItem.endTime = remoteItem.endTime;
+      localItem.section = remoteItem.section;
+      localItem.type = remoteItem.type;
+      localItem.name = remoteItem.name;
+      localItem.isMainPlan = remoteItem.isMainPlan;
+      localItem.status = remoteItem.status;
+      localItem.confirmationNumber = remoteItem.confirmationNumber;
+      localItem.mealService = remoteItem.mealService;
+      localItem.mealPeriod = remoteItem.mealPeriod;
+      localItem.notes = remoteItem.notes;
+      localItem.travelerIds = remoteItem.travelerSupaIds.map(supaTid => existingSupaToLocal[supaTid]).filter(Boolean);
+      return localItem;
+    });
+    return localDay;
+  });
+
+  return localTrip;
+}
+
+function getSharedTripMap(){
+  try{
+    return JSON.parse(localStorage.getItem('parkDaysSharedTripMap') || '{}');
+  }catch(err){
+    return {};
+  }
+}
+function saveSharedTripMap(map){
+  try{
+    localStorage.setItem('parkDaysSharedTripMap', JSON.stringify(map));
+  }catch(err){
+    console.warn('Could not remember this shared trip for next time:', err);
+  }
+}
+
+async function loadSharedTripFromUrlIfPresent(){
+  const params = new URLSearchParams(window.location.search);
+  const tripCode = params.get('trip');
+  if(!tripCode) return false;
+
+  try{
+    const remoteData = await fetchRemoteTripData(tripCode);
+    const sharedMap = getSharedTripMap();
+    const knownLocalTripId = sharedMap[tripCode];
+    let localTrip = knownLocalTripId ? appData.trips.find(t => t.id === knownLocalTripId) : null;
+
+    if(localTrip){
+      mergeRemoteIntoLocalTrip(localTrip, remoteData, appData.travelers);
+    } else {
+      localTrip = {
+        id: cryptoId(), supabaseId: tripCode,
+        title: remoteData.title, dates: remoteData.dates, startDate: remoteData.startDate,
+        travelerIds: [], supabaseTravelerMap: {},
+        stays: [], crowdLevels: {}, manualCrowdSlots: [],
+        packingCategories: [], packingItems: [], groceryItems: [],
+        days: []
+      };
+      mergeRemoteIntoLocalTrip(localTrip, remoteData, appData.travelers);
+      appData.trips.push(localTrip);
+      sharedMap[tripCode] = localTrip.id;
+      saveSharedTripMap(sharedMap);
+    }
+
+    appData.activeTripId = localTrip.id;
+    activeDayId = localTrip.days.length ? localTrip.days[0].id : null;
+    return true;
+  }catch(err){
+    console.warn('Could not load shared trip from link:', err);
+    alert('Could not load the shared trip — it may no longer exist, or there was a connection problem.');
+    return false;
   }
 }
 
@@ -5621,6 +5829,36 @@ function renderTripDetails(trip){
     printItineraryBtn.onclick = printItinerary;
     body.appendChild(printItineraryBtn);
 
+    if(trip.supabaseId){
+      const shareUrl = `${window.location.origin}${window.location.pathname}?trip=${trip.supabaseId}`;
+      const shareWrap = document.createElement('div');
+      shareWrap.className = 'share-link-wrap';
+      shareWrap.innerHTML = `
+        <label class="share-link-label">Share this trip</label>
+        <div class="share-link-row">
+          <input type="text" readonly value="${escapeHtml(shareUrl)}" class="share-link-input" />
+          <button type="button" class="share-link-copy-btn">Copy Link</button>
+        </div>
+        <p class="share-link-note">Anyone with this link can view and edit this trip — no account needed.</p>
+      `;
+      const copyBtn = shareWrap.querySelector('.share-link-copy-btn');
+      copyBtn.onclick = async () => {
+        try{
+          await navigator.clipboard.writeText(shareUrl);
+          copyBtn.textContent = '✓ Copied!';
+          setTimeout(() => { copyBtn.textContent = 'Copy Link'; }, 1500);
+        }catch(err){
+          alert('Could not copy automatically. Here is your link:\n\n' + shareUrl);
+        }
+      };
+      body.appendChild(shareWrap);
+    } else {
+      const note = document.createElement('p');
+      note.className = 'section-empty-note';
+      note.textContent = 'Save this trip at least once to get a shareable link.';
+      body.appendChild(note);
+    }
+
     if(trip.travelerIds.length > 0){
       const filterSummary = activeTravelerFilter.length === 0
         ? 'All Plans'
@@ -5878,15 +6116,18 @@ function printPackingList(){
   setTimeout(cleanup, 60000);
 }
 
-render();
-markSaved();
-setInterval(updateUnsavedIndicator, 3000);
-window.addEventListener('beforeunload', e => {
-  if(hasUnsavedChanges()){
-    e.preventDefault();
-    e.returnValue = '';
-  }
-});
+(async function initApp(){
+  await loadSharedTripFromUrlIfPresent();
+  render();
+  markSaved();
+  setInterval(updateUnsavedIndicator, 3000);
+  window.addEventListener('beforeunload', e => {
+    if(hasUnsavedChanges()){
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
+})();
 </script>
 </body>
 </html>
