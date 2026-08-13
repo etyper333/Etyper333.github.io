@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Supabase Connection Test</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  body{ font-family: -apple-system, sans-serif; padding: 24px; max-width: 640px; margin: 0 auto; line-height: 1.5; }
+  h1{ font-size: 20px; }
+  #status{ font-size: 16px; font-weight: 700; padding: 12px; border-radius: 8px; background: #eee; margin: 12px 0; }
+  #status.ok{ background: #d4f4dd; }
+  #status.fail{ background: #fbdada; }
+  pre{ background: #f5f5f5; padding: 12px; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; }
+</style>
+</head>
+<body>
+
+<h1>🧪 Supabase Connection Test</h1>
+<p>This page is completely separate from the real trip planner — it doesn't touch any real app data or logic. Its only job is proving the connection to Supabase actually works.</p>
+
+<div id="status">Connecting...</div>
+<div id="result"></div>
+
+<script>
+  const SUPABASE_URL = 'https://tiinlcgakvobajeaitsr.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_bns5qH6pn0P5aXAUdVCTYg__MijW9d3';
+
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  async function runTest(){
+    const statusEl = document.getElementById('status');
+    const resultEl = document.getElementById('result');
+
+    statusEl.textContent = 'Step 1: Trying to insert a test row into "trips"...';
+
+    const { data: insertData, error: insertError } = await supabaseClient
+      .from('trips')
+      .insert([{ title: 'Test Trip - Safe to Delete', dates: '', start_date: null }])
+      .select();
+
+    if(insertError){
+      statusEl.className = 'fail';
+      statusEl.textContent = '❌ Insert failed (this may be expected — see note below)';
+      resultEl.innerHTML = '<p><strong>Error details:</strong></p><pre>' + JSON.stringify(insertError, null, 2) + '</pre>' +
+        '<p>If this says something about "row-level security policy" or "permission denied" — that\'s actually expected right now! We enabled RLS on every table, which means nothing is allowed by default until we write specific rules saying what\'s allowed. This failure is the natural next thing to fix together, not a sign something is broken.</p>';
+      return;
+    }
+
+    statusEl.textContent = 'Step 2: Reading data back from "trips"...';
+
+    const { data: selectData, error: selectError } = await supabaseClient
+      .from('trips')
+      .select('*');
+
+    if(selectError){
+      statusEl.className = 'fail';
+      statusEl.textContent = '❌ Read failed';
+      resultEl.innerHTML = '<pre>' + JSON.stringify(selectError, null, 2) + '</pre>';
+      return;
+    }
+
+    statusEl.className = 'ok';
+    statusEl.textContent = '✅ Success! The app can talk to Supabase.';
+    resultEl.innerHTML = '<h3>Rows currently in your trips table:</h3><pre>' + JSON.stringify(selectData, null, 2) + '</pre>';
+  }
+
+  runTest();
+</script>
+
+</body>
+</html>
