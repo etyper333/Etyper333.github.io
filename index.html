@@ -388,6 +388,10 @@
     padding:0;
     margin-top:8px;
   }
+  .stay-card-remove:disabled{
+    opacity:.6;
+    cursor:default;
+  }
   .stay-warning{
     display:flex;
     align-items:flex-start;
@@ -2429,7 +2433,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.21';
+const APP_VERSION = '1.22';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -2462,6 +2466,15 @@ async function deleteTravelerFromSupabaseNow(trip, travelerId){
     delete trip.supabaseTravelerMap[travelerId];
   }catch(err){
     console.warn('Could not delete traveler from Supabase (may remain there until cleaned up):', err);
+  }
+}
+
+async function deleteStayFromSupabaseNow(stay){
+  if(!stay.supabaseId) return;
+  try{
+    await supabaseClient.from('stays').delete().eq('id', stay.supabaseId);
+  }catch(err){
+    console.warn('Could not delete stay from Supabase (it may remain there until cleaned up):', err);
   }
 }
 
@@ -2554,6 +2567,31 @@ async function syncTripToSupabase(trip, allTravelers){
   }
 
   trip.days = trip.days.filter(d => !d._deletedByOther);
+
+  if(Array.isArray(trip.stays)){
+    const dayLocalToSupa = {};
+    trip.days.forEach(d => { if(d.supabaseId) dayLocalToSupa[d.id] = d.supabaseId; });
+
+    for(const stay of trip.stays){
+      const stayPayload = {
+        hotel: stay.hotel || '', hotel_confirmation: stay.hotelConfirmation || '',
+        room_type: stay.roomType || '', room_type_other: stay.roomTypeOther || '',
+        start_day_id: stay.startDayId ? (dayLocalToSupa[stay.startDayId] || null) : null
+      };
+      if(stay.supabaseId){
+        const { data: updateResult } = await supabaseClient.from('stays').update(stayPayload).eq('id', stay.supabaseId).select();
+        if(!updateResult || updateResult.length === 0){
+          deletedByOthers.push({ type: 'stay', name: stay.hotel || 'a stay' });
+          stay._deletedByOther = true;
+        }
+      } else {
+        const { data, error } = await supabaseClient.from('stays').insert([{ ...stayPayload, trip_id: trip.supabaseId }]).select().single();
+        if(error) throw error;
+        stay.supabaseId = data.id;
+      }
+    }
+    trip.stays = trip.stays.filter(s => !s._deletedByOther);
+  }
 
   return deletedByOthers;
 }
@@ -2820,6 +2858,36 @@ async function syncSingleTravelerUpdate(trip, travelerId){
   }
 }
 
+async function syncSingleStayUpdate(stay, trip){
+  if(!stay.supabaseId) return { ok: true };
+  try{
+    const dayLocalToSupa = {};
+    trip.days.forEach(d => { if(d.supabaseId) dayLocalToSupa[d.id] = d.supabaseId; });
+    const stayPayload = {
+      hotel: stay.hotel || '', hotel_confirmation: stay.hotelConfirmation || '',
+      room_type: stay.roomType || '', room_type_other: stay.roomTypeOther || '',
+      start_day_id: stay.startDayId ? (dayLocalToSupa[stay.startDayId] || null) : null
+    };
+    const { data: updateResult } = await supabaseClient.from('stays').update(stayPayload).eq('id', stay.supabaseId).select();
+    if(!updateResult || updateResult.length === 0){
+      return { ok: false, type: 'stay', name: stay.hotel || 'this stay' };
+    }
+    return { ok: true };
+  }catch(err){
+    console.warn('Could not sync stay update:', err);
+    return { ok: true };
+  }
+}
+function handleStayFieldBlur(stay, trip){
+  syncSingleStayUpdate(stay, trip).then(result => {
+    if(!result.ok){
+      trip.stays = trip.stays.filter(s => s.id !== stay.id);
+      render();
+      showRemovedByOtherMessage(result);
+    }
+  });
+}
+
 // --- Shared trip loading (trip-code links) ---
 async function fetchRemoteTripData(supabaseTripId){
   const { data: tripRows, error: tripErr } = await supabaseClient.from('trips').select('*').eq('id', supabaseTripId);
@@ -2837,10 +2905,16 @@ async function fetchRemoteTripData(supabaseTripId){
   const { data: tagRows } = itemIds.length
     ? await supabaseClient.from('item_travelers').select('*').in('item_id', itemIds)
     : { data: [] };
+  const { data: stayRows } = await supabaseClient.from('stays').select('*').eq('trip_id', supabaseTripId).order('created_at', { ascending: true });
 
   return {
     title: tripRow.title, dates: tripRow.dates || '', startDate: tripRow.start_date || '',
     travelers: travelerRows.map(t => ({ supabaseId: t.id, name: t.name, color: t.color })),
+    stays: (stayRows || []).map(stayRow => ({
+      supabaseId: stayRow.id, hotel: stayRow.hotel || '', hotelConfirmation: stayRow.hotel_confirmation || '',
+      roomType: stayRow.room_type || '', roomTypeOther: stayRow.room_type_other || '',
+      startDaySupaId: stayRow.start_day_id || ''
+    })),
     days: dayRows.map(dayRow => ({
       supabaseId: dayRow.id, label: dayRow.label || '', dayTag: dayRow.day_tag || '',
       ropeDrop: dayRow.rope_drop || '', notes: dayRow.notes || '',
@@ -2927,6 +3001,27 @@ function mergeRemoteIntoLocalTrip(localTrip, remoteData, allTravelers){
     });
     return localDay;
   });
+
+  if(Array.isArray(remoteData.stays)){
+    const supaToLocalDay = {};
+    localTrip.days.forEach(d => { if(d.supabaseId) supaToLocalDay[d.supabaseId] = d.id; });
+
+    const existingStaysBySupaId = {};
+    (localTrip.stays || []).forEach(s => { if(s.supabaseId) existingStaysBySupaId[s.supabaseId] = s; });
+
+    localTrip.stays = remoteData.stays.map(remoteStay => {
+      let localStay = existingStaysBySupaId[remoteStay.supabaseId];
+      if(!localStay){
+        localStay = { id: cryptoId(), supabaseId: remoteStay.supabaseId };
+      }
+      localStay.hotel = remoteStay.hotel;
+      localStay.hotelConfirmation = remoteStay.hotelConfirmation;
+      localStay.roomType = remoteStay.roomType;
+      localStay.roomTypeOther = remoteStay.roomTypeOther;
+      localStay.startDayId = remoteStay.startDaySupaId ? (supaToLocalDay[remoteStay.startDaySupaId] || '') : '';
+      return localStay;
+    });
+  }
 
   return localTrip;
 }
@@ -5850,14 +5945,21 @@ function renderTripDetails(trip){
         <button type="button" class="stay-card-remove">Remove this stay</button>
       `;
       card.querySelector('[data-role="hotel"]').oninput = e => { stay.hotel = e.target.value; };
+      card.querySelector('[data-role="hotel"]').onblur = () => handleStayFieldBlur(stay, trip);
       card.querySelector('[data-role="hotelConfirmation"]').oninput = e => { stay.hotelConfirmation = e.target.value; };
-      card.querySelector('[data-role="startDayId"]').onchange = e => { stay.startDayId = e.target.value; render(); };
-      card.querySelector('[data-role="roomType"]').onchange = e => { stay.roomType = e.target.value; render(); };
+      card.querySelector('[data-role="hotelConfirmation"]').onblur = () => handleStayFieldBlur(stay, trip);
+      card.querySelector('[data-role="startDayId"]').onchange = e => { stay.startDayId = e.target.value; render(); handleStayFieldBlur(stay, trip); };
+      card.querySelector('[data-role="roomType"]').onchange = e => { stay.roomType = e.target.value; render(); handleStayFieldBlur(stay, trip); };
       const roomTypeOtherInput = card.querySelector('[data-role="roomTypeOther"]');
       if(roomTypeOtherInput){
         roomTypeOtherInput.oninput = e => { stay.roomTypeOther = e.target.value; };
+        roomTypeOtherInput.onblur = () => handleStayFieldBlur(stay, trip);
       }
-      card.querySelector('.stay-card-remove').onclick = () => {
+      card.querySelector('.stay-card-remove').onclick = async () => {
+        const removeBtn = card.querySelector('.stay-card-remove');
+        removeBtn.disabled = true;
+        removeBtn.textContent = 'Removing…';
+        await deleteStayFromSupabaseNow(stay);
         trip.stays = trip.stays.filter(s => s.id !== stay.id);
         render();
       };
