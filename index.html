@@ -388,6 +388,19 @@
     padding:0;
     margin-top:8px;
   }
+  .stay-warning{
+    display:flex;
+    align-items:flex-start;
+    gap:6px;
+    font-size:12px;
+    font-weight:600;
+    color:#8a5200;
+    background:#fff2d9;
+    border:1.5px solid #f2c26b;
+    border-radius:9px;
+    padding:8px 10px;
+    margin-bottom:10px;
+  }
   .add-stay-btn{
     display:block;
     width:100%;
@@ -2169,7 +2182,7 @@
     .manage-list-link, .dining-reminder-manage-link, .print-packing-btn,
     .master-editor-overlay, .theme-switch-btn, .add-trip-btn,
     .packing-intro, .category-toggle-row, .packing-add-row,
-    .who-toggle-link, .add-stay-btn, .stay-card-remove,
+    .who-toggle-link, .add-stay-btn, .stay-card-remove, .stay-warning,
     .crowd-remove-btn, .traveler-chip button, .compact-toggle-btn,
     .trip-subsection-overview, .trip-subsection-crowd, .trip-subsection-share,
     .dining-reservations-block,
@@ -2416,7 +2429,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.20';
+const APP_VERSION = '1.21';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5793,7 +5806,15 @@ function renderTripDetails(trip){
       const startDayIdx = trip.days.findIndex(d => d.id === stay.startDayId);
       const startDayLabel = startDayIdx !== -1 ? getDayDisplayLabel(trip, startDayIdx, trip.days[startDayIdx], true) : 'Not set';
       const roomTypeText = stay.roomType === 'Other' ? (stay.roomTypeOther || 'Other') : (stay.roomType || 'Not set');
+      const isLastDay = startDayIdx === trip.days.length - 1;
+      let stayWarning = '';
+      if(startDayIdx === -1){
+        stayWarning = "⚠️ This stay's start day no longer exists in your trip — please pick a new one.";
+      } else if(isLastDay && trip.days.length > 1){
+        stayWarning = "⚠️ This stay starts on the trip's last day, with no day after it — worth double-checking it's still accurate.";
+      }
       card.innerHTML = `
+        ${stayWarning ? `<div class="stay-warning">${escapeHtml(stayWarning)}</div>` : ''}
         <div class="day-info-row">
           <div class="day-info-field">
             <label>Hotel</label>
