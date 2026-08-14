@@ -448,6 +448,34 @@
   .traveler-color-option.selected{
     border:3px solid var(--ink);
   }
+  .conflict-field-block{
+    background:var(--paper);
+    border:1.5px solid var(--line);
+    border-radius:12px;
+    padding:12px;
+    margin-bottom:10px;
+  }
+  .conflict-field-label{
+    font-family:'Baloo 2',sans-serif;
+    font-size:14px;
+    font-weight:700;
+    color:var(--coral);
+    margin-bottom:8px;
+  }
+  .conflict-option{
+    display:flex;
+    align-items:flex-start;
+    gap:8px;
+    padding:6px 0;
+    font-size:13.5px;
+    color:var(--ink);
+    cursor:pointer;
+  }
+  .conflict-option input[type=radio]{
+    margin-top:3px;
+    accent-color:var(--coral);
+    flex-shrink:0;
+  }
   .timeline-block-dots{
     position:absolute;
     top:2px;right:3px;
@@ -2334,6 +2362,15 @@
   </div>
 </div>
 
+<div class="master-editor-overlay" id="conflictResolutionOverlay">
+  <div class="master-editor">
+    <h2>🤝 Same Item, Two Ideas</h2>
+    <p class="sub">Looks like you and someone else were both thinking about this at the same time. Here's what's different — pick which version should stick for each one.</p>
+    <div id="conflictResolutionBody"></div>
+    <button class="master-editor-close" id="conflictResolutionSaveBtn">Save My Choices</button>
+  </div>
+</div>
+
 <div class="master-editor-overlay" id="travelerColorOverlay">
   <div class="master-editor">
     <h2>Choose a Color</h2>
@@ -2379,7 +2416,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.19';
+const APP_VERSION = '1.20';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -2556,6 +2593,139 @@ function handleTripFieldBlur(trip){
       showRemovedByOtherMessage(result);
     }
   });
+}
+
+// --- Field-level conflict detection for item edits ---
+const CONFLICT_TRACKED_FIELDS = ['time','endTime','section','type','name','isMainPlan','status','confirmationNumber','mealService','mealPeriod','notes'];
+
+function resolveFieldChanges(baseline, submitted, current){
+  const conflicts = [];
+  const resolved = {};
+  CONFLICT_TRACKED_FIELDS.forEach(field => {
+    const userChanged = submitted[field] !== baseline[field];
+    const remoteChanged = current[field] !== baseline[field];
+    if(userChanged && remoteChanged && submitted[field] !== current[field]){
+      conflicts.push({ field, mine: submitted[field], theirs: current[field] });
+    } else if(userChanged){
+      resolved[field] = submitted[field];
+    } else if(remoteChanged){
+      resolved[field] = current[field];
+    } else {
+      resolved[field] = baseline[field];
+    }
+  });
+  return { conflicts, resolved };
+}
+
+function snapshotItemFields(item){
+  return {
+    time: item.time || '', endTime: item.endTime || '', section: item.section || '',
+    type: item.type || '', name: item.name || '', isMainPlan: !!item.isMainPlan,
+    status: item.status || 'tentative', confirmationNumber: item.confirmationNumber || '',
+    mealService: item.mealService || '', mealPeriod: item.mealPeriod || '', notes: item.notes || ''
+  };
+}
+
+// Called after "Save changes" on an item. Fetches the item's real current state,
+// compares against what the form started with and what's being submitted, and either
+// applies the merge automatically (no real conflict), routes to the existing
+// deleted-by-other handling (item's genuinely gone), or opens the resolution prompt.
+async function resolveAndCommitItemEdit(item, day, trip, submittedValues, editBaseline){
+  if(!item.supabaseId || !editBaseline){
+    Object.assign(item, submittedValues);
+    render();
+    await syncSingleItemUpdate(item, trip);
+    return;
+  }
+
+  let currentRow;
+  try{
+    const { data: currentRows, error } = await supabaseClient.from('items').select('*').eq('id', item.supabaseId);
+    if(error) throw error;
+    if(!currentRows || currentRows.length === 0){
+      day.items = day.items.filter(i => i.id !== item.id);
+      render();
+      showRemovedByOtherMessage({ ok: false, name: item.name || 'this item' });
+      return;
+    }
+    currentRow = currentRows[0];
+  }catch(err){
+    console.warn('Could not check for conflicts before saving (saving your edit as-is):', err);
+    Object.assign(item, submittedValues);
+    render();
+    await syncSingleItemUpdate(item, trip);
+    return;
+  }
+
+  const current = {
+    time: currentRow.time || '', endTime: currentRow.end_time || '', section: currentRow.section || '',
+    type: currentRow.type || '', name: currentRow.name || '', isMainPlan: !!currentRow.is_main_plan,
+    status: currentRow.status || 'tentative', confirmationNumber: currentRow.confirmation_number || '',
+    mealService: currentRow.meal_service || '', mealPeriod: currentRow.meal_period || '', notes: currentRow.notes || ''
+  };
+
+  const { conflicts, resolved } = resolveFieldChanges(editBaseline, submittedValues, current);
+
+  if(conflicts.length === 0){
+    Object.assign(item, resolved, { travelerIds: submittedValues.travelerIds });
+    render();
+    await syncSingleItemUpdate(item, trip);
+  } else {
+    openConflictResolutionModal(item, day, trip, resolved, conflicts, submittedValues);
+  }
+}
+
+const CONFLICT_FIELD_LABELS = {
+  time: 'Start time', endTime: 'End time', section: 'Time of day', type: 'Type',
+  name: 'Name', isMainPlan: 'Main Plan', status: 'Status', confirmationNumber: 'Confirmation #',
+  mealService: 'Meal service', mealPeriod: 'Meal', notes: 'Notes'
+};
+function formatConflictValue(field, value){
+  if(field === 'isMainPlan') return value ? 'Yes' : 'No';
+  if((field === 'time' || field === 'endTime') && value) return formatTime(value);
+  if(!value) return '(blank)';
+  return value;
+}
+
+function openConflictResolutionModal(item, day, trip, resolved, conflicts, submittedValues){
+  const body = document.getElementById('conflictResolutionBody');
+  body.innerHTML = '';
+  const choices = {}; // field -> 'mine' | 'theirs'
+
+  conflicts.forEach(conflict => {
+    choices[conflict.field] = 'mine';
+    const block = document.createElement('div');
+    block.className = 'conflict-field-block';
+    block.innerHTML = `
+      <div class="conflict-field-label">${CONFLICT_FIELD_LABELS[conflict.field] || conflict.field}</div>
+      <label class="conflict-option">
+        <input type="radio" name="conflict-${conflict.field}" value="mine" checked />
+        <span><strong>Yours:</strong> ${escapeHtml(String(formatConflictValue(conflict.field, conflict.mine)))}</span>
+      </label>
+      <label class="conflict-option">
+        <input type="radio" name="conflict-${conflict.field}" value="theirs" />
+        <span><strong>Theirs:</strong> ${escapeHtml(String(formatConflictValue(conflict.field, conflict.theirs)))}</span>
+      </label>
+    `;
+    block.querySelectorAll(`input[name="conflict-${conflict.field}"]`).forEach(input => {
+      input.onchange = e => { choices[conflict.field] = e.target.value; };
+    });
+    body.appendChild(block);
+  });
+
+  const saveBtn = document.getElementById('conflictResolutionSaveBtn');
+  saveBtn.onclick = async () => {
+    const finalValues = { ...resolved };
+    conflicts.forEach(conflict => {
+      finalValues[conflict.field] = choices[conflict.field] === 'theirs' ? conflict.theirs : conflict.mine;
+    });
+    Object.assign(item, finalValues, { travelerIds: submittedValues.travelerIds });
+    document.getElementById('conflictResolutionOverlay').classList.remove('active');
+    render();
+    await syncSingleItemUpdate(item, trip);
+  };
+
+  document.getElementById('conflictResolutionOverlay').classList.add('active');
 }
 
 async function syncSingleTripUpdate(trip){
@@ -4282,21 +4452,14 @@ function renderItemCard(day, item){
       ? Object.assign({}, item, { isMainPlan: true })
       : item;
     pendingMainPlanEdit.delete(item.id);
+    const editBaseline = snapshotItemFields(item);
     const form = buildItemFieldsForm(
       day,
       editInitial,
       'Save changes',
       (values) => {
-        Object.assign(item, values);
         editingItems.delete(item.id);
-        render();
-        syncSingleItemUpdate(item, getActiveTrip()).then(result => {
-          if(!result.ok){
-            day.items = day.items.filter(i => i.id !== item.id);
-            render();
-            showRemovedByOtherMessage(result);
-          }
-        });
+        resolveAndCommitItemEdit(item, day, getActiveTrip(), values, editBaseline);
       },
       () => {
         editingItems.delete(item.id);
@@ -4973,16 +5136,10 @@ document.getElementById('travelerColorCloseBtn').onclick = () => {
 function openItemEditModal(day, item){
   const body = document.getElementById('itemEditModalBody');
   body.innerHTML = '';
+  const editBaseline = snapshotItemFields(item);
   const form = buildItemFieldsForm(day, item, 'Save changes', (values) => {
-    Object.assign(item, values);
     closeItemEditModal();
-    syncSingleItemUpdate(item, getActiveTrip()).then(result => {
-      if(!result.ok){
-        day.items = day.items.filter(i => i.id !== item.id);
-        render();
-        showRemovedByOtherMessage(result);
-      }
-    });
+    resolveAndCommitItemEdit(item, day, getActiveTrip(), values, editBaseline);
   }, () => {
     closeItemEditModal();
   });
