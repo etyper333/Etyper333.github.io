@@ -2002,6 +2002,129 @@
     border-radius:18px 18px 0 0;
     padding:18px 16px 24px;
   }
+  .wizard-editor{
+    display:flex;
+    flex-direction:column;
+  }
+  .wizard-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:10px;
+  }
+  .wizard-progress{
+    font-size:12px;
+    font-weight:700;
+    color:var(--slate);
+    text-transform:uppercase;
+    letter-spacing:.04em;
+  }
+  .wizard-close-btn{
+    width:28px;height:28px;
+    border-radius:50%;
+    border:none;
+    background:rgba(0,0,0,.06);
+    color:var(--ink);
+    font-size:14px;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .wizard-step-title{
+    font-family:'Baloo 2',sans-serif;
+    font-size:21px;
+    font-weight:800;
+    color:var(--ink);
+    margin:6px 0 4px;
+  }
+  .wizard-step-sub{
+    font-size:13px;
+    color:var(--slate);
+    margin:0 0 16px;
+    line-height:1.4;
+  }
+  .wizard-skip-link{
+    display:block;
+    text-align:center;
+    font-size:12.5px;
+    color:var(--slate);
+    text-decoration:underline;
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding:0;
+    margin:14px 0 0;
+  }
+  .wizard-preview{
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--sky);
+    background:rgba(11,74,92,.08);
+    border-radius:9px;
+    padding:8px 10px;
+    margin-top:8px;
+  }
+  .wizard-footer{
+    display:flex;
+    gap:10px;
+    margin-top:20px;
+    padding-top:14px;
+    border-top:1px solid var(--line);
+  }
+  .wizard-back-btn{
+    flex:0 0 auto;
+    background:none;
+    border:1.5px solid var(--line);
+    color:var(--ink);
+    border-radius:9px;
+    padding:10px 16px;
+    font-weight:700;
+    font-size:13.5px;
+    cursor:pointer;
+  }
+  .wizard-next-btn{
+    flex:1;
+    background:var(--coral);
+    color:white;
+    border:none;
+    border-radius:9px;
+    padding:10px 16px;
+    font-weight:700;
+    font-size:13.5px;
+    cursor:pointer;
+  }
+  .wizard-share-row{
+    display:flex;
+    gap:8px;
+    margin-top:10px;
+  }
+  .wizard-share-input{
+    flex:1;
+    min-width:0;
+    font-family:'Inter',sans-serif;
+    font-size:12px;
+    padding:9px 10px;
+    border-radius:9px;
+    border:1.5px solid var(--line);
+    background:var(--paper);
+    color:var(--ink);
+  }
+  .wizard-share-copy-btn{
+    flex-shrink:0;
+    font-family:'Inter',sans-serif;
+    font-size:12.5px;
+    font-weight:700;
+    padding:0 14px;
+    border-radius:9px;
+    border:none;
+    background:var(--sky);
+    color:white;
+    cursor:pointer;
+  }
+  .wizard-note{
+    font-size:11.5px;
+    color:var(--slate);
+    margin:8px 0 0;
+  }
   .master-editor h2{
     font-size:19px;
     margin:0 0 4px;
@@ -2392,6 +2515,20 @@
   </div>
 </div>
 
+<div class="master-editor-overlay" id="wizardOverlay">
+  <div class="master-editor wizard-editor">
+    <div class="wizard-header">
+      <span class="wizard-progress" id="wizardProgress">Step 1 of 7</span>
+      <button type="button" class="wizard-close-btn" id="wizardCloseBtn" aria-label="Cancel">✕</button>
+    </div>
+    <div id="wizardBody"></div>
+    <div class="wizard-footer">
+      <button type="button" class="wizard-back-btn" id="wizardBackBtn">Back</button>
+      <button type="button" class="wizard-next-btn" id="wizardNextBtn">Next</button>
+    </div>
+  </div>
+</div>
+
 <div class="master-editor-overlay" id="travelerColorOverlay">
   <div class="master-editor">
     <h2>Choose a Color</h2>
@@ -2437,7 +2574,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.24';
+const APP_VERSION = '1.25';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -3332,7 +3469,7 @@ async function loadSharedTripFromUrlIfPresent(){
       localTrip = {
         id: cryptoId(), supabaseId: tripCode,
         title: remoteData.title, dates: remoteData.dates, startDate: remoteData.startDate,
-        travelerIds: [], supabaseTravelerMap: {},
+        travelerIds: [], supabaseTravelerMap: {}, notes: '',
         stays: [], crowdLevels: {}, manualCrowdSlots: [],
         packingCategories: [], packingItems: [], groceryItems: [],
         days: []
@@ -3953,6 +4090,7 @@ function defaultTrip(){
     dates: "",
     startDate: "",
     party: "",
+    notes: "",
     days: [ defaultDay(1) ],
     stays: [],
     travelerIds: [],
@@ -4145,7 +4283,7 @@ function renderTripSwitcher(){
   const addBtn = document.createElement('button');
   addBtn.className = 'add-trip-btn';
   addBtn.textContent = '+ New Trip';
-  addBtn.onclick = addTrip;
+  addBtn.onclick = openTripWizard;
   bar.appendChild(addBtn);
 
   const themeBtn = document.createElement('button');
@@ -4175,6 +4313,312 @@ function removeTrip(tripId){
   }
   render();
 }
+
+// --- Trip Creation Wizard ---
+let wizardStep = 0;
+let wizardTripId = null;
+
+function openTripWizard(){
+  const trip = defaultTrip();
+  appData.trips.push(trip);
+  wizardTripId = trip.id;
+  wizardStep = 1;
+  renderWizardCurrentStep();
+  document.getElementById('wizardOverlay').classList.add('active');
+}
+
+function getWizardTrip(){
+  return appData.trips.find(t => t.id === wizardTripId);
+}
+
+function closeTripWizard(){
+  const trip = getWizardTrip();
+  if(trip && trip.supabaseId){
+    // Already saved for real -- closing should finish, never discard real data
+    appData.activeTripId = wizardTripId;
+    activeDayId = trip.days[0].id;
+  } else {
+    if(!confirm('Discard this trip? Nothing has been saved yet.')) return;
+    appData.trips = appData.trips.filter(t => t.id !== wizardTripId);
+  }
+  wizardTripId = null;
+  wizardStep = 0;
+  document.getElementById('wizardOverlay').classList.remove('active');
+  render();
+}
+
+function wizardGoNext(){
+  if(wizardStep < 7){
+    wizardStep++;
+    renderWizardCurrentStep();
+  }
+}
+function wizardGoBack(){
+  if(wizardStep > 1){
+    wizardStep--;
+    renderWizardCurrentStep();
+  }
+}
+
+function renderWizardCurrentStep(){
+  const trip = getWizardTrip();
+  if(!trip) return;
+  const body = document.getElementById('wizardBody');
+  body.innerHTML = '';
+  const stepRenderers = [null, renderWizardStep1, renderWizardStep2, renderWizardStep3, renderWizardStep4, renderWizardStep5, renderWizardStep6, renderWizardStep7];
+  stepRenderers[wizardStep](body, trip);
+
+  document.getElementById('wizardProgress').textContent = `Step ${wizardStep} of 7`;
+  document.getElementById('wizardBackBtn').style.display = wizardStep > 1 ? '' : 'none';
+  document.getElementById('wizardNextBtn').style.display = wizardStep < 7 ? '' : 'none';
+
+  if(wizardStep === 4 || wizardStep === 6){
+    const skipLink = document.createElement('button');
+    skipLink.type = 'button';
+    skipLink.className = 'wizard-skip-link';
+    skipLink.textContent = 'Skip for now';
+    skipLink.onclick = wizardGoNext;
+    body.appendChild(skipLink);
+  }
+}
+
+function renderWizardStep1(body, trip){
+  const titleValue = trip.title === 'Our Disney World Trip' ? '' : trip.title;
+  body.innerHTML = `
+    <div class="wizard-step-title">Let's get this trip started</div>
+    <div class="wizard-step-sub">What should we call it? (Or skip it — "Our Disney World Trip" has a certain charm.)</div>
+    <div class="day-info-row">
+      <div class="day-info-field day-info-field-full">
+        <input type="text" data-role="wizTitle" placeholder="e.g. Labor Day Weekend" value="${escapeHtml(titleValue)}" />
+      </div>
+    </div>
+    <div class="wizard-step-sub" style="margin-top:18px;">First day of the trip — don't have it locked in yet? Skip ahead, we'll wait.</div>
+    <div class="day-info-row">
+      <div class="day-info-field day-info-field-full">
+        <input type="date" data-role="wizStartDate" value="${trip.startDate || ''}" />
+      </div>
+    </div>
+  `;
+  body.querySelector('[data-role="wizTitle"]').oninput = e => {
+    trip.title = e.target.value.trim() || 'Our Disney World Trip';
+  };
+  body.querySelector('[data-role="wizStartDate"]').onchange = e => { trip.startDate = e.target.value; };
+}
+
+function renderWizardStep2(body, trip){
+  const nights = Math.max(1, trip.days.length - 1);
+  body.innerHTML = `
+    <div class="wizard-step-title">How long are we here for?</div>
+    <div class="wizard-step-sub">Best guess is fine — days are easy to add or trim later.</div>
+    <div class="day-info-row">
+      <div class="day-info-field">
+        <label>Nights</label>
+        <input type="number" min="1" data-role="wizNights" value="${nights}" />
+      </div>
+    </div>
+    <div class="wizard-preview" id="wizardNightsPreview"></div>
+  `;
+  const nightsInput = body.querySelector('[data-role="wizNights"]');
+  const preview = body.querySelector('#wizardNightsPreview');
+  const updatePreview = () => {
+    const n = Math.max(1, parseInt(nightsInput.value, 10) || 1);
+    preview.textContent = `${n} night${n === 1 ? '' : 's'} → your trip will run Day 1 through Day ${n + 1}.`;
+  };
+  updatePreview();
+  nightsInput.addEventListener('input', updatePreview);
+  nightsInput.addEventListener('change', e => {
+    setTripLength(trip, parseInt(e.target.value, 10) || 1);
+    updatePreview();
+  });
+}
+
+function renderWizardStep3(body, trip){
+  body.innerHTML = `
+    <div class="wizard-step-title">Who's coming along?</div>
+    <div class="wizard-step-sub">Add everyone now, or just yourself for the moment — more people can hop in anytime.</div>
+    <div id="wizardTravelerChips" class="traveler-chip-row"></div>
+    <div class="packing-add-row" style="margin-top:10px;">
+      <input type="text" placeholder="Add a traveler by name" list="wizardTravelerSuggestions" data-role="wizTravelerInput" />
+      <datalist id="wizardTravelerSuggestions">${appData.travelers.map(t => `<option value="${escapeHtml(t.name)}"></option>`).join('')}</datalist>
+      <button type="button" data-role="wizTravelerAddBtn">Add</button>
+    </div>
+  `;
+  const renderChips = () => {
+    const chipsWrap = body.querySelector('#wizardTravelerChips');
+    chipsWrap.innerHTML = '';
+    trip.travelerIds.forEach(tid => {
+      const name = getTravelerName(tid);
+      if(!name) return;
+      const chip = document.createElement('span');
+      chip.className = 'traveler-chip';
+      chip.innerHTML = `${escapeHtml(name)} <button type="button" aria-label="Remove ${escapeHtml(name)}">×</button>`;
+      chip.querySelector('button').onclick = () => {
+        trip.travelerIds = trip.travelerIds.filter(id => id !== tid);
+        renderChips();
+      };
+      chipsWrap.appendChild(chip);
+    });
+  };
+  renderChips();
+  const input = body.querySelector('[data-role="wizTravelerInput"]');
+  const submit = () => {
+    const name = input.value.trim();
+    if(!name) return;
+    const id = getOrCreateTraveler(name);
+    if(id && !trip.travelerIds.includes(id)) trip.travelerIds.push(id);
+    input.value = '';
+    renderChips();
+  };
+  body.querySelector('[data-role="wizTravelerAddBtn"]').onclick = submit;
+  input.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); submit(); } });
+}
+
+function renderWizardStep4(body, trip){
+  body.innerHTML = `
+    <div class="wizard-step-title">Know where you're sleeping yet?</div>
+    <div class="wizard-step-sub">Totally fine if not — hotels have a way of sorting themselves out eventually. Add it now, or take care of it later in Trip Details.</div>
+    <div id="wizardStaysBody"></div>
+  `;
+  const renderStays = () => {
+    const staysBody = body.querySelector('#wizardStaysBody');
+    staysBody.innerHTML = '';
+    trip.stays.forEach(stay => {
+      const row = document.createElement('div');
+      row.className = 'day-info-row';
+      row.innerHTML = `
+        <div class="day-info-field day-info-field-full">
+          <label>Hotel</label>
+          <input type="text" placeholder="e.g. Pop Century" value="${escapeHtml(stay.hotel || '')}" data-role="wizHotel" />
+        </div>
+      `;
+      row.querySelector('[data-role="wizHotel"]').oninput = e => { stay.hotel = e.target.value; };
+      staysBody.appendChild(row);
+    });
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'add-stay-btn';
+    addBtn.textContent = trip.stays.length ? '+ Add another stay' : '+ Add a stay';
+    addBtn.onclick = () => {
+      trip.stays.push({ id: cryptoId(), hotel: '', hotelConfirmation: '', roomType: '', roomTypeOther: '', startDayId: trip.days[0].id });
+      renderStays();
+    };
+    staysBody.appendChild(addBtn);
+  };
+  renderStays();
+}
+
+function renderWizardStep5(body, trip){
+  body.innerHTML = `
+    <div class="wizard-step-title">Pick your vibe</div>
+    <div class="wizard-step-sub">Purely cosmetic, deeply important. Change your mind anytime.</div>
+    <div id="wizardThemeGrid" class="theme-card-grid"></div>
+  `;
+  const renderThemes = () => {
+    const grid = body.querySelector('#wizardThemeGrid');
+    grid.innerHTML = '';
+    THEMES.forEach(theme => {
+      const isActive = (appData.theme || 'green') === theme.key;
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'theme-card' + (isActive ? ' active' : '');
+      card.innerHTML = `
+        <span class="swatch-set">
+          ${theme.swatches.map(c => `<span class="swatch" style="background:${c}"></span>`).join('')}
+        </span>
+        <span class="theme-name">${theme.label}</span>
+        ${isActive ? '<span class="theme-check">✓</span>' : ''}
+      `;
+      card.onclick = () => {
+        appData.theme = theme.key;
+        document.documentElement.setAttribute('data-theme', appData.theme);
+        renderThemes();
+      };
+      grid.appendChild(card);
+    });
+  };
+  renderThemes();
+}
+
+function renderWizardStep6(body, trip){
+  body.innerHTML = `
+    <div class="wizard-step-title">Anything on your mind?</div>
+    <div class="wizard-step-sub">Loose thoughts, budget worries, "do not forget the stroller" — dump it here. We'll turn it into a real plan later.</div>
+    <div class="day-info-row">
+      <div class="day-info-field day-info-field-full">
+        <textarea data-role="wizNotes" placeholder="Notes for this trip..." style="min-height:100px;width:100%;font-family:'Inter',sans-serif;font-size:13.5px;padding:9px 10px;border-radius:9px;border:1.5px solid var(--line);">${escapeHtml(trip.notes || '')}</textarea>
+      </div>
+    </div>
+  `;
+  body.querySelector('[data-role="wizNotes"]').oninput = e => { trip.notes = e.target.value; };
+}
+
+function renderWizardStep7(body, trip){
+  body.innerHTML = `
+    <div class="wizard-step-title">Ready when you are</div>
+    <div class="wizard-step-sub">Hit save, and "${escapeHtml(trip.title)}" becomes official — with a link you can send to your crew.</div>
+    <div id="wizardSaveArea"></div>
+  `;
+  renderWizardSaveArea(body, trip);
+}
+
+function renderWizardSaveArea(body, trip){
+  const area = body.querySelector('#wizardSaveArea');
+  if(trip.supabaseId){
+    const shareUrl = `${window.location.origin}${window.location.pathname}?trip=${trip.supabaseId}`;
+    area.innerHTML = `
+      <div class="wizard-step-title" style="font-size:17px;">🎉 You're official!</div>
+      <div class="wizard-step-sub">"${escapeHtml(trip.title)}" is created and ready to go. Save this link somewhere you'll actually look, or send it straight to your crew.</div>
+      <div class="wizard-share-row">
+        <input type="text" readonly value="${escapeHtml(shareUrl)}" class="wizard-share-input" />
+        <button type="button" class="wizard-share-copy-btn" id="wizardCopyLinkBtn">Copy Link</button>
+      </div>
+      <p class="wizard-note">Anyone with this link can view and edit the trip — no login required.</p>
+      <button type="button" class="wizard-next-btn" id="wizardFinishBtn" style="width:100%;margin-top:16px;">Start Planning!</button>
+    `;
+    area.querySelector('#wizardCopyLinkBtn').onclick = async () => {
+      const btn = area.querySelector('#wizardCopyLinkBtn');
+      try{
+        await navigator.clipboard.writeText(shareUrl);
+        btn.textContent = '✓ Copied!';
+        setTimeout(() => { btn.textContent = 'Copy Link'; }, 1500);
+      }catch(err){
+        alert('Could not copy automatically. Here is your link:\n\n' + shareUrl);
+      }
+    };
+    area.querySelector('#wizardFinishBtn').onclick = () => closeTripWizard();
+  } else {
+    area.innerHTML = `<button type="button" class="wizard-next-btn" id="wizardSaveBtn" style="width:100%;">Save this Trip</button>`;
+    area.querySelector('#wizardSaveBtn').onclick = async () => {
+      const btn = area.querySelector('#wizardSaveBtn');
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+      let deletedByOthers = [];
+      try{
+        deletedByOthers = await syncAllTripsToSupabase();
+      }catch(err){
+        console.warn('Supabase sync step had an issue (local save proceeding regardless):', err);
+      }
+      const blob = new Blob([JSON.stringify(appData, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `park-days-trips.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      markSaved();
+      document.getElementById('wizardBackBtn').style.display = 'none';
+      renderWizardSaveArea(body, trip);
+      if(deletedByOthers.length){
+        const names = deletedByOthers.map(d => `"${d.name}"`).join(', ');
+        alert(`Heads up: some things were removed by someone else since you last looked: ${names}`);
+      }
+    };
+  }
+}
+
+document.getElementById('wizardNextBtn').onclick = wizardGoNext;
+document.getElementById('wizardBackBtn').onclick = wizardGoBack;
+document.getElementById('wizardCloseBtn').onclick = () => closeTripWizard();
 
 function renderTravelerFilterRow(trip){
   const wrap = document.getElementById('travelerFilterWrap');
@@ -6649,6 +7093,7 @@ document.getElementById('loadInput').addEventListener('change', e => {
           trip.crowdLevels = {};
         }
         if(!Array.isArray(trip.manualCrowdSlots)) trip.manualCrowdSlots = [];
+        if(trip.notes === undefined) trip.notes = '';
         migrateDayHotelsToStays(trip);
         migrateDayCrowdLevelsToTrip(trip);
         migrateDayParksToMainPlanItems(trip);
