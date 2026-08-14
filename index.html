@@ -1824,6 +1824,10 @@
     text-decoration:underline;
     flex-shrink:0;
   }
+  .packing-item-inner .del-item:disabled{
+    opacity:.6;
+    cursor:default;
+  }
   .packing-add-row{
     display:flex;
     flex-wrap:wrap;
@@ -2433,7 +2437,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.22';
+const APP_VERSION = '1.24';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -2475,6 +2479,94 @@ async function deleteStayFromSupabaseNow(stay){
     await supabaseClient.from('stays').delete().eq('id', stay.supabaseId);
   }catch(err){
     console.warn('Could not delete stay from Supabase (it may remain there until cleaned up):', err);
+  }
+}
+
+async function deleteCrowdLevelFromSupabaseNow(trip, dayId, park){
+  const key = dayId + ':' + park;
+  const supaId = trip.supabaseCrowdMap && trip.supabaseCrowdMap[key];
+  if(!supaId) return;
+  try{
+    await supabaseClient.from('crowd_levels').delete().eq('id', supaId);
+    delete trip.supabaseCrowdMap[key];
+  }catch(err){
+    console.warn('Could not delete crowd level from Supabase (it may remain there until cleaned up):', err);
+  }
+}
+
+// Packing/grocery items may be custom (their own name/category) or a reference to the
+// local, never-synced catalog. Either way, syncing needs the actual resolved name and
+// category, since the remote side has no knowledge of the catalog at all.
+function resolvePackingItemForSync(item){
+  if(item.custom){
+    return { name: item.name || '', category: item.category || '' };
+  }
+  const masterItem = appData.packingMaster.find(m => m.id === item.itemId);
+  return { name: masterItem ? masterItem.name : '', category: masterItem ? masterItem.category : '' };
+}
+function resolveGroceryItemForSync(item){
+  if(item.custom){
+    return { name: item.name || '', category: item.category || '' };
+  }
+  const masterItem = appData.groceryMaster.find(m => m.id === item.itemId);
+  return { name: masterItem ? masterItem.name : '', category: masterItem ? masterItem.category : '' };
+}
+
+async function deletePackingItemFromSupabaseNow(trip, item){
+  const supaId = trip.supabasePackingMap && trip.supabasePackingMap[item.id];
+  if(!supaId) return;
+  try{
+    await supabaseClient.from('packing_items').delete().eq('id', supaId);
+    delete trip.supabasePackingMap[item.id];
+  }catch(err){
+    console.warn('Could not delete packing item from Supabase (it may remain there until cleaned up):', err);
+  }
+}
+async function deleteGroceryItemFromSupabaseNow(trip, item){
+  const supaId = trip.supabaseGroceryMap && trip.supabaseGroceryMap[item.id];
+  if(!supaId) return;
+  try{
+    await supabaseClient.from('grocery_items').delete().eq('id', supaId);
+    delete trip.supabaseGroceryMap[item.id];
+  }catch(err){
+    console.warn('Could not delete grocery item from Supabase (it may remain there until cleaned up):', err);
+  }
+}
+
+async function syncSinglePackingItemUpdate(trip, item){
+  if(!trip.supabaseId) return { ok: true };
+  const supaId = trip.supabasePackingMap && trip.supabasePackingMap[item.id];
+  if(!supaId) return { ok: true };
+  try{
+    const resolved = resolvePackingItemForSync(item);
+    const payload = { name: resolved.name, category: resolved.category, checked: !!item.checked };
+    const { data: updateResult } = await supabaseClient.from('packing_items').update(payload).eq('id', supaId).select();
+    if(!updateResult || updateResult.length === 0){
+      delete trip.supabasePackingMap[item.id];
+      return { ok: false, type: 'packing item', name: resolved.name || 'this packing item' };
+    }
+    return { ok: true };
+  }catch(err){
+    console.warn('Could not sync packing item update:', err);
+    return { ok: true };
+  }
+}
+async function syncSingleGroceryItemUpdate(trip, item){
+  if(!trip.supabaseId) return { ok: true };
+  const supaId = trip.supabaseGroceryMap && trip.supabaseGroceryMap[item.id];
+  if(!supaId) return { ok: true };
+  try{
+    const resolved = resolveGroceryItemForSync(item);
+    const payload = { name: resolved.name, category: resolved.category, checked: !!item.checked, channel: item.channel || 'pack' };
+    const { data: updateResult } = await supabaseClient.from('grocery_items').update(payload).eq('id', supaId).select();
+    if(!updateResult || updateResult.length === 0){
+      delete trip.supabaseGroceryMap[item.id];
+      return { ok: false, type: 'grocery item', name: resolved.name || 'this grocery item' };
+    }
+    return { ok: true };
+  }catch(err){
+    console.warn('Could not sync grocery item update:', err);
+    return { ok: true };
   }
 }
 
@@ -2592,6 +2684,81 @@ async function syncTripToSupabase(trip, allTravelers){
     }
     trip.stays = trip.stays.filter(s => !s._deletedByOther);
   }
+
+  if(!trip.supabaseCrowdMap) trip.supabaseCrowdMap = {};
+  const crowdPairs = new Map();
+  Object.keys(trip.crowdLevels || {}).forEach(key => {
+    const sepIdx = key.indexOf(':');
+    crowdPairs.set(key, { dayId: key.slice(0, sepIdx), park: key.slice(sepIdx + 1), level: trip.crowdLevels[key] });
+  });
+  (trip.manualCrowdSlots || []).forEach(slot => {
+    const key = crowdKey(slot.dayId, slot.park);
+    if(!crowdPairs.has(key)){
+      crowdPairs.set(key, { dayId: slot.dayId, park: slot.park, level: '' });
+    }
+  });
+  const dayLocalToSupaForCrowd = {};
+  trip.days.forEach(d => { if(d.supabaseId) dayLocalToSupaForCrowd[d.id] = d.supabaseId; });
+
+  for(const [key, pair] of crowdPairs){
+    const supaDayId = dayLocalToSupaForCrowd[pair.dayId];
+    if(!supaDayId) continue;
+    const crowdPayload = { day_id: supaDayId, park: pair.park, level: pair.level || null };
+    const existingSupaId = trip.supabaseCrowdMap[key];
+    if(existingSupaId){
+      const { data: updateResult } = await supabaseClient.from('crowd_levels').update(crowdPayload).eq('id', existingSupaId).select();
+      if(!updateResult || updateResult.length === 0){
+        deletedByOthers.push({ type: 'crowd level', name: pair.park + ' crowd level' });
+        delete trip.supabaseCrowdMap[key];
+        if(trip.crowdLevels) delete trip.crowdLevels[key];
+        trip.manualCrowdSlots = (trip.manualCrowdSlots || []).filter(s => crowdKey(s.dayId, s.park) !== key);
+      }
+    } else {
+      const { data, error } = await supabaseClient.from('crowd_levels').insert([{ ...crowdPayload, trip_id: trip.supabaseId }]).select().single();
+      if(error) throw error;
+      trip.supabaseCrowdMap[key] = data.id;
+    }
+  }
+
+  if(!trip.supabasePackingMap) trip.supabasePackingMap = {};
+  for(const item of (trip.packingItems || [])){
+    const resolved = resolvePackingItemForSync(item);
+    const payload = { name: resolved.name, category: resolved.category, checked: !!item.checked };
+    const existingSupaId = trip.supabasePackingMap[item.id];
+    if(existingSupaId){
+      const { data: updateResult } = await supabaseClient.from('packing_items').update(payload).eq('id', existingSupaId).select();
+      if(!updateResult || updateResult.length === 0){
+        deletedByOthers.push({ type: 'packing item', name: resolved.name || 'a packing item' });
+        delete trip.supabasePackingMap[item.id];
+        item._deletedByOther = true;
+      }
+    } else {
+      const { data, error } = await supabaseClient.from('packing_items').insert([{ ...payload, trip_id: trip.supabaseId }]).select().single();
+      if(error) throw error;
+      trip.supabasePackingMap[item.id] = data.id;
+    }
+  }
+  trip.packingItems = (trip.packingItems || []).filter(i => !i._deletedByOther);
+
+  if(!trip.supabaseGroceryMap) trip.supabaseGroceryMap = {};
+  for(const item of (trip.groceryItems || [])){
+    const resolved = resolveGroceryItemForSync(item);
+    const payload = { name: resolved.name, category: resolved.category, checked: !!item.checked, channel: item.channel || 'pack' };
+    const existingSupaId = trip.supabaseGroceryMap[item.id];
+    if(existingSupaId){
+      const { data: updateResult } = await supabaseClient.from('grocery_items').update(payload).eq('id', existingSupaId).select();
+      if(!updateResult || updateResult.length === 0){
+        deletedByOthers.push({ type: 'grocery item', name: resolved.name || 'a grocery item' });
+        delete trip.supabaseGroceryMap[item.id];
+        item._deletedByOther = true;
+      }
+    } else {
+      const { data, error } = await supabaseClient.from('grocery_items').insert([{ ...payload, trip_id: trip.supabaseId }]).select().single();
+      if(error) throw error;
+      trip.supabaseGroceryMap[item.id] = data.id;
+    }
+  }
+  trip.groceryItems = (trip.groceryItems || []).filter(i => !i._deletedByOther);
 
   return deletedByOthers;
 }
@@ -2888,6 +3055,35 @@ function handleStayFieldBlur(stay, trip){
   });
 }
 
+async function syncSingleCrowdLevelUpdate(trip, dayId, park, level){
+  if(!trip.supabaseId) return { ok: true };
+  const key = dayId + ':' + park;
+  if(!trip.supabaseCrowdMap) trip.supabaseCrowdMap = {};
+  try{
+    const dayLocalToSupa = {};
+    trip.days.forEach(d => { if(d.supabaseId) dayLocalToSupa[d.id] = d.supabaseId; });
+    const supaDayId = dayLocalToSupa[dayId];
+    if(!supaDayId) return { ok: true };
+    const payload = { day_id: supaDayId, park, level: level || null };
+    const existingSupaId = trip.supabaseCrowdMap[key];
+    if(existingSupaId){
+      const { data: updateResult } = await supabaseClient.from('crowd_levels').update(payload).eq('id', existingSupaId).select();
+      if(!updateResult || updateResult.length === 0){
+        delete trip.supabaseCrowdMap[key];
+        return { ok: false, type: 'crowd level', name: park + ' crowd level' };
+      }
+    } else {
+      const { data, error } = await supabaseClient.from('crowd_levels').insert([{ ...payload, trip_id: trip.supabaseId }]).select().single();
+      if(error) throw error;
+      trip.supabaseCrowdMap[key] = data.id;
+    }
+    return { ok: true };
+  }catch(err){
+    console.warn('Could not sync crowd level update:', err);
+    return { ok: true };
+  }
+}
+
 // --- Shared trip loading (trip-code links) ---
 async function fetchRemoteTripData(supabaseTripId){
   const { data: tripRows, error: tripErr } = await supabaseClient.from('trips').select('*').eq('id', supabaseTripId);
@@ -2906,14 +3102,22 @@ async function fetchRemoteTripData(supabaseTripId){
     ? await supabaseClient.from('item_travelers').select('*').in('item_id', itemIds)
     : { data: [] };
   const { data: stayRows } = await supabaseClient.from('stays').select('*').eq('trip_id', supabaseTripId).order('created_at', { ascending: true });
+  const { data: crowdRows } = await supabaseClient.from('crowd_levels').select('*').eq('trip_id', supabaseTripId);
+  const { data: packingRows } = await supabaseClient.from('packing_items').select('*').eq('trip_id', supabaseTripId).order('created_at', { ascending: true });
+  const { data: groceryRows } = await supabaseClient.from('grocery_items').select('*').eq('trip_id', supabaseTripId).order('created_at', { ascending: true });
 
   return {
     title: tripRow.title, dates: tripRow.dates || '', startDate: tripRow.start_date || '',
     travelers: travelerRows.map(t => ({ supabaseId: t.id, name: t.name, color: t.color })),
+    packingItems: (packingRows || []).map(row => ({ supabaseId: row.id, name: row.name || '', category: row.category || '', checked: !!row.checked })),
+    groceryItems: (groceryRows || []).map(row => ({ supabaseId: row.id, name: row.name || '', category: row.category || '', checked: !!row.checked, channel: row.channel || 'pack' })),
     stays: (stayRows || []).map(stayRow => ({
       supabaseId: stayRow.id, hotel: stayRow.hotel || '', hotelConfirmation: stayRow.hotel_confirmation || '',
       roomType: stayRow.room_type || '', roomTypeOther: stayRow.room_type_other || '',
       startDaySupaId: stayRow.start_day_id || ''
+    })),
+    crowdLevels: (crowdRows || []).map(row => ({
+      supabaseId: row.id, daySupaId: row.day_id, park: row.park || '', level: row.level || ''
     })),
     days: dayRows.map(dayRow => ({
       supabaseId: dayRow.id, label: dayRow.label || '', dayTag: dayRow.day_tag || '',
@@ -3020,6 +3224,76 @@ function mergeRemoteIntoLocalTrip(localTrip, remoteData, allTravelers){
       localStay.roomTypeOther = remoteStay.roomTypeOther;
       localStay.startDayId = remoteStay.startDaySupaId ? (supaToLocalDay[remoteStay.startDaySupaId] || '') : '';
       return localStay;
+    });
+  }
+
+  if(Array.isArray(remoteData.crowdLevels)){
+    const supaToLocalDayForCrowd = {};
+    localTrip.days.forEach(d => { if(d.supabaseId) supaToLocalDayForCrowd[d.supabaseId] = d.id; });
+
+    if(!localTrip.crowdLevels) localTrip.crowdLevels = {};
+    if(!localTrip.supabaseCrowdMap) localTrip.supabaseCrowdMap = {};
+    if(!Array.isArray(localTrip.manualCrowdSlots)) localTrip.manualCrowdSlots = [];
+
+    const remoteSupaIds = new Set(remoteData.crowdLevels.map(c => c.supabaseId));
+    Object.keys(localTrip.supabaseCrowdMap).forEach(key => {
+      if(!remoteSupaIds.has(localTrip.supabaseCrowdMap[key])){
+        delete localTrip.supabaseCrowdMap[key];
+        delete localTrip.crowdLevels[key];
+        localTrip.manualCrowdSlots = localTrip.manualCrowdSlots.filter(s => (s.dayId + ':' + s.park) !== key);
+      }
+    });
+
+    remoteData.crowdLevels.forEach(remoteCrowd => {
+      const localDayId = supaToLocalDayForCrowd[remoteCrowd.daySupaId];
+      if(!localDayId) return;
+      const key = localDayId + ':' + remoteCrowd.park;
+      localTrip.supabaseCrowdMap[key] = remoteCrowd.supabaseId;
+      if(remoteCrowd.level){
+        localTrip.crowdLevels[key] = remoteCrowd.level;
+      } else {
+        delete localTrip.crowdLevels[key];
+        if(!localTrip.manualCrowdSlots.some(s => (s.dayId + ':' + s.park) === key)){
+          localTrip.manualCrowdSlots.push({ dayId: localDayId, park: remoteCrowd.park });
+        }
+      }
+    });
+  }
+
+  if(Array.isArray(remoteData.packingItems)){
+    const existingPackingBySupaId = {};
+    (localTrip.packingItems || []).forEach(i => { if(i.supabaseId) existingPackingBySupaId[i.supabaseId] = i; });
+    if(!localTrip.supabasePackingMap) localTrip.supabasePackingMap = {};
+
+    localTrip.packingItems = remoteData.packingItems.map(remoteItem => {
+      let localItem = existingPackingBySupaId[remoteItem.supabaseId];
+      if(!localItem){
+        localItem = { id: cryptoId(), supabaseId: remoteItem.supabaseId, custom: true };
+      }
+      localItem.name = remoteItem.name;
+      localItem.category = remoteItem.category;
+      localItem.checked = remoteItem.checked;
+      localTrip.supabasePackingMap[localItem.id] = remoteItem.supabaseId;
+      return localItem;
+    });
+  }
+
+  if(Array.isArray(remoteData.groceryItems)){
+    const existingGroceryBySupaId = {};
+    (localTrip.groceryItems || []).forEach(i => { if(i.supabaseId) existingGroceryBySupaId[i.supabaseId] = i; });
+    if(!localTrip.supabaseGroceryMap) localTrip.supabaseGroceryMap = {};
+
+    localTrip.groceryItems = remoteData.groceryItems.map(remoteItem => {
+      let localItem = existingGroceryBySupaId[remoteItem.supabaseId];
+      if(!localItem){
+        localItem = { id: cryptoId(), supabaseId: remoteItem.supabaseId, custom: true };
+      }
+      localItem.name = remoteItem.name;
+      localItem.category = remoteItem.category;
+      localItem.checked = remoteItem.checked;
+      localItem.channel = remoteItem.channel;
+      localTrip.supabaseGroceryMap[localItem.id] = remoteItem.supabaseId;
+      return localItem;
     });
   }
 
@@ -5181,9 +5455,23 @@ function renderPackingItemRow(trip, name, row, isCustom, essential){
       </div>
     </div>
   `;
-  el.querySelector('input').onchange = () => { row.checked = !row.checked; render(); };
+  el.querySelector('input').onchange = () => {
+    row.checked = !row.checked;
+    render();
+    syncSinglePackingItemUpdate(trip, row).then(result => {
+      if(!result.ok){
+        trip.packingItems = trip.packingItems.filter(pi => pi.id !== row.id);
+        render();
+        showRemovedByOtherMessage(result);
+      }
+    });
+  };
   if(canRemove){
-    el.querySelector('.del-item').onclick = () => {
+    el.querySelector('.del-item').onclick = async () => {
+      const delBtn = el.querySelector('.del-item');
+      delBtn.disabled = true;
+      delBtn.textContent = 'Removing…';
+      await deletePackingItemFromSupabaseNow(trip, row);
       if(isCustom){
         trip.packingItems = trip.packingItems.filter(pi => pi !== row);
       } else {
@@ -5612,8 +5900,22 @@ function renderGroceryItemRow(trip, name, gi){
       </div>
     </div>
   `;
-  el.querySelector('input').onchange = () => { gi.checked = !gi.checked; render(); };
-  el.querySelector('.del-item').onclick = () => {
+  el.querySelector('input').onchange = () => {
+    gi.checked = !gi.checked;
+    render();
+    syncSingleGroceryItemUpdate(trip, gi).then(result => {
+      if(!result.ok){
+        trip.groceryItems = trip.groceryItems.filter(x => x.id !== gi.id);
+        render();
+        showRemovedByOtherMessage(result);
+      }
+    });
+  };
+  el.querySelector('.del-item').onclick = async () => {
+    const delBtn = el.querySelector('.del-item');
+    delBtn.disabled = true;
+    delBtn.textContent = 'Removing…';
+    await deleteGroceryItemFromSupabaseNow(trip, gi);
     removeGroceryPackingLink(trip, gi.id);
     trip.groceryItems = trip.groceryItems.filter(x => x !== gi);
     render();
@@ -6047,19 +6349,28 @@ function renderTripDetails(trip){
             <option value="">—</option>
             ${Array.from({length:10}, (_,i)=>i+1).map(n=>`<option value="${n}" ${String(n)===val?'selected':''}>${n}</option>`).join('')}
           </select>
-          ${slot.removable ? '<button type="button" class="crowd-remove-btn" aria-label="Remove">×</button>' : ''}
+          <button type="button" class="crowd-remove-btn" aria-label="Remove">×</button>
         `;
         row.querySelector('select').onchange = e => {
           setCrowdLevel(trip, slot.dayId, slot.park, e.target.value);
           render();
+          syncSingleCrowdLevelUpdate(trip, slot.dayId, slot.park, e.target.value).then(result => {
+            if(!result.ok){
+              setCrowdLevel(trip, slot.dayId, slot.park, '');
+              trip.manualCrowdSlots = (trip.manualCrowdSlots || []).filter(s => !(s.dayId === slot.dayId && s.park === slot.park));
+              render();
+              showRemovedByOtherMessage(result);
+            }
+          });
         };
-        if(slot.removable){
-          row.querySelector('.crowd-remove-btn').onclick = () => {
-            trip.manualCrowdSlots = (trip.manualCrowdSlots || []).filter(s => !(s.dayId === slot.dayId && s.park === slot.park));
-            setCrowdLevel(trip, slot.dayId, slot.park, '');
-            render();
-          };
-        }
+        row.querySelector('.crowd-remove-btn').onclick = async () => {
+          const removeBtn = row.querySelector('.crowd-remove-btn');
+          removeBtn.disabled = true;
+          await deleteCrowdLevelFromSupabaseNow(trip, slot.dayId, slot.park);
+          trip.manualCrowdSlots = (trip.manualCrowdSlots || []).filter(s => !(s.dayId === slot.dayId && s.park === slot.park));
+          setCrowdLevel(trip, slot.dayId, slot.park, '');
+          render();
+        };
         body.appendChild(row);
       });
     }
