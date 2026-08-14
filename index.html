@@ -1998,9 +1998,10 @@
     width:100%;
     max-width:640px;
     max-height:85vh;
+    max-height:85dvh;
     overflow-y:auto;
     border-radius:18px 18px 0 0;
-    padding:18px 16px 24px;
+    padding:18px 16px calc(24px + env(safe-area-inset-bottom));
   }
   .wizard-editor{
     display:flex;
@@ -2574,7 +2575,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.25';
+const APP_VERSION = '1.27';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4133,12 +4134,16 @@ function itemMatchesFilter(item){
   return item.travelerIds.some(id => activeTravelerFilter.includes(id));
 }
 
+function getSaveComparableSnapshot(){
+  const { activeTripId, ...rest } = appData;
+  return JSON.stringify(rest);
+}
 function markSaved(){
-  lastSavedSnapshot = JSON.stringify(appData);
+  lastSavedSnapshot = getSaveComparableSnapshot();
   updateUnsavedIndicator();
 }
 function hasUnsavedChanges(){
-  return lastSavedSnapshot !== null && JSON.stringify(appData) !== lastSavedSnapshot;
+  return lastSavedSnapshot !== null && getSaveComparableSnapshot() !== lastSavedSnapshot;
 }
 function updateUnsavedIndicator(){
   const el = document.getElementById('unsavedIndicator');
@@ -4438,7 +4443,7 @@ function renderWizardStep3(body, trip){
     <div class="wizard-step-sub">Add everyone now, or just yourself for the moment — more people can hop in anytime.</div>
     <div id="wizardTravelerChips" class="traveler-chip-row"></div>
     <div class="packing-add-row" style="margin-top:10px;">
-      <input type="text" placeholder="Add a traveler by name" list="wizardTravelerSuggestions" data-role="wizTravelerInput" />
+      <input type="text" placeholder="e.g. Melanie, Milo, Sarah" list="wizardTravelerSuggestions" data-role="wizTravelerInput" />
       <datalist id="wizardTravelerSuggestions">${appData.travelers.map(t => `<option value="${escapeHtml(t.name)}"></option>`).join('')}</datalist>
       <button type="button" data-role="wizTravelerAddBtn">Add</button>
     </div>
@@ -4462,10 +4467,12 @@ function renderWizardStep3(body, trip){
   renderChips();
   const input = body.querySelector('[data-role="wizTravelerInput"]');
   const submit = () => {
-    const name = input.value.trim();
-    if(!name) return;
-    const id = getOrCreateTraveler(name);
-    if(id && !trip.travelerIds.includes(id)) trip.travelerIds.push(id);
+    const raw = input.value.trim();
+    if(!raw) return;
+    raw.split(',').map(n => n.trim()).filter(Boolean).forEach(name => {
+      const id = getOrCreateTraveler(name);
+      if(id && !trip.travelerIds.includes(id)) trip.travelerIds.push(id);
+    });
     input.value = '';
     renderChips();
   };
@@ -4587,7 +4594,10 @@ function renderWizardSaveArea(body, trip){
     };
     area.querySelector('#wizardFinishBtn').onclick = () => closeTripWizard();
   } else {
-    area.innerHTML = `<button type="button" class="wizard-next-btn" id="wizardSaveBtn" style="width:100%;">Save this Trip</button>`;
+    area.innerHTML = `
+      <button type="button" class="wizard-next-btn" id="wizardSaveBtn" style="width:100%;">Save this Trip</button>
+      <p class="wizard-note">This also downloads a backup file to your device — handy to have, but you won't need it unless something ever goes wrong with the shared copy.</p>
+    `;
     area.querySelector('#wizardSaveBtn').onclick = async () => {
       const btn = area.querySelector('#wizardSaveBtn');
       btn.disabled = true;
@@ -6857,6 +6867,12 @@ function renderTripDetails(trip){
 
   // --- Share & Export ---
   renderTripSubsection(wrap, trip, 'share', '📤', 'Share & Export', 'Print, calendar export', body => {
+    const backupNote = document.createElement('p');
+    backupNote.className = 'wizard-note';
+    backupNote.style.marginBottom = '12px';
+    backupNote.textContent = 'Every time you hit "Save All Trips," you also get a fresh backup file downloaded to your device — worth keeping the most recent one somewhere safe, in case anything ever needs restoring.';
+    body.appendChild(backupNote);
+
     const printItineraryBtn = document.createElement('button');
     printItineraryBtn.type = 'button';
     printItineraryBtn.className = 'print-packing-btn';
