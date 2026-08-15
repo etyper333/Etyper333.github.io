@@ -2846,7 +2846,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.49';
+const APP_VERSION = '1.50';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4666,12 +4666,16 @@ document.getElementById('viewTabs').addEventListener('click', e => {
   if(!btn) return;
   const newCategory = btn.dataset.view;
   const oldCategory = (currentView === 'itinerary') ? 'itinerary' : 'packing';
+  const trip = getActiveTrip();
+  const wasTripDetailsOpen = !!(trip && expandedTripDetails.has(trip.id));
   currentView = newCategory === 'packing' ? lastListsSubView : newCategory;
-  if(newCategory !== oldCategory){
-    const trip = getActiveTrip();
-    if(trip) expandedTripDetails.delete(trip.id);
+  if(wasTripDetailsOpen && trip){
+    expandedTripDetails.delete(trip.id);
   }
   render();
+  if(wasTripDetailsOpen){
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
   if(newCategory !== oldCategory){
     refreshActiveTripFromSupabase();
   }
