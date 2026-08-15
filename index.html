@@ -201,6 +201,33 @@
     --stripe-a:#AEB6BC;
     --stripe-b:#454D54;
   }
+  :root[data-theme="dark-side"]{
+    --ink:#E8E6E3;
+    --sky:#242628;
+    --sky-deep:#151617;
+    --marigold:#D9B54A;
+    --coral:#E8735A;
+    --sage:#7FA88F;
+    --slate:#8A8D90;
+    --cream:#1A1C1E;
+    --paper:#2A2D30;
+    --line:#3A3D40;
+    --header-text:#E8E6E3;
+    --header-placeholder:#8A8D90;
+    --text-secondary:#A8ABAE;
+    --accent-positive-bg:rgba(127,168,143,.20);
+    --accent-positive-text:#9FC7B0;
+    --accent-mid-bg:rgba(217,181,74,.20);
+    --accent-mid-text:#E8CD82;
+    --accent-high-bg:rgba(232,115,90,.20);
+    --accent-high-text:#F0A08C;
+    --accent-neutral-bg:rgba(138,141,144,.20);
+    --accent-neutral-text:#C5C7C9;
+    --accent-glow:rgba(232,115,90,.25);
+    --backdrop:rgba(0,0,0,.65);
+    --stripe-a:#4A4D50;
+    --stripe-b:#242628;
+  }
   *{box-sizing:border-box;}
   body{
     margin:0;
@@ -2716,7 +2743,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.40';
+const APP_VERSION = '1.41';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -3580,6 +3607,35 @@ function mergeRemoteIntoLocalTrip(localTrip, remoteData, allTravelers){
   return localTrip;
 }
 
+function getStoredThemePreference(){
+  try{
+    return localStorage.getItem('parkDaysThemePreference');
+  }catch(err){
+    return null;
+  }
+}
+function saveThemePreference(themeKey){
+  try{
+    localStorage.setItem('parkDaysThemePreference', themeKey);
+  }catch(err){
+    console.warn('Could not remember this theme choice for next time:', err);
+  }
+}
+// Applies this device's remembered theme, or - only on a genuinely first-ever visit with
+// nothing stored yet - checks the device's own dark/light preference and establishes that
+// as the new baseline going forward, honoring any later manual change from then on.
+function applyStartupTheme(){
+  const stored = getStoredThemePreference();
+  if(stored && THEMES.some(t => t.key === stored)){
+    appData.theme = stored;
+  } else {
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    appData.theme = prefersDark ? 'dark-side' : 'green';
+    saveThemePreference(appData.theme);
+  }
+  document.documentElement.setAttribute('data-theme', appData.theme);
+}
+
 function getSharedTripMap(){
   try{
     const raw = JSON.parse(localStorage.getItem('parkDaysSharedTripMap') || '{}');
@@ -4073,6 +4129,7 @@ const THEMES = [
   {key:"mickey", label:"Mickey", swatches:["#0D0D0D","#C23A48","#E8B923"]},
   {key:"orange-bird", label:"Orange Bird", swatches:["#D9641E","#F2B705","#6B9B4F"]},
   {key:"spaceship-earth", label:"Spaceship Earth", swatches:["#6B7680","#B99A6B","#4A7A9E"]},
+  {key:"dark-side", label:"The Dark Side", swatches:["#151617","#E8735A","#D9B54A"]},
 ];
 const SECTIONS = [
   {key:'morning', label:'Morning', test: t => !!t && t < '12:00'},
@@ -4804,6 +4861,7 @@ function renderWizardStep5(body, trip){
       `;
       card.onclick = () => {
         appData.theme = theme.key;
+        saveThemePreference(theme.key);
         document.documentElement.setAttribute('data-theme', appData.theme);
         renderThemes();
       };
@@ -6401,6 +6459,7 @@ function renderThemePicker(){
     `;
     card.onclick = () => {
       appData.theme = theme.key;
+      saveThemePreference(theme.key);
       renderThemePicker();
       document.documentElement.setAttribute('data-theme', appData.theme);
     };
@@ -7505,6 +7564,7 @@ function printPackingList(){
 }
 
 (async function initApp(){
+  applyStartupTheme();
   const loadedFromLink = await loadSharedTripFromUrlIfPresent();
   if(!loadedFromLink){
     await loadRememberedTripsIfNoLinkPresent();
