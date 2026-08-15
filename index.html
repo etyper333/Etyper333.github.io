@@ -1544,6 +1544,7 @@
     line-height:1;
     color:#fff;
     flex-shrink:0;
+    margin-left:auto;
   }
   .timeline-block-crowd.crowd-low{ background:var(--sage); }
   .timeline-block-crowd.crowd-mid{ background:var(--marigold); }
@@ -2845,7 +2846,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.46';
+const APP_VERSION = '1.47';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5492,23 +5493,24 @@ function renderDayTimelineGrid(panel, day, trip){
       const isAlone = cluster.length === 1;
       const durationMinutes = entry.endMin - entry.startMin;
       const tier = !isAlone ? 'tight' : (durationMinutes >= 120 ? 'spacious' : 'short');
+      const showExtras = height >= 34;
 
       const hasConfirmation = !!entry.item.confirmationNumber;
       const hasNotes = !!entry.item.notes;
       let crowdValue = null;
-      if(entry.item.isMainPlan && CROWD_LEVEL_PARKS.includes(entry.item.name)){
+      if(CROWD_LEVEL_PARKS.includes(entry.item.name)){
         crowdValue = getCrowdLevel(trip, day.id, entry.item.name) || null;
       }
 
-      let indicatorsHtml = `<span class="timeline-block-time">${escapeHtml(formatTime(entry.item.time))}</span>`;
-      if(hasConfirmation) indicatorsHtml += `<span class="timeline-block-indicator" title="Has a confirmation number">#</span>`;
-      if(hasNotes) indicatorsHtml += `<span class="timeline-block-indicator" title="Has notes">🗒️</span>`;
-      if(crowdValue){
-        indicatorsHtml += `<span class="timeline-block-crowd ${getCrowdClass(crowdValue)}" title="Crowd level ${escapeHtml(crowdValue)}">${escapeHtml(crowdValue)}</span>`;
-      }
+      let leftIndicatorsHtml = `<span class="timeline-block-time">${escapeHtml(formatTime(entry.item.time))}</span>`;
+      if(hasConfirmation) leftIndicatorsHtml += `<span class="timeline-block-indicator" title="Has a confirmation number">#</span>`;
+      if(hasNotes) leftIndicatorsHtml += `<span class="timeline-block-indicator" title="Has notes">🗒️</span>`;
+      const crowdHtml = crowdValue
+        ? `<span class="timeline-block-crowd ${getCrowdClass(crowdValue)}" title="Crowd level ${escapeHtml(crowdValue)}">${escapeHtml(crowdValue)}</span>`
+        : '';
 
       let mealHtml = '';
-      if(tier !== 'tight'){
+      if(showExtras && tier !== 'tight'){
         const mealService = MEAL_SERVICES.find(m => m.key === entry.item.mealService);
         const mealPeriod = MEAL_PERIODS.find(p => p.key === entry.item.mealPeriod);
         if(mealService){
@@ -5519,7 +5521,7 @@ function renderDayTimelineGrid(panel, day, trip){
       }
 
       let spaciousHtml = '';
-      if(tier === 'spacious'){
+      if(showExtras && tier === 'spacious'){
         if(hasConfirmation) spaciousHtml += `<div class="timeline-block-confirmation">Conf #: ${escapeHtml(entry.item.confirmationNumber)}</div>`;
         if(hasNotes) spaciousHtml += `<div class="timeline-block-notes-preview">${escapeHtml(entry.item.notes)}</div>`;
       }
@@ -5536,10 +5538,7 @@ function renderDayTimelineGrid(panel, day, trip){
       }
 
       block.innerHTML = `
-        <div class="timeline-block-top-row">
-          ${travelersHtml}
-          ${indicatorsHtml}
-        </div>
+        ${showExtras ? `<div class="timeline-block-top-row">${travelersHtml}${leftIndicatorsHtml}${crowdHtml}</div>` : (travelersHtml || '')}
         ${entry.item.isMainPlan ? '<span class="timeline-block-badge">📌</span>' : ''}
         <span class="timeline-block-name">${escapeHtml(getItemDisplayName(entry.item))}</span>
         ${mealHtml}
