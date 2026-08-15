@@ -2558,7 +2558,7 @@
 <div class="master-editor-overlay" id="themePickerOverlay">
   <div class="master-editor">
     <h2>Choose a Theme</h2>
-    <p class="sub">Pick a color palette for the whole planner. This applies for everyone using this file.</p>
+    <p class="sub">Pick a color palette for the planner. This is just for this device, right now — not something saved or shared with others.</p>
     <div id="themePickerBody"></div>
     <button class="master-editor-close" id="themePickerCloseBtn">Done</button>
   </div>
@@ -2592,7 +2592,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.30';
+const APP_VERSION = '1.33';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -3457,7 +3457,17 @@ function mergeRemoteIntoLocalTrip(localTrip, remoteData, allTravelers){
 
 function getSharedTripMap(){
   try{
-    return JSON.parse(localStorage.getItem('parkDaysSharedTripMap') || '{}');
+    const raw = JSON.parse(localStorage.getItem('parkDaysSharedTripMap') || '{}');
+    const migrated = {};
+    Object.keys(raw).forEach(supaId => {
+      const entry = raw[supaId];
+      if(typeof entry === 'string'){
+        migrated[supaId] = { localTripId: entry, title: '', dates: '', lastOpenedAt: null };
+      } else {
+        migrated[supaId] = entry;
+      }
+    });
+    return migrated;
   }catch(err){
     return {};
   }
@@ -3478,8 +3488,8 @@ async function loadSharedTripFromUrlIfPresent(){
   try{
     const remoteData = await fetchRemoteTripData(tripCode);
     const sharedMap = getSharedTripMap();
-    const knownLocalTripId = sharedMap[tripCode];
-    let localTrip = knownLocalTripId ? appData.trips.find(t => t.id === knownLocalTripId) : null;
+    const knownEntry = sharedMap[tripCode];
+    let localTrip = knownEntry ? appData.trips.find(t => t.id === knownEntry.localTripId) : null;
 
     if(localTrip){
       mergeRemoteIntoLocalTrip(localTrip, remoteData, appData.travelers);
@@ -3494,9 +3504,15 @@ async function loadSharedTripFromUrlIfPresent(){
       };
       mergeRemoteIntoLocalTrip(localTrip, remoteData, appData.travelers);
       appData.trips.push(localTrip);
-      sharedMap[tripCode] = localTrip.id;
-      saveSharedTripMap(sharedMap);
     }
+
+    sharedMap[tripCode] = {
+      localTripId: localTrip.id,
+      title: localTrip.title,
+      dates: localTrip.dates,
+      lastOpenedAt: new Date().toISOString()
+    };
+    saveSharedTripMap(sharedMap);
 
     appData.activeTripId = localTrip.id;
     activeDayId = localTrip.days.length ? localTrip.days[0].id : null;
@@ -3506,6 +3522,70 @@ async function loadSharedTripFromUrlIfPresent(){
     alert('Could not load the shared trip — it may no longer exist, or there was a connection problem.');
     return false;
   }
+}
+
+function buildPlaceholderTrip(entry){
+  return {
+    id: entry.localTripId || cryptoId(), supabaseId: entry.supaId,
+    title: entry.title || 'Untitled trip', dates: entry.dates || '', startDate: '',
+    travelerIds: [], supabaseTravelerMap: {}, notes: '',
+    stays: [], crowdLevels: {}, manualCrowdSlots: [],
+    packingCategories: [], packingItems: [], groceryItems: [],
+    days: [ defaultDay(1) ],
+    _isPlaceholder: true
+  };
+}
+
+// Only called when the plain app URL is opened (no trip code present). If this device
+// remembers any trips from before, loads the most recently used one fully and shows the
+// rest as lightweight placeholders in the trip switcher -- fetched fully only if tapped.
+// If nothing is remembered, this is a no-op and the default blank trip is left untouched.
+async function loadRememberedTripsIfNoLinkPresent(){
+  const sharedMap = getSharedTripMap();
+  const entries = Object.keys(sharedMap).map(supaId => ({ supaId, ...sharedMap[supaId] }));
+  if(entries.length === 0) return false;
+
+  entries.sort((a, b) => {
+    const aTime = a.lastOpenedAt ? new Date(a.lastOpenedAt).getTime() : 0;
+    const bTime = b.lastOpenedAt ? new Date(b.lastOpenedAt).getTime() : 0;
+    return bTime - aTime;
+  });
+  const mostRecent = entries[0];
+  const others = entries.slice(1);
+
+  appData.trips = [];
+
+  try{
+    const remoteData = await fetchRemoteTripData(mostRecent.supaId);
+    const localTrip = {
+      id: mostRecent.localTripId || cryptoId(), supabaseId: mostRecent.supaId,
+      title: remoteData.title, dates: remoteData.dates, startDate: remoteData.startDate,
+      travelerIds: [], supabaseTravelerMap: {}, notes: '',
+      stays: [], crowdLevels: {}, manualCrowdSlots: [],
+      packingCategories: [], packingItems: [], groceryItems: [],
+      days: []
+    };
+    mergeRemoteIntoLocalTrip(localTrip, remoteData, appData.travelers);
+    appData.trips.push(localTrip);
+    appData.activeTripId = localTrip.id;
+    activeDayId = localTrip.days.length ? localTrip.days[0].id : null;
+    sharedMap[mostRecent.supaId] = { localTripId: localTrip.id, title: localTrip.title, dates: localTrip.dates, lastOpenedAt: new Date().toISOString() };
+  }catch(err){
+    console.warn('Could not load most recently used trip, falling back to a blank trip:', err);
+    const fallback = defaultTrip();
+    appData.trips.push(fallback);
+    appData.activeTripId = fallback.id;
+    activeDayId = fallback.days[0].id;
+    saveSharedTripMap(sharedMap);
+    return true;
+  }
+
+  others.forEach(entry => {
+    appData.trips.push(buildPlaceholderTrip(entry));
+  });
+
+  saveSharedTripMap(sharedMap);
+  return true;
 }
 
 const WEEKDAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -4294,7 +4374,23 @@ function renderTripSwitcher(){
       del.onclick = (e) => { e.stopPropagation(); removeTrip(trip.id); };
       pill.appendChild(del);
     }
-    pill.onclick = () => {
+    pill.onclick = async () => {
+      if(trip._isPlaceholder){
+        pill.style.opacity = '.6';
+        try{
+          const remoteData = await fetchRemoteTripData(trip.supabaseId);
+          mergeRemoteIntoLocalTrip(trip, remoteData, appData.travelers);
+          delete trip._isPlaceholder;
+          const sharedMap = getSharedTripMap();
+          sharedMap[trip.supabaseId] = { localTripId: trip.id, title: trip.title, dates: trip.dates, lastOpenedAt: new Date().toISOString() };
+          saveSharedTripMap(sharedMap);
+        }catch(err){
+          console.warn('Could not load this trip:', err);
+          alert('Could not load this trip — check your connection and try again.');
+          pill.style.opacity = '';
+          return;
+        }
+      }
       appData.activeTripId = trip.id;
       activeDayId = trip.days[0].id;
       activeTravelerFilter = [];
@@ -4328,7 +4424,15 @@ function addTrip(){
 function removeTrip(tripId){
   if(appData.trips.length <= 1) return;
   if(!confirm('Remove this entire trip, including all its days and plans?')) return;
+  const removedTrip = appData.trips.find(t => t.id === tripId);
   appData.trips = appData.trips.filter(t => t.id !== tripId);
+  if(removedTrip && removedTrip.supabaseId){
+    const sharedMap = getSharedTripMap();
+    if(sharedMap[removedTrip.supabaseId]){
+      delete sharedMap[removedTrip.supabaseId];
+      saveSharedTripMap(sharedMap);
+    }
+  }
   if(appData.activeTripId === tripId){
     appData.activeTripId = appData.trips[0].id;
     activeDayId = appData.trips[0].days[0].id;
@@ -4535,7 +4639,7 @@ function renderWizardStep4(body, trip){
 function renderWizardStep5(body, trip){
   body.innerHTML = `
     <div class="wizard-step-title">Pick your vibe</div>
-    <div class="wizard-step-sub">Purely cosmetic, deeply important. Change your mind anytime.</div>
+    <div class="wizard-step-sub">Purely cosmetic, deeply important. This one's just for this visit — pick it again anytime you're back.</div>
     <div id="wizardThemeGrid" class="theme-card-grid"></div>
   `;
   const renderThemes = () => {
@@ -4625,6 +4729,16 @@ function renderWizardSaveArea(body, trip){
         deletedByOthers = await syncAllTripsToSupabase();
       }catch(err){
         console.warn('Supabase sync step had an issue (local save proceeding regardless):', err);
+      }
+      if(trip.supabaseId){
+        const sharedMap = getSharedTripMap();
+        sharedMap[trip.supabaseId] = {
+          localTripId: trip.id,
+          title: trip.title,
+          dates: trip.dates,
+          lastOpenedAt: new Date().toISOString()
+        };
+        saveSharedTripMap(sharedMap);
       }
       const blob = new Blob([JSON.stringify(appData, null, 2)], {type:'application/json'});
       const url = URL.createObjectURL(blob);
@@ -7209,7 +7323,10 @@ function printPackingList(){
 }
 
 (async function initApp(){
-  await loadSharedTripFromUrlIfPresent();
+  const loadedFromLink = await loadSharedTripFromUrlIfPresent();
+  if(!loadedFromLink){
+    await loadRememberedTripsIfNoLinkPresent();
+  }
   render();
   markSaved();
   setInterval(updateUnsavedIndicator, 3000);
