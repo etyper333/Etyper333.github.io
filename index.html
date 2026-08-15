@@ -2846,7 +2846,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.47';
+const APP_VERSION = '1.48';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5913,6 +5913,10 @@ function renderItemCard(day, item){
   card.querySelector('[data-role="edit"]').onclick = () => {
     editingItems.add(item.id);
     render();
+    setTimeout(() => {
+      const submitBtn = document.querySelector('.item-card-editing [data-role="submit"]');
+      if(submitBtn) submitBtn.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }, 0);
   };
   card.querySelector('[data-role="main-plan"]').onclick = () => {
     if(item.isMainPlan){
@@ -5922,6 +5926,10 @@ function renderItemCard(day, item){
       pendingMainPlanEdit.add(item.id);
       editingItems.add(item.id);
       render();
+      setTimeout(() => {
+        const submitBtn = document.querySelector('.item-card-editing [data-role="submit"]');
+        if(submitBtn) submitBtn.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }, 0);
     }
   };
   card.querySelector('[data-role="calendar"]').onclick = () => {
@@ -5943,6 +5951,15 @@ function renderItemCard(day, item){
 function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   const wrap = document.createElement('div');
   wrap.className = 'add-form';
+  let formTouched = false;
+  wrap.addEventListener('input', () => { formTouched = true; });
+  wrap.addEventListener('change', () => { formTouched = true; });
+  wrap.addEventListener('click', e => {
+    if(e.target.closest('[data-status]') || e.target.closest('.landmark-checkbox-label') || e.target.closest('[data-role="clear-time"]')){
+      formTouched = true;
+    }
+  });
+  wrap.isDirty = () => formTouched;
   let pendingStatus = initial.status === 'confirmed' ? 'confirmed' : 'tentative';
   wrap.innerHTML = `
     <div class="form-row-label">What kind of item is this?</div>
@@ -6569,6 +6586,7 @@ document.getElementById('travelerColorCloseBtn').onclick = () => {
   render();
 };
 
+let currentItemEditForm = null;
 function openItemEditModal(day, item){
   const body = document.getElementById('itemEditModalBody');
   body.innerHTML = '';
@@ -6579,6 +6597,7 @@ function openItemEditModal(day, item){
   }, () => {
     closeItemEditModal();
   });
+  currentItemEditForm = form;
   const deleteBtn = document.createElement('button');
   deleteBtn.type = 'button';
   deleteBtn.className = 'timeline-modal-delete-btn';
@@ -6597,8 +6616,19 @@ function openItemEditModal(day, item){
 }
 function closeItemEditModal(){
   document.getElementById('itemEditOverlay').classList.remove('active');
+  currentItemEditForm = null;
   render();
 }
+document.getElementById('itemEditOverlay').addEventListener('click', e => {
+  if(e.target.id !== 'itemEditOverlay') return;
+  if(currentItemEditForm && currentItemEditForm.isDirty()){
+    if(confirm('Discard your unsaved changes?')){
+      closeItemEditModal();
+    }
+  } else {
+    closeItemEditModal();
+  }
+});
 
 function openBuildPackingListModal(){
   renderBuildPackingListModal();
