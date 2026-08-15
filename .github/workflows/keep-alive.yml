@@ -1,4 +1,4 @@
-name: Keep Supabase Alive
+name: Keep Supabase Alive & Archive Ended Trips
 
 on:
   schedule:
@@ -6,12 +6,19 @@ on:
   workflow_dispatch:
 
 jobs:
-  ping:
+  maintenance:
     runs-on: ubuntu-latest
     steps:
       - name: Ping Supabase to prevent it from pausing
         run: |
           curl -X POST "${{ secrets.SUPABASE_URL }}/rest/v1/keepalive" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{}'
+      - name: Archive trips that have ended
+        run: |
+          curl -X POST "${{ secrets.SUPABASE_URL }}/rest/v1/rpc/archive_ended_trips" \
             -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
             -H "Content-Type: application/json" \
