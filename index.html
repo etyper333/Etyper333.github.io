@@ -1899,6 +1899,39 @@
     margin:0 0 14px;
     line-height:1.5;
   }
+  .shared-notes-block{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    background:var(--paper);
+    border:1.5px solid var(--line);
+    border-radius:var(--radius-lg);
+    padding:12px;
+    margin-bottom:16px;
+  }
+  .shared-notes-field{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+  .shared-notes-label{
+    font-size:12px;
+    font-weight:700;
+    color:var(--text-secondary);
+  }
+  .shared-notes-field textarea{
+    width:100%;
+    box-sizing:border-box;
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    padding:8px 10px;
+    border-radius:var(--radius-md);
+    border:1.5px solid var(--line);
+    background:var(--cream);
+    color:var(--ink);
+    min-height:60px;
+    resize:vertical;
+  }
   .category-toggle-row{
     display:flex;
     flex-wrap:wrap;
@@ -2163,14 +2196,15 @@
   }
   #wizardOverlay{
     align-items:center;
-    padding:16px;
+    padding:10px;
   }
   .wizard-editor{
     display:flex;
     flex-direction:column;
     border-radius:var(--radius-xl);
-    max-height:90vh;
-    max-height:90dvh;
+    max-width:760px;
+    max-height:95vh;
+    max-height:95dvh;
   }
   .wizard-header{
     display:flex;
@@ -2743,7 +2777,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.41';
+const APP_VERSION = '1.43';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -2886,11 +2920,11 @@ async function syncTripToSupabase(trip, allTravelers){
 
   if(trip.supabaseId){
     await supabaseClient.from('trips').update({
-      title: trip.title, dates: trip.dates || '', start_date: trip.startDate || null, archived_at: trip.archivedAt || null
+      title: trip.title, dates: trip.dates || '', start_date: trip.startDate || null, archived_at: trip.archivedAt || null, notes: trip.notes || null, packing_notes: trip.packingNotes || null, grocery_notes: trip.groceryNotes || null
     }).eq('id', trip.supabaseId);
   } else {
     const { data, error } = await supabaseClient.from('trips').insert([{
-      title: trip.title, dates: trip.dates || '', start_date: trip.startDate || null, archived_at: trip.archivedAt || null
+      title: trip.title, dates: trip.dates || '', start_date: trip.startDate || null, archived_at: trip.archivedAt || null, notes: trip.notes || null, packing_notes: trip.packingNotes || null, grocery_notes: trip.groceryNotes || null
     }]).select().single();
     if(error) throw error;
     trip.supabaseId = data.id;
@@ -3256,7 +3290,7 @@ async function syncSingleTripUpdate(trip){
   if(!trip.supabaseId) return { ok: true };
   try{
     const { data: updateResult } = await supabaseClient.from('trips').update({
-      title: trip.title, dates: trip.dates || '', start_date: trip.startDate || null, archived_at: trip.archivedAt || null
+      title: trip.title, dates: trip.dates || '', start_date: trip.startDate || null, archived_at: trip.archivedAt || null, notes: trip.notes || null, packing_notes: trip.packingNotes || null, grocery_notes: trip.groceryNotes || null
     }).eq('id', trip.supabaseId).select();
     if(!updateResult || updateResult.length === 0){
       return { ok: false, type: 'trip', name: trip.title || 'this trip' };
@@ -3414,6 +3448,7 @@ async function fetchRemoteTripData(supabaseTripId){
 
   return {
     title: tripRow.title, dates: tripRow.dates || '', startDate: tripRow.start_date || '', archivedAt: tripRow.archived_at || null,
+    notes: tripRow.notes || '', packingNotes: tripRow.packing_notes || '', groceryNotes: tripRow.grocery_notes || '',
     travelers: travelerRows.map(t => ({ supabaseId: t.id, name: t.name, color: t.color })),
     packingItems: (packingRows || []).map(row => ({ supabaseId: row.id, name: row.name || '', category: row.category || '', checked: !!row.checked })),
     groceryItems: (groceryRows || []).map(row => ({ supabaseId: row.id, name: row.name || '', category: row.category || '', checked: !!row.checked, channel: row.channel || 'pack' })),
@@ -3449,6 +3484,9 @@ function mergeRemoteIntoLocalTrip(localTrip, remoteData, allTravelers){
   localTrip.dates = remoteData.dates;
   localTrip.startDate = remoteData.startDate;
   localTrip.archivedAt = remoteData.archivedAt;
+  localTrip.notes = remoteData.notes;
+  localTrip.packingNotes = remoteData.packingNotes;
+  localTrip.groceryNotes = remoteData.groceryNotes;
 
   if(!localTrip.supabaseTravelerMap) localTrip.supabaseTravelerMap = {};
   const existingSupaToLocal = {};
@@ -3678,7 +3716,7 @@ async function loadSharedTripFromUrlIfPresent(){
       localTrip = {
         id: cryptoId(), supabaseId: tripCode,
         title: remoteData.title, dates: remoteData.dates, startDate: remoteData.startDate,
-        travelerIds: [], supabaseTravelerMap: {}, notes: '', archivedAt: null,
+        travelerIds: [], supabaseTravelerMap: {}, notes: '', packingNotes: '', groceryNotes: '', archivedAt: null,
         stays: [], crowdLevels: {}, manualCrowdSlots: [],
         packingCategories: [], packingItems: [], groceryItems: [],
         days: []
@@ -3743,7 +3781,7 @@ async function loadRememberedTripsIfNoLinkPresent(){
     const localTrip = {
       id: mostRecent.localTripId || cryptoId(), supabaseId: mostRecent.supaId,
       title: remoteData.title, dates: remoteData.dates, startDate: remoteData.startDate,
-      travelerIds: [], supabaseTravelerMap: {}, notes: '', archivedAt: null,
+      travelerIds: [], supabaseTravelerMap: {}, notes: '', packingNotes: '', groceryNotes: '', archivedAt: null,
       stays: [], crowdLevels: {}, manualCrowdSlots: [],
       packingCategories: [], packingItems: [], groceryItems: [],
       days: []
@@ -4376,6 +4414,8 @@ function defaultTrip(){
     startDate: "",
     party: "",
     notes: "",
+    packingNotes: "",
+    groceryNotes: "",
     archivedAt: null,
     days: [ defaultDay(1) ],
     stays: [],
@@ -4874,7 +4914,7 @@ function renderWizardStep5(body, trip){
 function renderWizardStep6(body, trip){
   body.innerHTML = `
     <div class="wizard-step-title">Anything on your mind?</div>
-    <div class="wizard-step-sub">Loose thoughts, budget worries, "do not forget the stroller" — dump it here.</div>
+    <div class="wizard-step-sub">Loose thoughts, "do not forget the stroller," anything worth remembering before this trip has real shape yet — visible to everyone with the trip link.</div>
     <div class="day-info-row">
       <div class="day-info-field day-info-field-full">
         <textarea data-role="wizNotes" placeholder="Notes for this trip..." style="min-height:100px;width:100%;font-family:'Inter',sans-serif;font-size:13.5px;padding:9px 10px;border-radius:var(--radius-md);border:1.5px solid var(--line);">${escapeHtml(trip.notes || '')}</textarea>
@@ -6111,6 +6151,41 @@ function removePackingItemFromTrip(trip, masterItemId){
   trip.packingItems = trip.packingItems.filter(pi => pi.custom || pi.itemId !== masterItemId);
 }
 
+function renderPackingGroceryNotesBlock(trip){
+  const block = document.createElement('div');
+  block.className = 'shared-notes-block';
+
+  const packingField = document.createElement('div');
+  packingField.className = 'shared-notes-field';
+  const packingLabel = document.createElement('label');
+  packingLabel.className = 'shared-notes-label';
+  packingLabel.textContent = '🧳 Packing Notes';
+  const packingTextarea = document.createElement('textarea');
+  packingTextarea.placeholder = "Anything worth noting for packing...";
+  packingTextarea.value = trip.packingNotes || '';
+  packingTextarea.oninput = e => { trip.packingNotes = e.target.value; };
+  packingTextarea.onblur = () => handleTripFieldBlur(trip);
+  packingField.appendChild(packingLabel);
+  packingField.appendChild(packingTextarea);
+
+  const groceryField = document.createElement('div');
+  groceryField.className = 'shared-notes-field';
+  const groceryLabel = document.createElement('label');
+  groceryLabel.className = 'shared-notes-label';
+  groceryLabel.textContent = '🛒 Grocery Notes';
+  const groceryTextarea = document.createElement('textarea');
+  groceryTextarea.placeholder = "Anything worth noting for groceries...";
+  groceryTextarea.value = trip.groceryNotes || '';
+  groceryTextarea.oninput = e => { trip.groceryNotes = e.target.value; };
+  groceryTextarea.onblur = () => handleTripFieldBlur(trip);
+  groceryField.appendChild(groceryLabel);
+  groceryField.appendChild(groceryTextarea);
+
+  block.appendChild(packingField);
+  block.appendChild(groceryField);
+  return block;
+}
+
 function renderPackingPanel(){
   const trip = getActiveTrip();
   ensureEssentialPackingItems(trip);
@@ -6121,6 +6196,8 @@ function renderPackingPanel(){
   intro.className = 'packing-intro';
   intro.textContent = "Your packing list for this trip. Tap \"Build Packing List\" to add items from the catalog — anything marked \"Always packed\" is included automatically.";
   wrap.appendChild(intro);
+
+  wrap.appendChild(renderPackingGroceryNotesBlock(trip));
 
   const btnRow = document.createElement('div');
   btnRow.className = 'packing-btn-row';
@@ -6574,6 +6651,8 @@ function renderGroceryPanel(){
   intro.textContent = "Nothing is added automatically. Browse the catalog below and choose Pack or Deliver for anything that applies to this trip.";
   wrap.appendChild(intro);
 
+  wrap.appendChild(renderPackingGroceryNotesBlock(trip));
+
   if(trip.groceryItems.length > 0){
     ['pack','delivery'].forEach(channel => {
       const channelItems = trip.groceryItems.filter(gi => gi.channel === channel);
@@ -6978,6 +7057,26 @@ function renderTripDetails(trip){
     addTravelerBtn.onclick = submitTraveler;
     travelerInput.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); submitTraveler(); } });
     body.appendChild(addTravelerRow);
+
+    const tripNotesLabel = document.createElement('div');
+    tripNotesLabel.className = 'packing-category-title';
+    tripNotesLabel.style.marginTop = '14px';
+    tripNotesLabel.textContent = 'Trip Notes';
+    body.appendChild(tripNotesLabel);
+    const tripNotesSub = document.createElement('p');
+    tripNotesSub.className = 'section-empty-note';
+    tripNotesSub.textContent = 'Visible to everyone with the trip link.';
+    body.appendChild(tripNotesSub);
+    const tripNotesRow = document.createElement('div');
+    tripNotesRow.className = 'day-info-row';
+    tripNotesRow.innerHTML = `
+      <div class="day-info-field day-info-field-full">
+        <textarea id="tripNotesField" placeholder="Loose thoughts, 'do not forget the stroller,' anything worth remembering..." style="min-height:80px;width:100%;font-family:'Inter',sans-serif;font-size:13.5px;padding:9px 10px;border-radius:var(--radius-md);border:1.5px solid var(--line);">${escapeHtml(trip.notes || '')}</textarea>
+      </div>
+    `;
+    tripNotesRow.querySelector('#tripNotesField').oninput = e => { trip.notes = e.target.value; };
+    tripNotesRow.querySelector('#tripNotesField').onblur = () => handleTripFieldBlur(trip);
+    body.appendChild(tripNotesRow);
   });
 
   // --- Lodging & Dining ---
@@ -7504,6 +7603,8 @@ document.getElementById('loadInput').addEventListener('change', e => {
         }
         if(!Array.isArray(trip.manualCrowdSlots)) trip.manualCrowdSlots = [];
         if(trip.notes === undefined) trip.notes = '';
+        if(trip.packingNotes === undefined) trip.packingNotes = '';
+        if(trip.groceryNotes === undefined) trip.groceryNotes = '';
         if(trip.archivedAt === undefined) trip.archivedAt = null;
         migrateDayHotelsToStays(trip);
         migrateDayCrowdLevelsToTrip(trip);
