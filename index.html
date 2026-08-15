@@ -247,7 +247,6 @@
     color:var(--cream);
     padding:22px 20px 20px;
     position:relative;
-    overflow:hidden;
   }
   header.hero::after{
     content:"";
@@ -330,6 +329,11 @@
     gap:10px;
     flex-wrap:wrap;
     margin-top:8px;
+    position:sticky;
+    top:0;
+    z-index:15;
+    background:var(--sky-deep);
+    padding:8px 4px;
   }
   .trip-meta input{
     background:rgba(255,255,255,.1);
@@ -1101,7 +1105,8 @@
     margin-bottom:3px;
     min-height:26px;
   }
-  .day-info-field input{
+  .day-info-field input,
+  .day-info-field select{
     width:100%;
     box-sizing:border-box;
     font-family:'Inter',sans-serif;
@@ -2411,6 +2416,7 @@
     .eyebrow{color:#000 !important;}
     h1#tripTitle{color:#000;}
     .trip-summary-trigger{display:none !important;}
+    .trip-meta{display:none !important;}
     .print-only-fact{display:block !important;font-size:12px;color:#000;margin-bottom:3px;}
     .trip-basics-fields .day-info-row,
     .stay-card .day-info-row,
@@ -2616,7 +2622,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.34';
+const APP_VERSION = '1.35';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -6815,35 +6821,6 @@ function renderTripDetails(trip){
     body.appendChild(addTravelerRow);
   });
 
-  // --- Archive ---
-  const archiveStatusText = trip.archivedAt ? `Archived ${new Date(trip.archivedAt).toLocaleDateString()}` : 'Active trip';
-  renderTripSubsection(wrap, trip, 'archive', '📦', 'Archive', archiveStatusText, body => {
-    const statusLine = document.createElement('p');
-    statusLine.className = 'section-empty-note';
-    statusLine.textContent = trip.archivedAt
-      ? "This trip is archived — it's hidden from the switcher by default, but still fully here whenever you need it."
-      : "Archiving hides a trip from your everyday switcher without deleting anything — good for trips that are done, without losing the ability to look back at them.";
-    body.appendChild(statusLine);
-
-    const archiveBtn = document.createElement('button');
-    archiveBtn.type = 'button';
-    archiveBtn.className = 'print-packing-btn';
-    archiveBtn.textContent = trip.archivedAt ? '📤 Unarchive this trip' : '📦 Archive this trip';
-    archiveBtn.onclick = () => {
-      trip.archivedAt = trip.archivedAt ? null : new Date().toISOString();
-      render();
-      handleTripFieldBlur(trip);
-      if(trip.supabaseId){
-        const sharedMap = getSharedTripMap();
-        if(sharedMap[trip.supabaseId]){
-          sharedMap[trip.supabaseId].archivedAt = trip.archivedAt;
-          saveSharedTripMap(sharedMap);
-        }
-      }
-    };
-    body.appendChild(archiveBtn);
-  });
-
   // --- Lodging & Dining ---
   const windows = getDiningWindows(trip);
   const lodgingSummary = trip.stays.length
@@ -6992,7 +6969,7 @@ function renderTripDetails(trip){
   const crowdSetCount = crowdSlots.filter(s => getCrowdLevel(trip, s.dayId, s.park)).length;
   const crowdSummary = crowdSlots.length
     ? `${crowdSetCount} of ${crowdSlots.length} set`
-    : 'Nothing to set yet';
+    : 'Nothing saved yet';
 
   renderTripSubsection(wrap, trip, 'crowd', '🎢', 'Crowd Levels', crowdSummary, body => {
     const introNote = document.createElement('div');
@@ -7087,7 +7064,7 @@ function renderTripDetails(trip){
 
   // --- Trip Overview ---
   const overviewSummary = `${trip.days.length} day${trip.days.length === 1 ? '' : 's'} · tap a day to jump in`;
-  renderTripSubsection(wrap, trip, 'overview', '🗓️', 'Trip Overview', overviewSummary, body => {
+  renderTripSubsection(wrap, trip, 'overview', '🗓️', 'Itinerary Overview', overviewSummary, body => {
     renderOverview(trip, body);
   });
 
@@ -7159,6 +7136,35 @@ function renderTripDetails(trip){
       };
       body.appendChild(exportBtn);
     }
+  });
+
+  // --- Archive ---
+  const archiveStatusText = trip.archivedAt ? `Archived ${new Date(trip.archivedAt).toLocaleDateString()}` : 'Active trip';
+  renderTripSubsection(wrap, trip, 'archive', '📦', 'Archive', archiveStatusText, body => {
+    const statusLine = document.createElement('p');
+    statusLine.className = 'section-empty-note';
+    statusLine.textContent = trip.archivedAt
+      ? "This trip is archived — it's hidden from the switcher by default, but still fully here whenever you need it."
+      : "Archiving hides a trip from your everyday switcher without deleting anything — good for trips that are done, without losing the ability to look back at them.";
+    body.appendChild(statusLine);
+
+    const archiveBtn = document.createElement('button');
+    archiveBtn.type = 'button';
+    archiveBtn.className = 'print-packing-btn';
+    archiveBtn.textContent = trip.archivedAt ? '📤 Unarchive this trip' : '📦 Archive this trip';
+    archiveBtn.onclick = () => {
+      trip.archivedAt = trip.archivedAt ? null : new Date().toISOString();
+      render();
+      handleTripFieldBlur(trip);
+      if(trip.supabaseId){
+        const sharedMap = getSharedTripMap();
+        if(sharedMap[trip.supabaseId]){
+          sharedMap[trip.supabaseId].archivedAt = trip.archivedAt;
+          saveSharedTripMap(sharedMap);
+        }
+      }
+    };
+    body.appendChild(archiveBtn);
   });
 
   const versionLine = document.createElement('div');
