@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Park Days — Full Backup Tool</title>
+<style>
+  body{
+    font-family:-apple-system,'Inter',sans-serif;
+    background:#FBF4E6;
+    color:#1B2A2E;
+    margin:0;
+    padding:20px 16px 60px;
+    max-width:520px;
+    margin:0 auto;
+  }
+  h1{ font-size:22px; margin:10px 0 4px; }
+  p.sub{ font-size:13.5px; color:#5A6B70; line-height:1.5; margin:0 0 24px; }
+  button{
+    display:block;
+    width:100%;
+    background:#0B4A5C;
+    color:white;
+    border:none;
+    border-radius:10px;
+    padding:14px;
+    font-size:15px;
+    font-weight:700;
+    cursor:pointer;
+    margin-bottom:10px;
+  }
+  button:disabled{ opacity:.6; cursor:default; }
+  #status{
+    font-size:13px;
+    color:#5A6B70;
+    margin-top:16px;
+    white-space:pre-line;
+    line-height:1.6;
+  }
+  #status.error{ color:#B33F23; font-weight:600; }
+  #summary{
+    margin-top:20px;
+    background:white;
+    border:1px solid #E4D9C4;
+    border-radius:10px;
+    padding:14px;
+    display:none;
+  }
+  #summary table{ width:100%; border-collapse:collapse; font-size:13px; }
+  #summary td{ padding:4px 0; border-bottom:1px solid #F0E9D8; }
+  #summary td:last-child{ text-align:right; font-weight:700; }
+</style>
+</head>
+<body>
+
+<h1>Park Days — Full Backup</h1>
+<p class="sub">Pulls every row from every table in your Supabase project and packages it into one downloadable file — a real, standalone backup, independent of Supabase's own systems. This does not restore anything; it only reads and downloads.</p>
+
+<button id="backupBtn">Download Full Backup</button>
+<div id="status"></div>
+<div id="summary"><table id="summaryTable"></table></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = 'https://tiinlcgakvobajeaitsr.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_bns5qH6pn0P5aXAUdVCTYg__MijW9d3';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const TABLES = ['trips', 'days', 'items', 'item_travelers', 'travelers', 'stays', 'crowd_levels', 'packing_items', 'grocery_items'];
+
+const statusEl = document.getElementById('status');
+const summaryEl = document.getElementById('summary');
+const summaryTableEl = document.getElementById('summaryTable');
+const btn = document.getElementById('backupBtn');
+
+function setStatus(text, isError){
+  statusEl.textContent = text;
+  statusEl.className = isError ? 'error' : '';
+}
+
+btn.onclick = async () => {
+  btn.disabled = true;
+  summaryEl.style.display = 'none';
+  summaryTableEl.innerHTML = '';
+  const backup = { exportedAt: new Date().toISOString(), tables: {} };
+  const rowCounts = [];
+
+  for(const tableName of TABLES){
+    setStatus(`Fetching "${tableName}"...`);
+    try{
+      const { data, error } = await supabaseClient.from(tableName).select('*');
+      if(error) throw error;
+      backup.tables[tableName] = data || [];
+      rowCounts.push({ table: tableName, count: (data || []).length, ok: true });
+    }catch(err){
+      backup.tables[tableName] = null;
+      rowCounts.push({ table: tableName, count: 0, ok: false });
+      console.warn(`Could not fetch ${tableName}:`, err);
+    }
+  }
+
+  const anyFailed = rowCounts.some(r => !r.ok);
+  if(anyFailed){
+    setStatus('Backup finished, but one or more tables could not be read — check the summary below. The rest of the backup is still valid and safe to keep.', true);
+  } else {
+    setStatus('Done! Every table was read successfully. Downloading your backup file now.');
+  }
+
+  rowCounts.forEach(r => {
+    const row = document.createElement('tr');
+    row.innerHTML = `<td>${r.table}</td><td>${r.ok ? r.count + ' row' + (r.count === 1 ? '' : 's') : '⚠️ failed'}</td>`;
+    summaryTableEl.appendChild(row);
+  });
+  summaryEl.style.display = 'block';
+
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const dateStamp = new Date().toISOString().slice(0, 10);
+  a.download = `park-days-full-backup-${dateStamp}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  btn.disabled = false;
+  btn.textContent = 'Download Another Backup';
+};
+</script>
+</body>
+</html>
