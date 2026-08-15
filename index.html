@@ -317,6 +317,21 @@
     font-weight:600;
     cursor:pointer;
   }
+  .refresh-trip-btn{
+    flex-shrink:0;
+    border:1.5px solid rgba(255,255,255,.3);
+    background:rgba(255,255,255,.08);
+    color:var(--header-text);
+    border-radius:var(--radius-xl);
+    padding:6px 12px;
+    font-size:12.5px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .refresh-trip-btn:disabled{
+    opacity:.6;
+    cursor:default;
+  }
   .theme-card-grid{
     display:flex;
     flex-direction:column;
@@ -2777,7 +2792,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.43';
+const APP_VERSION = '1.44';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -3760,6 +3775,26 @@ function buildPlaceholderTrip(entry){
 // remembers any trips from before, loads the most recently used one fully and shows the
 // rest as lightweight placeholders in the trip switcher -- fetched fully only if tapped.
 // If nothing is remembered, this is a no-op and the default blank trip is left untouched.
+// Refreshes the currently active trip with fresh data from Supabase, reusing the exact
+// fetch-and-merge logic already proven for shared links and switching to a placeholder
+// trip. Safe to call often - a no-op for trips that have never been synced.
+async function refreshActiveTripFromSupabase(){
+  const trip = getActiveTrip();
+  if(!trip || !trip.supabaseId || trip._isPlaceholder) return;
+  try{
+    const remoteData = await fetchRemoteTripData(trip.supabaseId);
+    mergeRemoteIntoLocalTrip(trip, remoteData, appData.travelers);
+    const sharedMap = getSharedTripMap();
+    if(sharedMap[trip.supabaseId]){
+      sharedMap[trip.supabaseId].lastOpenedAt = new Date().toISOString();
+      saveSharedTripMap(sharedMap);
+    }
+    render();
+  }catch(err){
+    console.warn('Could not refresh trip data:', err);
+  }
+}
+
 async function loadRememberedTripsIfNoLinkPresent(){
   const sharedMap = getSharedTripMap();
   const entries = Object.keys(sharedMap).map(supaId => ({ supaId, ...sharedMap[supaId] }));
@@ -4575,8 +4610,13 @@ function render(){
 document.getElementById('viewTabs').addEventListener('click', e => {
   const btn = e.target.closest('.view-tab');
   if(!btn) return;
-  currentView = btn.dataset.view === 'packing' ? lastListsSubView : btn.dataset.view;
+  const newCategory = btn.dataset.view;
+  const oldCategory = (currentView === 'itinerary') ? 'itinerary' : 'packing';
+  currentView = newCategory === 'packing' ? lastListsSubView : newCategory;
   render();
+  if(newCategory !== oldCategory){
+    refreshActiveTripFromSupabase();
+  }
 });
 
 document.getElementById('listsSubTabs').addEventListener('click', e => {
@@ -4606,7 +4646,9 @@ function renderTripSwitcher(){
       pill.appendChild(del);
     }
     pill.onclick = async () => {
-      if(trip._isPlaceholder){
+      const wasPlaceholder = !!trip._isPlaceholder;
+      const isDifferentTrip = trip.id !== appData.activeTripId;
+      if(wasPlaceholder){
         pill.style.opacity = '.6';
         try{
           const remoteData = await fetchRemoteTripData(trip.supabaseId);
@@ -4626,6 +4668,9 @@ function renderTripSwitcher(){
       activeDayId = trip.days[0].id;
       activeTravelerFilter = [];
       render();
+      if(isDifferentTrip && !wasPlaceholder){
+        refreshActiveTripFromSupabase();
+      }
     };
     scroll.appendChild(pill);
   });
@@ -4646,6 +4691,18 @@ function renderTripSwitcher(){
 
   const existingThemeBtn = bar.querySelector('.theme-switch-btn');
   if(existingThemeBtn) existingThemeBtn.remove();
+  const existingRefreshBtn = bar.querySelector('.refresh-trip-btn');
+  if(existingRefreshBtn) existingRefreshBtn.remove();
+  const refreshBtn = document.createElement('button');
+  refreshBtn.className = 'refresh-trip-btn';
+  refreshBtn.textContent = '↻ Refresh';
+  refreshBtn.title = 'Check for the latest updates to this trip';
+  refreshBtn.onclick = async () => {
+    refreshBtn.disabled = true;
+    refreshBtn.textContent = '↻ Refreshing…';
+    await refreshActiveTripFromSupabase();
+  };
+  bar.appendChild(refreshBtn);
   const themeBtn = document.createElement('button');
   themeBtn.className = 'theme-switch-btn';
   themeBtn.textContent = '🎨 Theme';
@@ -6891,9 +6948,14 @@ function renderTripSummaryTrigger(trip){
   btn.classList.toggle('open', isOpen);
   btn.querySelector('.trip-summary-text').textContent = getTripSummaryText(trip);
   btn.onclick = () => {
-    if(isOpen) expandedTripDetails.delete(trip.id);
-    else expandedTripDetails.add(trip.id);
-    render();
+    if(isOpen){
+      expandedTripDetails.delete(trip.id);
+      render();
+    } else {
+      expandedTripDetails.add(trip.id);
+      render();
+      refreshActiveTripFromSupabase();
+    }
   };
 }
 
