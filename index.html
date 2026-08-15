@@ -125,6 +125,13 @@
     gap:8px;
     padding:10px 14px;
     background:var(--sky-deep);
+  }
+  .trip-switcher-scroll{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex:1;
+    min-width:0;
     overflow-x:auto;
   }
   .trip-pill{
@@ -146,6 +153,10 @@
     background:var(--coral);
     color:white;
   }
+  .trip-pill.archived{
+    opacity:.6;
+    border:1px dashed rgba(255,255,255,.35);
+  }
   .trip-pill .del{
     font-size:11px;
     opacity:.7;
@@ -162,6 +173,17 @@
     font-size:12.5px;
     font-weight:600;
     cursor:pointer;
+  }
+  .archive-toggle-btn{
+    flex-shrink:0;
+    border:none;
+    background:transparent;
+    color:rgba(255,255,255,.6);
+    font-size:11.5px;
+    font-weight:600;
+    text-decoration:underline;
+    cursor:pointer;
+    padding:6px 4px;
   }
   .theme-switch-btn{
     flex-shrink:0;
@@ -2447,7 +2469,9 @@
 
 <datalist id="parkSuggestions"></datalist>
 
-<nav class="trip-switcher" id="tripSwitcher"></nav>
+<nav class="trip-switcher" id="tripSwitcher">
+  <div class="trip-switcher-scroll" id="tripSwitcherScroll"></div>
+</nav>
 
 <header class="hero">
   <div class="eyebrow">Park Days</div>
@@ -2592,7 +2616,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.33';
+const APP_VERSION = '1.34';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -2735,11 +2759,11 @@ async function syncTripToSupabase(trip, allTravelers){
 
   if(trip.supabaseId){
     await supabaseClient.from('trips').update({
-      title: trip.title, dates: trip.dates || '', start_date: trip.startDate || null
+      title: trip.title, dates: trip.dates || '', start_date: trip.startDate || null, archived_at: trip.archivedAt || null
     }).eq('id', trip.supabaseId);
   } else {
     const { data, error } = await supabaseClient.from('trips').insert([{
-      title: trip.title, dates: trip.dates || '', start_date: trip.startDate || null
+      title: trip.title, dates: trip.dates || '', start_date: trip.startDate || null, archived_at: trip.archivedAt || null
     }]).select().single();
     if(error) throw error;
     trip.supabaseId = data.id;
@@ -3105,7 +3129,7 @@ async function syncSingleTripUpdate(trip){
   if(!trip.supabaseId) return { ok: true };
   try{
     const { data: updateResult } = await supabaseClient.from('trips').update({
-      title: trip.title, dates: trip.dates || '', start_date: trip.startDate || null
+      title: trip.title, dates: trip.dates || '', start_date: trip.startDate || null, archived_at: trip.archivedAt || null
     }).eq('id', trip.supabaseId).select();
     if(!updateResult || updateResult.length === 0){
       return { ok: false, type: 'trip', name: trip.title || 'this trip' };
@@ -3262,7 +3286,7 @@ async function fetchRemoteTripData(supabaseTripId){
   const { data: groceryRows } = await supabaseClient.from('grocery_items').select('*').eq('trip_id', supabaseTripId).order('created_at', { ascending: true });
 
   return {
-    title: tripRow.title, dates: tripRow.dates || '', startDate: tripRow.start_date || '',
+    title: tripRow.title, dates: tripRow.dates || '', startDate: tripRow.start_date || '', archivedAt: tripRow.archived_at || null,
     travelers: travelerRows.map(t => ({ supabaseId: t.id, name: t.name, color: t.color })),
     packingItems: (packingRows || []).map(row => ({ supabaseId: row.id, name: row.name || '', category: row.category || '', checked: !!row.checked })),
     groceryItems: (groceryRows || []).map(row => ({ supabaseId: row.id, name: row.name || '', category: row.category || '', checked: !!row.checked, channel: row.channel || 'pack' })),
@@ -3297,6 +3321,7 @@ function mergeRemoteIntoLocalTrip(localTrip, remoteData, allTravelers){
   localTrip.title = remoteData.title;
   localTrip.dates = remoteData.dates;
   localTrip.startDate = remoteData.startDate;
+  localTrip.archivedAt = remoteData.archivedAt;
 
   if(!localTrip.supabaseTravelerMap) localTrip.supabaseTravelerMap = {};
   const existingSupaToLocal = {};
@@ -3462,7 +3487,7 @@ function getSharedTripMap(){
     Object.keys(raw).forEach(supaId => {
       const entry = raw[supaId];
       if(typeof entry === 'string'){
-        migrated[supaId] = { localTripId: entry, title: '', dates: '', lastOpenedAt: null };
+        migrated[supaId] = { localTripId: entry, title: '', dates: '', lastOpenedAt: null, archivedAt: null };
       } else {
         migrated[supaId] = entry;
       }
@@ -3497,7 +3522,7 @@ async function loadSharedTripFromUrlIfPresent(){
       localTrip = {
         id: cryptoId(), supabaseId: tripCode,
         title: remoteData.title, dates: remoteData.dates, startDate: remoteData.startDate,
-        travelerIds: [], supabaseTravelerMap: {}, notes: '',
+        travelerIds: [], supabaseTravelerMap: {}, notes: '', archivedAt: null,
         stays: [], crowdLevels: {}, manualCrowdSlots: [],
         packingCategories: [], packingItems: [], groceryItems: [],
         days: []
@@ -3510,7 +3535,8 @@ async function loadSharedTripFromUrlIfPresent(){
       localTripId: localTrip.id,
       title: localTrip.title,
       dates: localTrip.dates,
-      lastOpenedAt: new Date().toISOString()
+      lastOpenedAt: new Date().toISOString(),
+      archivedAt: localTrip.archivedAt || null
     };
     saveSharedTripMap(sharedMap);
 
@@ -3528,7 +3554,7 @@ function buildPlaceholderTrip(entry){
   return {
     id: entry.localTripId || cryptoId(), supabaseId: entry.supaId,
     title: entry.title || 'Untitled trip', dates: entry.dates || '', startDate: '',
-    travelerIds: [], supabaseTravelerMap: {}, notes: '',
+    travelerIds: [], supabaseTravelerMap: {}, notes: '', archivedAt: entry.archivedAt || null,
     stays: [], crowdLevels: {}, manualCrowdSlots: [],
     packingCategories: [], packingItems: [], groceryItems: [],
     days: [ defaultDay(1) ],
@@ -3550,8 +3576,9 @@ async function loadRememberedTripsIfNoLinkPresent(){
     const bTime = b.lastOpenedAt ? new Date(b.lastOpenedAt).getTime() : 0;
     return bTime - aTime;
   });
-  const mostRecent = entries[0];
-  const others = entries.slice(1);
+  const nonArchived = entries.filter(e => !e.archivedAt);
+  const mostRecent = nonArchived.length > 0 ? nonArchived[0] : entries[0];
+  const others = entries.filter(e => e !== mostRecent);
 
   appData.trips = [];
 
@@ -3560,7 +3587,7 @@ async function loadRememberedTripsIfNoLinkPresent(){
     const localTrip = {
       id: mostRecent.localTripId || cryptoId(), supabaseId: mostRecent.supaId,
       title: remoteData.title, dates: remoteData.dates, startDate: remoteData.startDate,
-      travelerIds: [], supabaseTravelerMap: {}, notes: '',
+      travelerIds: [], supabaseTravelerMap: {}, notes: '', archivedAt: null,
       stays: [], crowdLevels: {}, manualCrowdSlots: [],
       packingCategories: [], packingItems: [], groceryItems: [],
       days: []
@@ -3569,7 +3596,7 @@ async function loadRememberedTripsIfNoLinkPresent(){
     appData.trips.push(localTrip);
     appData.activeTripId = localTrip.id;
     activeDayId = localTrip.days.length ? localTrip.days[0].id : null;
-    sharedMap[mostRecent.supaId] = { localTripId: localTrip.id, title: localTrip.title, dates: localTrip.dates, lastOpenedAt: new Date().toISOString() };
+    sharedMap[mostRecent.supaId] = { localTripId: localTrip.id, title: localTrip.title, dates: localTrip.dates, lastOpenedAt: new Date().toISOString(), archivedAt: localTrip.archivedAt || null };
   }catch(err){
     console.warn('Could not load most recently used trip, falling back to a blank trip:', err);
     const fallback = defaultTrip();
@@ -4189,6 +4216,7 @@ function defaultTrip(){
     startDate: "",
     party: "",
     notes: "",
+    archivedAt: null,
     days: [ defaultDay(1) ],
     stays: [],
     travelerIds: [],
@@ -4212,6 +4240,7 @@ let appData = {
 appData.activeTripId = appData.trips[0].id;
 let activeDayId = appData.trips[0].days[0].id;
 let currentView = 'itinerary';
+let showArchivedTrips = false;
 let lastListsSubView = 'packing';
 let expandedDetails = new Set();
 let expandedAddForm = new Set();
@@ -4360,10 +4389,12 @@ document.getElementById('listsSubTabs').addEventListener('click', e => {
 
 function renderTripSwitcher(){
   const bar = document.getElementById('tripSwitcher');
-  bar.innerHTML = '';
-  appData.trips.forEach(trip => {
+  const scroll = document.getElementById('tripSwitcherScroll');
+  scroll.innerHTML = '';
+  const visibleTrips = appData.trips.filter(trip => !trip.archivedAt || showArchivedTrips || trip.id === appData.activeTripId);
+  visibleTrips.forEach(trip => {
     const pill = document.createElement('div');
-    pill.className = 'trip-pill' + (trip.id === appData.activeTripId ? ' active' : '');
+    pill.className = 'trip-pill' + (trip.id === appData.activeTripId ? ' active' : '') + (trip.archivedAt ? ' archived' : '');
     const nameSpan = document.createElement('span');
     nameSpan.textContent = trip.title || 'Untitled trip';
     pill.appendChild(nameSpan);
@@ -4382,7 +4413,7 @@ function renderTripSwitcher(){
           mergeRemoteIntoLocalTrip(trip, remoteData, appData.travelers);
           delete trip._isPlaceholder;
           const sharedMap = getSharedTripMap();
-          sharedMap[trip.supabaseId] = { localTripId: trip.id, title: trip.title, dates: trip.dates, lastOpenedAt: new Date().toISOString() };
+          sharedMap[trip.supabaseId] = { localTripId: trip.id, title: trip.title, dates: trip.dates, lastOpenedAt: new Date().toISOString(), archivedAt: trip.archivedAt || null };
           saveSharedTripMap(sharedMap);
         }catch(err){
           console.warn('Could not load this trip:', err);
@@ -4396,14 +4427,25 @@ function renderTripSwitcher(){
       activeTravelerFilter = [];
       render();
     };
-    bar.appendChild(pill);
+    scroll.appendChild(pill);
   });
   const addBtn = document.createElement('button');
   addBtn.className = 'add-trip-btn';
   addBtn.textContent = '+ New Trip';
   addBtn.onclick = openTripWizard;
-  bar.appendChild(addBtn);
+  scroll.appendChild(addBtn);
 
+  const hasArchived = appData.trips.some(t => t.archivedAt);
+  if(hasArchived){
+    const archiveToggle = document.createElement('button');
+    archiveToggle.className = 'archive-toggle-btn';
+    archiveToggle.textContent = showArchivedTrips ? 'Hide archived' : 'Show archived';
+    archiveToggle.onclick = () => { showArchivedTrips = !showArchivedTrips; render(); };
+    scroll.appendChild(archiveToggle);
+  }
+
+  const existingThemeBtn = bar.querySelector('.theme-switch-btn');
+  if(existingThemeBtn) existingThemeBtn.remove();
   const themeBtn = document.createElement('button');
   themeBtn.className = 'theme-switch-btn';
   themeBtn.textContent = '🎨 Theme';
@@ -4736,7 +4778,8 @@ function renderWizardSaveArea(body, trip){
           localTripId: trip.id,
           title: trip.title,
           dates: trip.dates,
-          lastOpenedAt: new Date().toISOString()
+          lastOpenedAt: new Date().toISOString(),
+          archivedAt: trip.archivedAt || null
         };
         saveSharedTripMap(sharedMap);
       }
@@ -6772,6 +6815,35 @@ function renderTripDetails(trip){
     body.appendChild(addTravelerRow);
   });
 
+  // --- Archive ---
+  const archiveStatusText = trip.archivedAt ? `Archived ${new Date(trip.archivedAt).toLocaleDateString()}` : 'Active trip';
+  renderTripSubsection(wrap, trip, 'archive', '📦', 'Archive', archiveStatusText, body => {
+    const statusLine = document.createElement('p');
+    statusLine.className = 'section-empty-note';
+    statusLine.textContent = trip.archivedAt
+      ? "This trip is archived — it's hidden from the switcher by default, but still fully here whenever you need it."
+      : "Archiving hides a trip from your everyday switcher without deleting anything — good for trips that are done, without losing the ability to look back at them.";
+    body.appendChild(statusLine);
+
+    const archiveBtn = document.createElement('button');
+    archiveBtn.type = 'button';
+    archiveBtn.className = 'print-packing-btn';
+    archiveBtn.textContent = trip.archivedAt ? '📤 Unarchive this trip' : '📦 Archive this trip';
+    archiveBtn.onclick = () => {
+      trip.archivedAt = trip.archivedAt ? null : new Date().toISOString();
+      render();
+      handleTripFieldBlur(trip);
+      if(trip.supabaseId){
+        const sharedMap = getSharedTripMap();
+        if(sharedMap[trip.supabaseId]){
+          sharedMap[trip.supabaseId].archivedAt = trip.archivedAt;
+          saveSharedTripMap(sharedMap);
+        }
+      }
+    };
+    body.appendChild(archiveBtn);
+  });
+
   // --- Lodging & Dining ---
   const windows = getDiningWindows(trip);
   const lodgingSummary = trip.stays.length
@@ -7264,6 +7336,7 @@ document.getElementById('loadInput').addEventListener('change', e => {
         }
         if(!Array.isArray(trip.manualCrowdSlots)) trip.manualCrowdSlots = [];
         if(trip.notes === undefined) trip.notes = '';
+        if(trip.archivedAt === undefined) trip.archivedAt = null;
         migrateDayHotelsToStays(trip);
         migrateDayCrowdLevelsToTrip(trip);
         migrateDayParksToMainPlanItems(trip);
