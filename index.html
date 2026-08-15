@@ -1515,6 +1515,54 @@
   .timeline-block-name{
     font-weight:700;
   }
+  .timeline-block-top-row{
+    display:flex;
+    align-items:center;
+    gap:3px;
+    flex-wrap:wrap;
+    margin-bottom:1px;
+  }
+  .timeline-block-time{
+    font-size:9.5px;
+    font-weight:700;
+    opacity:.9;
+  }
+  .timeline-block-indicator{
+    font-size:9px;
+    line-height:1;
+    opacity:.9;
+  }
+  .timeline-block-crowd{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:13px;
+    height:13px;
+    border-radius:var(--radius-round);
+    font-size:8px;
+    font-weight:700;
+    line-height:1;
+    color:#fff;
+    flex-shrink:0;
+  }
+  .timeline-block-crowd.crowd-low{ background:var(--sage); }
+  .timeline-block-crowd.crowd-mid{ background:var(--marigold); }
+  .timeline-block-crowd.crowd-high{ background:var(--coral); }
+  .timeline-block-meal{
+    display:block;
+    font-size:10px;
+    opacity:.9;
+  }
+  .timeline-block-confirmation, .timeline-block-notes-preview{
+    display:block;
+    font-size:9.5px;
+    opacity:.85;
+    margin-top:2px;
+  }
+  .timeline-block-traveler-names{
+    font-size:9.5px;
+    opacity:.9;
+  }
   .timeline-more-btn{
     position:absolute;
     box-sizing:border-box;
@@ -2531,6 +2579,8 @@
     .who-toggle-link, .add-stay-btn, .stay-card-remove, .stay-warning,
     .crowd-remove-btn, .traveler-chip button, .compact-toggle-btn,
     .trip-subsection-overview, .trip-subsection-crowd, .trip-subsection-share,
+    .trip-subsection-archive, .trip-notes-visibility-hint, .trip-notes-edit-row,
+    .empty-state,
     .dining-reservations-block,
     #groceryPanelWrap, #tripTitle[contenteditable]::after{
       display:none !important;
@@ -2619,6 +2669,9 @@
     .item-type-badge{font-size:9px;}
     .item-content-full{display:none !important;}
     .item-content-compact{display:block !important;}
+    .shared-notes-block{background:none !important;border:none !important;padding:0 !important;margin-bottom:10px !important;}
+    .shared-notes-label{color:#000 !important;}
+    .shared-notes-field textarea{display:none !important;}
     .item-compact-line1{font-size:12px;}
     .item-compact-line2{font-size:10.5px;}
     .day-notes-block{margin:0 0 10px;}
@@ -2792,7 +2845,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.44';
+const APP_VERSION = '1.46';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5435,14 +5488,62 @@ function renderDayTimelineGrid(panel, day, trip){
       block.style.height = height + 'px';
       block.style.left = (i / columnCount * 100) + '%';
       block.style.width = (100 / columnCount) + '%';
+
+      const isAlone = cluster.length === 1;
+      const durationMinutes = entry.endMin - entry.startMin;
+      const tier = !isAlone ? 'tight' : (durationMinutes >= 120 ? 'spacious' : 'short');
+
+      const hasConfirmation = !!entry.item.confirmationNumber;
+      const hasNotes = !!entry.item.notes;
+      let crowdValue = null;
+      if(entry.item.isMainPlan && CROWD_LEVEL_PARKS.includes(entry.item.name)){
+        crowdValue = getCrowdLevel(trip, day.id, entry.item.name) || null;
+      }
+
+      let indicatorsHtml = `<span class="timeline-block-time">${escapeHtml(formatTime(entry.item.time))}</span>`;
+      if(hasConfirmation) indicatorsHtml += `<span class="timeline-block-indicator" title="Has a confirmation number">#</span>`;
+      if(hasNotes) indicatorsHtml += `<span class="timeline-block-indicator" title="Has notes">🗒️</span>`;
+      if(crowdValue){
+        indicatorsHtml += `<span class="timeline-block-crowd ${getCrowdClass(crowdValue)}" title="Crowd level ${escapeHtml(crowdValue)}">${escapeHtml(crowdValue)}</span>`;
+      }
+
+      let mealHtml = '';
+      if(tier !== 'tight'){
+        const mealService = MEAL_SERVICES.find(m => m.key === entry.item.mealService);
+        const mealPeriod = MEAL_PERIODS.find(p => p.key === entry.item.mealPeriod);
+        if(mealService){
+          const iconPart = mealService.icon ? mealService.icon + ' ' : '';
+          const mealLabel = mealService.key === 'snack' ? `${iconPart}Snack` : `${iconPart}${mealPeriod ? mealPeriod.label + ' · ' : ''}${mealService.label}`;
+          mealHtml = `<span class="timeline-block-meal">${escapeHtml(mealLabel)}</span>`;
+        }
+      }
+
+      let spaciousHtml = '';
+      if(tier === 'spacious'){
+        if(hasConfirmation) spaciousHtml += `<div class="timeline-block-confirmation">Conf #: ${escapeHtml(entry.item.confirmationNumber)}</div>`;
+        if(hasNotes) spaciousHtml += `<div class="timeline-block-notes-preview">${escapeHtml(entry.item.notes)}</div>`;
+      }
+
       const travelerColors = getItemTravelerColors(entry.item, trip);
-      const dotsHtml = travelerColors.length
-        ? `<span class="timeline-block-dots">${travelerColors.map(c => `<span class="timeline-block-dot" style="background:${c};"></span>`).join('')}</span>`
-        : '';
+      let travelersHtml;
+      if(tier === 'spacious'){
+        const travelerNames = Array.isArray(entry.item.travelerIds) ? entry.item.travelerIds.map(id => getTravelerName(id)).filter(Boolean) : [];
+        travelersHtml = travelerNames.length ? `<span class="timeline-block-traveler-names">${escapeHtml(travelerNames.join(', '))}</span>` : '';
+      } else {
+        travelersHtml = travelerColors.length
+          ? `<span class="timeline-block-dots">${travelerColors.map(c => `<span class="timeline-block-dot" style="background:${c};"></span>`).join('')}</span>`
+          : '';
+      }
+
       block.innerHTML = `
-        ${dotsHtml}
+        <div class="timeline-block-top-row">
+          ${travelersHtml}
+          ${indicatorsHtml}
+        </div>
         ${entry.item.isMainPlan ? '<span class="timeline-block-badge">📌</span>' : ''}
         <span class="timeline-block-name">${escapeHtml(getItemDisplayName(entry.item))}</span>
+        ${mealHtml}
+        ${spaciousHtml}
       `;
       block.onclick = () => openItemEditModal(day, entry.item);
       container.appendChild(block);
@@ -6217,12 +6318,18 @@ function renderPackingGroceryNotesBlock(trip){
   const packingLabel = document.createElement('label');
   packingLabel.className = 'shared-notes-label';
   packingLabel.textContent = '🧳 Packing Notes';
+  packingField.appendChild(packingLabel);
+  if(trip.packingNotes){
+    const packingPrintFact = document.createElement('div');
+    packingPrintFact.className = 'print-only-fact';
+    packingPrintFact.textContent = trip.packingNotes;
+    packingField.appendChild(packingPrintFact);
+  }
   const packingTextarea = document.createElement('textarea');
   packingTextarea.placeholder = "Anything worth noting for packing...";
   packingTextarea.value = trip.packingNotes || '';
   packingTextarea.oninput = e => { trip.packingNotes = e.target.value; };
   packingTextarea.onblur = () => handleTripFieldBlur(trip);
-  packingField.appendChild(packingLabel);
   packingField.appendChild(packingTextarea);
 
   const groceryField = document.createElement('div');
@@ -6230,12 +6337,18 @@ function renderPackingGroceryNotesBlock(trip){
   const groceryLabel = document.createElement('label');
   groceryLabel.className = 'shared-notes-label';
   groceryLabel.textContent = '🛒 Grocery Notes';
+  groceryField.appendChild(groceryLabel);
+  if(trip.groceryNotes){
+    const groceryPrintFact = document.createElement('div');
+    groceryPrintFact.className = 'print-only-fact';
+    groceryPrintFact.textContent = trip.groceryNotes;
+    groceryField.appendChild(groceryPrintFact);
+  }
   const groceryTextarea = document.createElement('textarea');
   groceryTextarea.placeholder = "Anything worth noting for groceries...";
   groceryTextarea.value = trip.groceryNotes || '';
   groceryTextarea.oninput = e => { trip.groceryNotes = e.target.value; };
   groceryTextarea.onblur = () => handleTripFieldBlur(trip);
-  groceryField.appendChild(groceryLabel);
   groceryField.appendChild(groceryTextarea);
 
   block.appendChild(packingField);
@@ -7062,7 +7175,7 @@ function renderTripDetails(trip){
     const nightsCount = Math.max(1, trip.days.length - 1);
     const printFact = document.createElement('div');
     printFact.className = 'print-only-fact';
-    printFact.textContent = `Start date: ${trip.startDate ? formatTripDateRange(trip) : (trip.dates || 'Not set')} · Trip length: ${nightsCount} night${nightsCount === 1 ? '' : 's'}`;
+    printFact.textContent = `Trip dates: ${trip.startDate ? formatTripDateRange(trip) : (trip.dates || 'Not set')} · Trip length: ${nightsCount} night${nightsCount === 1 ? '' : 's'}`;
     body.appendChild(printFact);
 
     const travelersLabel = document.createElement('div');
@@ -7126,11 +7239,17 @@ function renderTripDetails(trip){
     tripNotesLabel.textContent = 'Trip Notes';
     body.appendChild(tripNotesLabel);
     const tripNotesSub = document.createElement('p');
-    tripNotesSub.className = 'section-empty-note';
+    tripNotesSub.className = 'section-empty-note trip-notes-visibility-hint';
     tripNotesSub.textContent = 'Visible to everyone with the trip link.';
     body.appendChild(tripNotesSub);
+    if(trip.notes){
+      const tripNotesPrintFact = document.createElement('div');
+      tripNotesPrintFact.className = 'print-only-fact';
+      tripNotesPrintFact.textContent = trip.notes;
+      body.appendChild(tripNotesPrintFact);
+    }
     const tripNotesRow = document.createElement('div');
-    tripNotesRow.className = 'day-info-row';
+    tripNotesRow.className = 'day-info-row trip-notes-edit-row';
     tripNotesRow.innerHTML = `
       <div class="day-info-field day-info-field-full">
         <textarea id="tripNotesField" placeholder="Loose thoughts, 'do not forget the stroller,' anything worth remembering..." style="min-height:80px;width:100%;font-family:'Inter',sans-serif;font-size:13.5px;padding:9px 10px;border-radius:var(--radius-md);border:1.5px solid var(--line);">${escapeHtml(trip.notes || '')}</textarea>
