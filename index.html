@@ -2993,7 +2993,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.63';
+const APP_VERSION = '1.64';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4154,6 +4154,7 @@ async function refreshActiveTripFromSupabase(){
   try{
     const remoteData = await fetchRemoteTripData(trip.supabaseId);
     mergeRemoteIntoLocalTrip(trip, remoteData, appData.travelers);
+    establishBaselinesForTrip(trip);
     const sharedMap = getSharedTripMap();
     if(sharedMap[trip.supabaseId]){
       sharedMap[trip.supabaseId].lastOpenedAt = new Date().toISOString();
@@ -4918,51 +4919,53 @@ function getGroceryItemSnapshot(item){
 // used whenever appData has just been (re)established as a known-synced state: after a
 // full sync succeeds, right after loading a trip fresh from Supabase, loading a backup
 // file, or on initial app startup.
-function establishAllBaselines(){
-  recordBaselines = {};
-  appData.trips.forEach(trip => {
-    if(trip.supabaseId){
-      recordBaselines['trip:' + trip.id] = getTripSnapshot(trip);
+function establishBaselinesForTrip(trip){
+  if(trip.supabaseId){
+    recordBaselines['trip:' + trip.id] = getTripSnapshot(trip);
+  }
+  trip.days.forEach(day => {
+    if(day.supabaseId){
+      recordBaselines['day:' + day.id] = getDaySnapshot(day);
     }
-    trip.days.forEach(day => {
-      if(day.supabaseId){
-        recordBaselines['day:' + day.id] = getDaySnapshot(day);
-      }
-      day.items.forEach(item => {
-        if(item.supabaseId){
-          recordBaselines['item:' + item.id] = getItemSnapshot(item);
-        }
-      });
-    });
-    (trip.stays || []).forEach(stay => {
-      if(stay.supabaseId){
-        recordBaselines['stay:' + stay.id] = getStaySnapshot(stay);
+    day.items.forEach(item => {
+      if(item.supabaseId){
+        recordBaselines['item:' + item.id] = getItemSnapshot(item);
       }
     });
-    (trip.travelerIds || []).forEach(tid => {
-      if(trip.supabaseTravelerMap && trip.supabaseTravelerMap[tid]){
-        const traveler = appData.travelers.find(t => t.id === tid);
-        if(traveler) recordBaselines['traveler:' + trip.id + ':' + tid] = getTravelerSnapshot(traveler);
-      }
-    });
-    (trip.packingItems || []).forEach(pi => {
-      if(trip.supabasePackingMap && trip.supabasePackingMap[pi.id]){
-        recordBaselines['packing:' + pi.id] = getPackingItemSnapshot(pi);
-      }
-    });
-    (trip.groceryItems || []).forEach(gi => {
-      if(trip.supabaseGroceryMap && trip.supabaseGroceryMap[gi.id]){
-        recordBaselines['grocery:' + gi.id] = getGroceryItemSnapshot(gi);
-      }
-    });
-    if(trip.crowdLevels){
-      Object.keys(trip.crowdLevels).forEach(key => {
-        if(trip.supabaseCrowdMap && trip.supabaseCrowdMap[key]){
-          recordBaselines['crowd:' + trip.id + ':' + key] = trip.crowdLevels[key] || '';
-        }
-      });
+  });
+  (trip.stays || []).forEach(stay => {
+    if(stay.supabaseId){
+      recordBaselines['stay:' + stay.id] = getStaySnapshot(stay);
     }
   });
+  (trip.travelerIds || []).forEach(tid => {
+    if(trip.supabaseTravelerMap && trip.supabaseTravelerMap[tid]){
+      const traveler = appData.travelers.find(t => t.id === tid);
+      if(traveler) recordBaselines['traveler:' + trip.id + ':' + tid] = getTravelerSnapshot(traveler);
+    }
+  });
+  (trip.packingItems || []).forEach(pi => {
+    if(trip.supabasePackingMap && trip.supabasePackingMap[pi.id]){
+      recordBaselines['packing:' + pi.id] = getPackingItemSnapshot(pi);
+    }
+  });
+  (trip.groceryItems || []).forEach(gi => {
+    if(trip.supabaseGroceryMap && trip.supabaseGroceryMap[gi.id]){
+      recordBaselines['grocery:' + gi.id] = getGroceryItemSnapshot(gi);
+    }
+  });
+  if(trip.crowdLevels){
+    Object.keys(trip.crowdLevels).forEach(key => {
+      if(trip.supabaseCrowdMap && trip.supabaseCrowdMap[key]){
+        recordBaselines['crowd:' + trip.id + ':' + key] = trip.crowdLevels[key] || '';
+      }
+    });
+  }
+}
+
+function establishAllBaselines(){
+  recordBaselines = {};
+  appData.trips.forEach(trip => establishBaselinesForTrip(trip));
   updateUnsavedIndicator();
 }
 
