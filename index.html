@@ -2846,7 +2846,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.50';
+const APP_VERSION = '1.51';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -2855,6 +2855,104 @@ const SUPABASE_URL = 'https://tiinlcgakvobajeaitsr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_bns5qH6pn0P5aXAUdVCTYg__MijW9d3';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Inserts a brand-new item into Supabase immediately, rather than waiting for the next
+// full sync. If the parent day hasn't been synced yet either, this is a safe no-op -
+// the big sync will create the day first, then the item, in the correct order.
+async function syncNewItemToSupabase(item, day, trip){
+  if(!day.supabaseId || item.supabaseId) return;
+  try{
+    const itemPayload = {
+      time: item.time || null, end_time: item.endTime || null, section: item.section || '',
+      type: item.type || '', name: item.name || '', is_main_plan: !!item.isMainPlan,
+      status: item.status || 'tentative', confirmation_number: item.confirmationNumber || '',
+      meal_service: item.mealService || '', meal_period: item.mealPeriod || '', notes: item.notes || ''
+    };
+    const { data, error } = await supabaseClient.from('items').insert([{ ...itemPayload, day_id: day.supabaseId }]).select().single();
+    if(error) throw error;
+    item.supabaseId = data.id;
+    const tagRows = (Array.isArray(item.travelerIds) ? item.travelerIds : [])
+      .map(localTid => trip.supabaseTravelerMap[localTid])
+      .filter(Boolean)
+      .map(remoteTid => ({ item_id: item.supabaseId, traveler_id: remoteTid }));
+    if(tagRows.length){
+      await supabaseClient.from('item_travelers').insert(tagRows);
+    }
+  }catch(err){
+    console.warn('Could not sync new item to Supabase right away (it will sync on the next full sync):', err);
+  }
+}
+async function syncNewDayToSupabase(day, trip){
+  if(!trip.supabaseId || day.supabaseId) return;
+  try{
+    const { data, error } = await supabaseClient.from('days').insert([{
+      trip_id: trip.supabaseId, label: day.label || '', day_tag: day.dayTag || '', rope_drop: day.ropeDrop || null, notes: day.notes || ''
+    }]).select().single();
+    if(error) throw error;
+    day.supabaseId = data.id;
+  }catch(err){
+    console.warn('Could not sync new day to Supabase right away (it will sync on the next full sync):', err);
+  }
+}
+async function syncNewStayToSupabase(stay, trip){
+  if(!trip.supabaseId || stay.supabaseId) return;
+  try{
+    const referencedDay = trip.days.find(d => d.id === stay.startDayId);
+    const stayPayload = {
+      hotel: stay.hotel || '', hotel_confirmation: stay.hotelConfirmation || '',
+      room_type: stay.roomType || '', room_type_other: stay.roomTypeOther || '',
+      start_day_id: (referencedDay && referencedDay.supabaseId) || null
+    };
+    const { data, error } = await supabaseClient.from('stays').insert([{ ...stayPayload, trip_id: trip.supabaseId }]).select().single();
+    if(error) throw error;
+    stay.supabaseId = data.id;
+  }catch(err){
+    console.warn('Could not sync new stay to Supabase right away (it will sync on the next full sync):', err);
+  }
+}
+async function syncNewTravelerToSupabase(travelerId, trip){
+  if(!trip.supabaseId) return;
+  if(!trip.supabaseTravelerMap) trip.supabaseTravelerMap = {};
+  if(trip.supabaseTravelerMap[travelerId]) return;
+  const traveler = appData.travelers.find(t => t.id === travelerId);
+  if(!traveler) return;
+  try{
+    const { data, error } = await supabaseClient.from('travelers').insert([{
+      trip_id: trip.supabaseId, name: traveler.name, color: traveler.color || null
+    }]).select().single();
+    if(error) throw error;
+    trip.supabaseTravelerMap[travelerId] = data.id;
+  }catch(err){
+    console.warn('Could not sync new traveler to Supabase right away (it will sync on the next full sync):', err);
+  }
+}
+async function syncNewPackingItemToSupabase(item, trip){
+  if(!trip.supabaseId) return;
+  if(!trip.supabasePackingMap) trip.supabasePackingMap = {};
+  if(trip.supabasePackingMap[item.id]) return;
+  try{
+    const resolved = resolvePackingItemForSync(item);
+    const payload = { name: resolved.name, category: resolved.category, checked: !!item.checked };
+    const { data, error } = await supabaseClient.from('packing_items').insert([{ ...payload, trip_id: trip.supabaseId }]).select().single();
+    if(error) throw error;
+    trip.supabasePackingMap[item.id] = data.id;
+  }catch(err){
+    console.warn('Could not sync new packing item to Supabase right away (it will sync on the next full sync):', err);
+  }
+}
+async function syncNewGroceryItemToSupabase(item, trip){
+  if(!trip.supabaseId) return;
+  if(!trip.supabaseGroceryMap) trip.supabaseGroceryMap = {};
+  if(trip.supabaseGroceryMap[item.id]) return;
+  try{
+    const resolved = resolveGroceryItemForSync(item);
+    const payload = { name: resolved.name, category: resolved.category, checked: !!item.checked, channel: item.channel || 'pack' };
+    const { data, error } = await supabaseClient.from('grocery_items').insert([{ ...payload, trip_id: trip.supabaseId }]).select().single();
+    if(error) throw error;
+    trip.supabaseGroceryMap[item.id] = data.id;
+  }catch(err){
+    console.warn('Could not sync new grocery item to Supabase right away (it will sync on the next full sync):', err);
+  }
+}
 async function deleteItemFromSupabaseNow(item){
   if(!item.supabaseId) return;
   try{
@@ -4150,7 +4248,9 @@ function setTripLength(trip, nights){
   const current = trip.days.length;
   if(targetDays > current){
     for(let i = current; i < targetDays; i++){
-      trip.days.push(defaultDay(i + 1));
+      const newDay = defaultDay(i + 1);
+      trip.days.push(newDay);
+      syncNewDayToSupabase(newDay, trip);
     }
   } else if(targetDays < current){
     const toRemove = current - targetDays;
@@ -4954,7 +5054,10 @@ function renderWizardStep3(body, trip){
     if(!raw) return;
     raw.split(',').map(n => n.trim()).filter(Boolean).forEach(name => {
       const id = getOrCreateTraveler(name);
-      if(id && !trip.travelerIds.includes(id)) trip.travelerIds.push(id);
+      if(id && !trip.travelerIds.includes(id)){
+        trip.travelerIds.push(id);
+        syncNewTravelerToSupabase(id, trip);
+      }
     });
     input.value = '';
     renderChips();
@@ -4989,8 +5092,10 @@ function renderWizardStep4(body, trip){
     addBtn.className = 'add-stay-btn';
     addBtn.textContent = trip.stays.length ? '+ Add another hotel' : '+ Add a hotel';
     addBtn.onclick = () => {
-      trip.stays.push({ id: cryptoId(), hotel: '', hotelConfirmation: '', roomType: '', roomTypeOther: '', startDayId: trip.days[0].id });
+      const newStay = { id: cryptoId(), hotel: '', hotelConfirmation: '', roomType: '', roomTypeOther: '', startDayId: trip.days[0].id };
+      trip.stays.push(newStay);
       renderStays();
+      syncNewStayToSupabase(newStay, trip);
     };
     staysBody.appendChild(addBtn);
   };
@@ -5355,6 +5460,7 @@ function addDay(){
   trip.days.push(newDay);
   activeDayId = newDay.id;
   render();
+  syncNewDayToSupabase(newDay, trip);
 }
 
 function addDayAtStart(){
@@ -5745,9 +5851,11 @@ function renderDayPanels(){
           { status: 'tentative', section: sec.key },
           'Add to ' + sec.label,
           (values) => {
-            day.items.push(Object.assign({ id: cryptoId() }, values));
+            const newItem = Object.assign({ id: cryptoId() }, values);
+            day.items.push(newItem);
             expandedSectionAddForm.delete(sectionFormKey);
             render();
+            syncNewItemToSupabase(newItem, day, getActiveTrip());
           },
           () => {
             expandedSectionAddForm.delete(sectionFormKey);
@@ -6257,9 +6365,11 @@ function renderAddForm(day){
     { status: 'tentative' },
     'Add to Day',
     (values) => {
-      day.items.push(Object.assign({ id: cryptoId() }, values));
+      const newItem = Object.assign({ id: cryptoId() }, values);
+      day.items.push(newItem);
       expandedAddForm.delete(day.id);
       render();
+      syncNewItemToSupabase(newItem, day, getActiveTrip());
     }
   );
 }
@@ -6319,14 +6429,18 @@ function ensureEssentialPackingItems(trip){
   appData.packingMaster.filter(mi => mi.essential).forEach(mi => {
     const exists = trip.packingItems.some(pi => !pi.custom && pi.itemId === mi.id);
     if(!exists){
-      trip.packingItems.push({ id: cryptoId(), custom:false, itemId: mi.id, checked:false });
+      const newItem = { id: cryptoId(), custom:false, itemId: mi.id, checked:false };
+      trip.packingItems.push(newItem);
+      syncNewPackingItemToSupabase(newItem, trip);
     }
   });
 }
 function addPackingItemToTrip(trip, masterItem){
   const exists = trip.packingItems.some(pi => !pi.custom && pi.itemId === masterItem.id);
   if(!exists){
-    trip.packingItems.push({ id: cryptoId(), custom:false, itemId: masterItem.id, checked:false });
+    const newItem = { id: cryptoId(), custom:false, itemId: masterItem.id, checked:false };
+    trip.packingItems.push(newItem);
+    syncNewPackingItemToSupabase(newItem, trip);
   }
 }
 function removePackingItemFromTrip(trip, masterItemId){
@@ -6488,9 +6602,11 @@ function renderPackingPanel(){
   addBtn.onclick = () => {
     const name = input.value.trim();
     if(!name) return;
-    trip.packingItems.push({ id: cryptoId(), custom:true, name, checked:false });
+    const newItem = { id: cryptoId(), custom:true, name, checked:false };
+    trip.packingItems.push(newItem);
     input.value = '';
     render();
+    syncNewPackingItemToSupabase(newItem, trip);
   };
   input.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); addBtn.click(); } });
   wrap.appendChild(addRow);
@@ -6829,14 +6945,16 @@ function syncGroceryToPacking(trip, groceryItem){
     if(linkIdx >= 0){
       trip.packingItems[linkIdx].name = name;
     } else {
-      trip.packingItems.push({
+      const newItem = {
         id: cryptoId(),
         custom: true,
         name,
         category: 'Food/Room Supplies',
         checked: false,
         linkedGroceryId: groceryItem.id
-      });
+      };
+      trip.packingItems.push(newItem);
+      syncNewPackingItemToSupabase(newItem, trip);
     }
   } else if(linkIdx >= 0){
     trip.packingItems.splice(linkIdx, 1);
@@ -6921,6 +7039,7 @@ function renderGroceryPanel(){
     trip.groceryItems.push(newItem);
     syncGroceryToPacking(trip, newItem);
     render();
+    syncNewGroceryItemToSupabase(newItem, trip);
   };
   nameInput.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); addBtn.click(); } });
   wrap.appendChild(addRow);
@@ -6961,6 +7080,7 @@ function renderGroceryCatalogRow(trip, masterItem){
         const newItem = { id: cryptoId(), itemId: masterItem.id, custom:false, channel, checked:false };
         trip.groceryItems.push(newItem);
         syncGroceryToPacking(trip, newItem);
+        syncNewGroceryItemToSupabase(newItem, trip);
       }
       render();
     };
@@ -7263,7 +7383,10 @@ function renderTripDetails(trip){
       const name = travelerInput.value.trim();
       if(!name) return;
       const id = getOrCreateTraveler(name);
-      if(id && !trip.travelerIds.includes(id)) trip.travelerIds.push(id);
+      if(id && !trip.travelerIds.includes(id)){
+        trip.travelerIds.push(id);
+        syncNewTravelerToSupabase(id, trip);
+      }
       render();
     };
     addTravelerBtn.onclick = submitTraveler;
@@ -7388,15 +7511,17 @@ function renderTripDetails(trip){
     addStayBtn.className = 'add-stay-btn';
     addStayBtn.textContent = '+ Add a stay';
     addStayBtn.onclick = () => {
-      trip.stays.push({
+      const newStay = {
         id: cryptoId(),
         hotel: '',
         hotelConfirmation: '',
         roomType: '',
         roomTypeOther: '',
         startDayId: trip.days[0].id
-      });
+      };
+      trip.stays.push(newStay);
       render();
+      syncNewStayToSupabase(newStay, trip);
     };
     body.appendChild(addStayBtn);
 
