@@ -2993,7 +2993,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.62';
+const APP_VERSION = '1.63';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -3024,6 +3024,7 @@ async function syncNewItemToSupabase(item, day, trip){
     if(tagRows.length){
       await supabaseClient.from('item_travelers').insert(tagRows);
     }
+    markRecordSynced('item:' + item.id, getItemSnapshot(item));
   }catch(err){
     console.warn('Could not sync new item to Supabase right away (it will sync on the next full sync):', err);
   }
@@ -3036,6 +3037,7 @@ async function syncNewDayToSupabase(day, trip){
     }]).select().single();
     if(error) throw error;
     day.supabaseId = data.id;
+    markRecordSynced('day:' + day.id, getDaySnapshot(day));
   }catch(err){
     console.warn('Could not sync new day to Supabase right away (it will sync on the next full sync):', err);
   }
@@ -3052,6 +3054,7 @@ async function syncNewStayToSupabase(stay, trip){
     const { data, error } = await supabaseClient.from('stays').insert([{ ...stayPayload, trip_id: trip.supabaseId }]).select().single();
     if(error) throw error;
     stay.supabaseId = data.id;
+    markRecordSynced('stay:' + stay.id, getStaySnapshot(stay));
   }catch(err){
     console.warn('Could not sync new stay to Supabase right away (it will sync on the next full sync):', err);
   }
@@ -3068,6 +3071,7 @@ async function syncNewTravelerToSupabase(travelerId, trip){
     }]).select().single();
     if(error) throw error;
     trip.supabaseTravelerMap[travelerId] = data.id;
+    markRecordSynced('traveler:' + trip.id + ':' + travelerId, getTravelerSnapshot(traveler));
   }catch(err){
     console.warn('Could not sync new traveler to Supabase right away (it will sync on the next full sync):', err);
   }
@@ -3082,6 +3086,7 @@ async function syncNewPackingItemToSupabase(item, trip){
     const { data, error } = await supabaseClient.from('packing_items').insert([{ ...payload, trip_id: trip.supabaseId }]).select().single();
     if(error) throw error;
     trip.supabasePackingMap[item.id] = data.id;
+    markRecordSynced('packing:' + item.id, getPackingItemSnapshot(item));
   }catch(err){
     console.warn('Could not sync new packing item to Supabase right away (it will sync on the next full sync):', err);
   }
@@ -3096,6 +3101,7 @@ async function syncNewGroceryItemToSupabase(item, trip){
     const { data, error } = await supabaseClient.from('grocery_items').insert([{ ...payload, trip_id: trip.supabaseId }]).select().single();
     if(error) throw error;
     trip.supabaseGroceryMap[item.id] = data.id;
+    markRecordSynced('grocery:' + item.id, getGroceryItemSnapshot(item));
   }catch(err){
     console.warn('Could not sync new grocery item to Supabase right away (it will sync on the next full sync):', err);
   }
@@ -3199,6 +3205,7 @@ async function syncSinglePackingItemUpdate(trip, item){
       delete trip.supabasePackingMap[item.id];
       return { ok: false, type: 'packing item', name: resolved.name || 'this packing item' };
     }
+    markRecordSynced('packing:' + item.id, getPackingItemSnapshot(item));
     return { ok: true };
   }catch(err){
     console.warn('Could not sync packing item update:', err);
@@ -3217,6 +3224,7 @@ async function syncSingleGroceryItemUpdate(trip, item){
       delete trip.supabaseGroceryMap[item.id];
       return { ok: false, type: 'grocery item', name: resolved.name || 'this grocery item' };
     }
+    markRecordSynced('grocery:' + item.id, getGroceryItemSnapshot(item));
     return { ok: true };
   }catch(err){
     console.warn('Could not sync grocery item update:', err);
@@ -3626,6 +3634,7 @@ async function syncSingleTripUpdate(trip){
     if(!updateResult || updateResult.length === 0){
       return { ok: false, type: 'trip', name: trip.title || 'this trip' };
     }
+    markRecordSynced('trip:' + trip.id, getTripSnapshot(trip));
     return { ok: true };
   }catch(err){
     console.warn('Could not sync trip update:', err);
@@ -3642,6 +3651,7 @@ async function syncSingleDayUpdate(day){
     if(!updateResult || updateResult.length === 0){
       return { ok: false, type: 'day', name: day.label || 'this day' };
     }
+    markRecordSynced('day:' + day.id, getDaySnapshot(day));
     return { ok: true };
   }catch(err){
     console.warn('Could not sync day update:', err);
@@ -3670,6 +3680,7 @@ async function syncSingleItemUpdate(item, trip){
     if(tagRows.length){
       await supabaseClient.from('item_travelers').insert(tagRows);
     }
+    markRecordSynced('item:' + item.id, getItemSnapshot(item));
     return { ok: true };
   }catch(err){
     console.warn('Could not sync item update:', err);
@@ -3689,6 +3700,7 @@ async function syncSingleTravelerUpdate(trip, travelerId){
     if(!updateResult || updateResult.length === 0){
       return { ok: false, type: 'traveler', name: traveler.name || 'this traveler' };
     }
+    markRecordSynced('traveler:' + trip.id + ':' + travelerId, getTravelerSnapshot(traveler));
     return { ok: true };
   }catch(err){
     console.warn('Could not sync traveler update:', err);
@@ -3710,6 +3722,7 @@ async function syncSingleStayUpdate(stay, trip){
     if(!updateResult || updateResult.length === 0){
       return { ok: false, type: 'stay', name: stay.hotel || 'this stay' };
     }
+    markRecordSynced('stay:' + stay.id, getStaySnapshot(stay));
     return { ok: true };
   }catch(err){
     console.warn('Could not sync stay update:', err);
@@ -3748,6 +3761,7 @@ async function syncSingleCrowdLevelUpdate(trip, dayId, park, level){
       if(error) throw error;
       trip.supabaseCrowdMap[key] = data.id;
     }
+    markRecordSynced('crowd:' + trip.id + ':' + key, level || '');
     return { ok: true };
   }catch(err){
     console.warn('Could not sync crowd level update:', err);
@@ -4124,7 +4138,7 @@ async function syncAndRefreshActiveTrip(){
     syncSucceeded = false;
   }
   if(syncSucceeded){
-    markSaved();
+    establishAllBaselines();
   }
   await refreshActiveTripFromSupabase();
 }
@@ -4838,7 +4852,6 @@ let pendingMainPlanEdit = new Set();
 let expandedSectionAddForm = new Set();
 let expandedTripDetails = new Set();
 let expandedTripSubsections = new Set();
-let lastSavedSnapshot = null;
 let activeTravelerFilter = [];
 let expandedViewOptions = false;
 let itineraryDisplayMode = 'cards';
@@ -4849,16 +4862,155 @@ function itemMatchesFilter(item){
   return item.travelerIds.some(id => activeTravelerFilter.includes(id));
 }
 
-function getSaveComparableSnapshot(){
-  const { activeTripId, ...rest } = appData;
-  return JSON.stringify(rest);
-}
-function markSaved(){
-  lastSavedSnapshot = getSaveComparableSnapshot();
+// Per-record sync tracking. Each record (trip, day, item, stay, traveler, packing item,
+// grocery item, crowd level) has its own baseline snapshot, established the moment its
+// own sync succeeds - not one snapshot of the entire app. This is what lets saving one
+// item correctly leave an unrelated, still-unsynced trip note showing as not synced,
+// rather than one success quietly clearing everything else too.
+let recordBaselines = {};
+
+function markRecordSynced(key, snapshotStr){
+  recordBaselines[key] = snapshotStr;
   updateUnsavedIndicator();
 }
+
+function getTripSnapshot(trip){
+  return JSON.stringify({
+    title: trip.title, dates: trip.dates || '', startDate: trip.startDate || null,
+    archivedAt: trip.archivedAt || null, notes: trip.notes || null,
+    packingNotes: trip.packingNotes || null, groceryNotes: trip.groceryNotes || null
+  });
+}
+function getDaySnapshot(day){
+  return JSON.stringify({
+    label: day.label || '', dayTag: day.dayTag || '', ropeDrop: day.ropeDrop || null, notes: day.notes || ''
+  });
+}
+function getItemSnapshot(item){
+  return JSON.stringify({
+    time: item.time || null, endTime: item.endTime || null, section: item.section || '',
+    type: item.type || '', name: item.name || '', isMainPlan: !!item.isMainPlan,
+    status: item.status || 'tentative', confirmationNumber: item.confirmationNumber || '',
+    mealService: item.mealService || '', mealPeriod: item.mealPeriod || '', notes: item.notes || '',
+    travelerIds: (Array.isArray(item.travelerIds) ? item.travelerIds.slice().sort() : [])
+  });
+}
+function getStaySnapshot(stay){
+  return JSON.stringify({
+    hotel: stay.hotel || '', hotelConfirmation: stay.hotelConfirmation || '',
+    roomType: stay.roomType || '', roomTypeOther: stay.roomTypeOther || '',
+    startDayId: stay.startDayId || null
+  });
+}
+function getTravelerSnapshot(traveler){
+  return JSON.stringify({ name: traveler.name, color: traveler.color || null });
+}
+function getPackingItemSnapshot(item){
+  const resolved = resolvePackingItemForSync(item);
+  return JSON.stringify({ name: resolved.name, category: resolved.category, checked: !!item.checked });
+}
+function getGroceryItemSnapshot(item){
+  const resolved = resolveGroceryItemForSync(item);
+  return JSON.stringify({ name: resolved.name, category: resolved.category, checked: !!item.checked, channel: item.channel || 'pack' });
+}
+
+// Establishes a fresh baseline for every record currently loaded, across every trip -
+// used whenever appData has just been (re)established as a known-synced state: after a
+// full sync succeeds, right after loading a trip fresh from Supabase, loading a backup
+// file, or on initial app startup.
+function establishAllBaselines(){
+  recordBaselines = {};
+  appData.trips.forEach(trip => {
+    if(trip.supabaseId){
+      recordBaselines['trip:' + trip.id] = getTripSnapshot(trip);
+    }
+    trip.days.forEach(day => {
+      if(day.supabaseId){
+        recordBaselines['day:' + day.id] = getDaySnapshot(day);
+      }
+      day.items.forEach(item => {
+        if(item.supabaseId){
+          recordBaselines['item:' + item.id] = getItemSnapshot(item);
+        }
+      });
+    });
+    (trip.stays || []).forEach(stay => {
+      if(stay.supabaseId){
+        recordBaselines['stay:' + stay.id] = getStaySnapshot(stay);
+      }
+    });
+    (trip.travelerIds || []).forEach(tid => {
+      if(trip.supabaseTravelerMap && trip.supabaseTravelerMap[tid]){
+        const traveler = appData.travelers.find(t => t.id === tid);
+        if(traveler) recordBaselines['traveler:' + trip.id + ':' + tid] = getTravelerSnapshot(traveler);
+      }
+    });
+    (trip.packingItems || []).forEach(pi => {
+      if(trip.supabasePackingMap && trip.supabasePackingMap[pi.id]){
+        recordBaselines['packing:' + pi.id] = getPackingItemSnapshot(pi);
+      }
+    });
+    (trip.groceryItems || []).forEach(gi => {
+      if(trip.supabaseGroceryMap && trip.supabaseGroceryMap[gi.id]){
+        recordBaselines['grocery:' + gi.id] = getGroceryItemSnapshot(gi);
+      }
+    });
+    if(trip.crowdLevels){
+      Object.keys(trip.crowdLevels).forEach(key => {
+        if(trip.supabaseCrowdMap && trip.supabaseCrowdMap[key]){
+          recordBaselines['crowd:' + trip.id + ':' + key] = trip.crowdLevels[key] || '';
+        }
+      });
+    }
+  });
+  updateUnsavedIndicator();
+}
+
 function hasUnsavedChanges(){
-  return lastSavedSnapshot !== null && getSaveComparableSnapshot() !== lastSavedSnapshot;
+  for(const trip of appData.trips){
+    if(trip.supabaseId){
+      if(recordBaselines['trip:' + trip.id] !== getTripSnapshot(trip)) return true;
+    }
+    for(const day of trip.days){
+      if(day.supabaseId){
+        if(recordBaselines['day:' + day.id] !== getDaySnapshot(day)) return true;
+      }
+      for(const item of day.items){
+        if(item.supabaseId){
+          if(recordBaselines['item:' + item.id] !== getItemSnapshot(item)) return true;
+        }
+      }
+    }
+    for(const stay of (trip.stays || [])){
+      if(stay.supabaseId){
+        if(recordBaselines['stay:' + stay.id] !== getStaySnapshot(stay)) return true;
+      }
+    }
+    for(const tid of (trip.travelerIds || [])){
+      if(trip.supabaseTravelerMap && trip.supabaseTravelerMap[tid]){
+        const traveler = appData.travelers.find(t => t.id === tid);
+        if(traveler && recordBaselines['traveler:' + trip.id + ':' + tid] !== getTravelerSnapshot(traveler)) return true;
+      }
+    }
+    for(const pi of (trip.packingItems || [])){
+      if(trip.supabasePackingMap && trip.supabasePackingMap[pi.id]){
+        if(recordBaselines['packing:' + pi.id] !== getPackingItemSnapshot(pi)) return true;
+      }
+    }
+    for(const gi of (trip.groceryItems || [])){
+      if(trip.supabaseGroceryMap && trip.supabaseGroceryMap[gi.id]){
+        if(recordBaselines['grocery:' + gi.id] !== getGroceryItemSnapshot(gi)) return true;
+      }
+    }
+    if(trip.crowdLevels){
+      for(const key of Object.keys(trip.crowdLevels)){
+        if(trip.supabaseCrowdMap && trip.supabaseCrowdMap[key]){
+          if(recordBaselines['crowd:' + trip.id + ':' + key] !== (trip.crowdLevels[key] || '')) return true;
+        }
+      }
+    }
+  }
+  return false;
 }
 let syncInProgress = false;
 function updateUnsavedIndicator(){
@@ -5432,7 +5584,7 @@ function renderWizardSaveArea(body, trip){
       a.download = `park-days-trips.json`;
       a.click();
       URL.revokeObjectURL(url);
-      markSaved();
+      establishAllBaselines();
       document.getElementById('wizardBackBtn').style.display = 'none';
       renderWizardSaveArea(body, trip);
       if(deletedByOthers.length){
@@ -7227,7 +7379,7 @@ function renderToolsMenu(){
       console.warn('Supabase sync step had an issue (backup download proceeding regardless):', err);
       syncSucceeded = false;
     }
-    if(syncSucceeded) markSaved();
+    if(syncSucceeded) establishAllBaselines();
     const blob = new Blob([JSON.stringify(appData, null, 2)], {type:'application/json'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -8343,7 +8495,7 @@ document.getElementById('loadInput').addEventListener('change', e => {
       appData.activeTripId = appData.trips[0].id;
       activeDayId = appData.trips[0].days[0].id;
       render();
-      markSaved();
+      establishAllBaselines();
     }catch(err){
       alert('Could not read that file — make sure it\'s a trip file saved from this planner.');
     }
@@ -8400,7 +8552,7 @@ updateCompactToggleBtn();
     await loadRememberedTripsIfNoLinkPresent();
   }
   render();
-  markSaved();
+  establishAllBaselines();
   setInterval(updateUnsavedIndicator, 3000);
   window.addEventListener('beforeunload', e => {
     if(hasUnsavedChanges()){
