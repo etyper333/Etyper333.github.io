@@ -2035,6 +2035,36 @@
     width:100%;
   }
   .form-row textarea{resize:vertical;min-height:36px;font-family:inherit;}
+  .suggestion-dropdown-wrap{
+    position:relative;
+  }
+  .suggestion-dropdown{
+    display:none;
+    position:absolute;
+    top:100%;
+    left:0;
+    right:0;
+    z-index:10;
+    background:var(--paper);
+    border:1.5px solid var(--line);
+    border-radius:var(--radius-md);
+    margin-top:4px;
+    max-height:180px;
+    overflow-y:auto;
+    box-shadow:0 4px 12px rgba(0,0,0,.12);
+  }
+  .suggestion-item{
+    padding:10px 12px;
+    font-size:13.5px;
+    color:var(--ink);
+    cursor:pointer;
+  }
+  .suggestion-item:not(:last-child){
+    border-bottom:1px solid var(--line);
+  }
+  .suggestion-item:hover, .suggestion-item:active{
+    background:var(--cream);
+  }
   .submit-btn{
     background:var(--coral);
     color:white;
@@ -2799,8 +2829,6 @@
 </head>
 <body>
 
-<datalist id="parkSuggestions"></datalist>
-
 <nav class="trip-switcher" id="tripSwitcher"></nav>
 
 <header class="hero">
@@ -2965,7 +2993,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.61';
+const APP_VERSION = '1.62';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4444,10 +4472,6 @@ function setTripLength(trip, nights){
 }
 
 const PARKS = ["","Magic Kingdom","EPCOT","Hollywood Studios","Animal Kingdom","Disney Springs","Typhoon Lagoon","Blizzard Beach","Pool Time","Resort","Off-site / Travel Day","Other"];
-document.getElementById('parkSuggestions').innerHTML = PARKS
-  .filter(p => p && p !== 'Other')
-  .map(p => `<option value="${p}"></option>`)
-  .join('');
 const CROWD_LEVEL_PARKS = ["Magic Kingdom","EPCOT","Hollywood Studios","Animal Kingdom"];
 const TYPES = [
   {key:"activity", label:"Activity", icon:"🎡"},
@@ -5220,8 +5244,7 @@ function renderWizardStep3(body, trip){
     <div class="wizard-step-sub">Add everyone now, or just yourself for the moment — more people can hop in anytime.</div>
     <div id="wizardTravelerChips" class="traveler-chip-row"></div>
     <div class="packing-add-row" style="margin-top:10px;">
-      <input type="text" placeholder="e.g. Melanie, Milo, Sarah" list="wizardTravelerSuggestions" data-role="wizTravelerInput" />
-      <datalist id="wizardTravelerSuggestions">${appData.travelers.map(t => `<option value="${escapeHtml(t.name)}"></option>`).join('')}</datalist>
+      <input type="text" placeholder="e.g. Melanie, Milo, Sarah" data-role="wizTravelerInput" />
       <button type="button" data-role="wizTravelerAddBtn">Add</button>
     </div>
   `;
@@ -6308,7 +6331,9 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
       </select>
     </div>
     <div class="form-row">
-      <input type="text" data-f="name" list="parkSuggestions" placeholder="e.g. Hollywood Studios, Be Our Guest lunch" value="${escapeHtml(initial.name || '')}" />
+      <div class="suggestion-input-wrap">
+        <input type="text" data-f="name" placeholder="e.g. Hollywood Studios, Be Our Guest lunch" value="${escapeHtml(initial.name || '')}" autocomplete="off" />
+      </div>
     </div>
     <div class="form-row">
       <label class="main-plan-checkbox-label">
@@ -6410,6 +6435,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   mealServiceForDuration.addEventListener('change', syncEndTimeUI);
 
   const nameInput = wrap.querySelector('[data-f="name"]');
+  attachSuggestionDropdown(nameInput, () => PARKS.filter(p => p && p !== 'Other'));
   const mainPlanCheckbox = wrap.querySelector('[data-f="isMainPlanCheckbox"]');
   const mainPlanLabel = wrap.querySelector('[data-role="main-plan-label"]');
   const syncMainPlanUI = () => {
@@ -6573,6 +6599,44 @@ function formatTime(t){
   const period = h >= 12 ? 'PM' : 'AM';
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12}:${String(m).padStart(2,'0')} ${period}`;
+}
+
+// Custom-built suggestion dropdown, replacing the native <datalist> approach that's
+// confirmed broken on iOS Safari. Fully self-contained - never touches the browser's
+// own native suggestion UI, so that bug simply has nothing to attach to here.
+function attachSuggestionDropdown(inputEl, getSuggestions){
+  const wrap = document.createElement('div');
+  wrap.className = 'suggestion-dropdown-wrap';
+  inputEl.parentNode.insertBefore(wrap, inputEl);
+  wrap.appendChild(inputEl);
+  const dropdown = document.createElement('div');
+  dropdown.className = 'suggestion-dropdown';
+  wrap.appendChild(dropdown);
+
+  const hideDropdown = () => { dropdown.style.display = 'none'; };
+  const showMatches = () => {
+    const val = inputEl.value.trim().toLowerCase();
+    if(!val){ hideDropdown(); return; }
+    const matches = getSuggestions().filter(s => s.toLowerCase().includes(val));
+    if(matches.length === 0){ hideDropdown(); return; }
+    dropdown.innerHTML = matches.map(m => `<div class="suggestion-item">${escapeHtml(m)}</div>`).join('');
+    dropdown.style.display = 'block';
+  };
+
+  inputEl.addEventListener('input', showMatches);
+  inputEl.addEventListener('focus', showMatches);
+  inputEl.addEventListener('blur', hideDropdown);
+  // mousedown (not click) with preventDefault stops the input from ever blurring in the
+  // first place when tapping a suggestion, avoiding the classic race where blur fires
+  // and hides the dropdown before a click on it would have registered.
+  dropdown.addEventListener('mousedown', e => {
+    const item = e.target.closest('.suggestion-item');
+    if(!item) return;
+    e.preventDefault();
+    inputEl.value = item.textContent;
+    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+    hideDropdown();
+  });
 }
 
 function escapeHtml(str){
@@ -7815,10 +7879,7 @@ function renderTripDetails(trip){
     const addTravelerRow = document.createElement('div');
     addTravelerRow.className = 'packing-add-row';
     addTravelerRow.innerHTML = `
-      <input type="text" placeholder="Add travelers by name, comma-separated" list="travelerSuggestions" />
-      <datalist id="travelerSuggestions">
-        ${appData.travelers.map(t => `<option value="${escapeHtml(t.name)}"></option>`).join('')}
-      </datalist>
+      <input type="text" placeholder="Add travelers by name, comma-separated" />
       <button type="button">Add</button>
     `;
     const travelerInput = addTravelerRow.querySelector('input');
