@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Park Days — Trip Planner</title>
+<title>Trip Days — Trip Planner</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -246,52 +246,55 @@
     padding:10px 14px;
     background:var(--sky-deep);
   }
-  .trip-switcher-scroll{
+  .trip-switch-item{
     display:flex;
     align-items:center;
     gap:8px;
-    flex:1;
-    min-width:0;
-    overflow-x:auto;
-  }
-  .trip-pill{
-    display:flex;
-    align-items:center;
-    gap:6px;
-    flex-shrink:0;
-    padding:6px 12px;
-    border-radius:var(--radius-xl);
-    background:rgba(255,255,255,.1);
-    color:var(--header-text);
-    font-size:12.5px;
+    width:100%;
+    box-sizing:border-box;
+    padding:12px 14px;
+    margin-bottom:8px;
+    border-radius:var(--radius-md);
+    background:var(--paper);
+    border:1.5px solid var(--line);
+    color:var(--ink);
+    font-size:14px;
     font-weight:600;
     cursor:pointer;
-    border:1.5px solid transparent;
+    text-align:left;
+  }
+  .trip-switch-item.active{
+    border-color:var(--coral);
+    background:var(--accent-high-bg);
+  }
+  .trip-switch-item.archived{
+    opacity:.6;
+  }
+  .trip-switch-item-name{
+    flex:1;
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
     white-space:nowrap;
   }
-  .trip-pill.active{
-    background:var(--coral);
-    color:white;
-  }
-  .trip-pill.archived{
-    opacity:.6;
-    border:1px dashed rgba(255,255,255,.35);
-  }
-  .trip-pill .del{
-    font-size:11px;
-    opacity:.7;
-    padding-left:2px;
-  }
-  .trip-pill .del:hover{opacity:1;}
-  .add-trip-btn{
+  .trip-switch-item .del{
     flex-shrink:0;
-    border:1.5px dashed rgba(255,255,255,.4);
-    background:transparent;
-    color:var(--header-text);
-    border-radius:var(--radius-xl);
-    padding:6px 12px;
-    font-size:12.5px;
-    font-weight:600;
+    font-size:12px;
+    color:var(--slate);
+    padding:2px 4px;
+  }
+  .trip-switch-new-btn{
+    display:block;
+    width:100%;
+    box-sizing:border-box;
+    padding:10px;
+    margin-bottom:8px;
+    border-radius:var(--radius-md);
+    border:1.5px dashed var(--line);
+    background:var(--cream);
+    color:var(--slate);
+    font-weight:700;
+    font-size:13px;
     cursor:pointer;
   }
   .archive-toggle-btn{
@@ -483,17 +486,42 @@
     margin:6px 0 0;
   }
   .eyebrow{
-    font-size:12px;
+    font-size:10.5px;
     letter-spacing:.14em;
     text-transform:uppercase;
-    color:var(--marigold);
+    color:var(--header-placeholder);
     font-weight:700;
     margin-bottom:6px;
+    opacity:.85;
   }
   h1{
-    margin:0 0 4px;
+    margin:0;
     font-size:26px;
     font-weight:800;
+  }
+  .trip-title-trigger{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:none;
+    border:none;
+    padding:0;
+    margin:0 0 4px;
+    color:var(--cream);
+    cursor:pointer;
+    text-align:left;
+    max-width:100%;
+  }
+  .trip-title-trigger h1{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    min-width:0;
+  }
+  .trip-title-chevron{
+    flex-shrink:0;
+    font-size:18px;
+    opacity:.7;
   }
   .trip-meta{
     font-size:13px;
@@ -2616,7 +2644,7 @@
     .remove-day-btn, .add-day-btn, .section-add-btn, .item-actions,
     .accordion.accent, .add-form, .chevron,
     .manage-list-link, .dining-reminder-manage-link, .print-packing-btn,
-    .master-editor-overlay, .theme-switch-btn, .add-trip-btn,
+    .master-editor-overlay, .theme-switch-btn, .trip-title-chevron,
     .packing-intro, .category-toggle-row, .packing-add-row,
     .who-toggle-link, .add-stay-btn, .stay-card-remove, .stay-warning,
     .crowd-remove-btn, .traveler-chip button, .compact-toggle-btn,
@@ -2746,13 +2774,14 @@
 
 <datalist id="parkSuggestions"></datalist>
 
-<nav class="trip-switcher" id="tripSwitcher">
-  <div class="trip-switcher-scroll" id="tripSwitcherScroll"></div>
-</nav>
+<nav class="trip-switcher" id="tripSwitcher"></nav>
 
 <header class="hero">
-  <div class="eyebrow">Park Days</div>
-  <h1 id="tripTitle" contenteditable="true">Our Disney World Trip</h1>
+  <div class="eyebrow">Trip Days</div>
+  <button type="button" id="tripTitleTrigger" class="trip-title-trigger">
+    <h1 id="tripTitle">Our Disney World Trip</h1>
+    <span class="trip-title-chevron">▾</span>
+  </button>
   <div class="trip-meta">
     <button type="button" id="tripSummaryTrigger" class="trip-summary-trigger">
       <span class="trip-summary-label">🏨 Trip Details</span>
@@ -2764,6 +2793,15 @@
   </div>
   <div id="tripDetailsWrap" style="max-width:640px;margin:0 auto;padding:14px 0 4px;"></div>
 </header>
+
+<div class="master-editor-overlay" id="tripSwitchOverlay">
+  <div class="master-editor">
+    <h2>Switch Trip</h2>
+    <p class="sub">Tap a trip to switch to it.</p>
+    <div id="tripSwitchBody"></div>
+    <button class="master-editor-close" id="tripSwitchCloseBtn">Done</button>
+  </div>
+</div>
 
 <div class="view-tabs" id="viewTabs">
   <button class="view-tab view-tab-primary" data-view="itinerary">Itinerary</button>
@@ -2899,7 +2937,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.57';
+const APP_VERSION = '1.58';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4210,7 +4248,7 @@ function generateICS(trip){
   const lines = [];
   lines.push('BEGIN:VCALENDAR');
   lines.push('VERSION:2.0');
-  lines.push('PRODID:-//Park Days Trip Planner//EN');
+  lines.push('PRODID:-//Trip Days Trip Planner//EN');
   lines.push('CALSCALE:GREGORIAN');
 
   const dtstamp = getICSDtstamp();
@@ -4243,7 +4281,7 @@ function generateSingleItemICS(trip, day, item){
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Park Days Trip Planner//EN',
+    'PRODID:-//Trip Days Trip Planner//EN',
     'CALSCALE:GREGORIAN',
     ...buildICSEventLines(day, dayDate, item, dtstamp),
     'END:VCALENDAR'
@@ -4901,70 +4939,7 @@ document.getElementById('listsSubTabs').addEventListener('click', e => {
 
 function renderTripSwitcher(){
   const bar = document.getElementById('tripSwitcher');
-  const scroll = document.getElementById('tripSwitcherScroll');
-  scroll.innerHTML = '';
-  const visibleTrips = appData.trips.filter(trip => !trip.archivedAt || showArchivedTrips || trip.id === appData.activeTripId);
-  visibleTrips.forEach(trip => {
-    const pill = document.createElement('div');
-    pill.className = 'trip-pill' + (trip.id === appData.activeTripId ? ' active' : '') + (trip.archivedAt ? ' archived' : '');
-    const nameSpan = document.createElement('span');
-    nameSpan.textContent = trip.title || 'Untitled trip';
-    pill.appendChild(nameSpan);
-    if(appData.trips.length > 1){
-      const del = document.createElement('span');
-      del.className = 'del';
-      del.textContent = '✕';
-      del.onclick = (e) => { e.stopPropagation(); removeTrip(trip.id); };
-      pill.appendChild(del);
-    }
-    pill.onclick = async () => {
-      const wasPlaceholder = !!trip._isPlaceholder;
-      const isDifferentTrip = trip.id !== appData.activeTripId;
-      if(wasPlaceholder){
-        pill.style.opacity = '.6';
-        try{
-          const remoteData = await fetchRemoteTripData(trip.supabaseId);
-          mergeRemoteIntoLocalTrip(trip, remoteData, appData.travelers);
-          delete trip._isPlaceholder;
-          const sharedMap = getSharedTripMap();
-          sharedMap[trip.supabaseId] = { localTripId: trip.id, title: trip.title, dates: trip.dates, lastOpenedAt: new Date().toISOString(), archivedAt: trip.archivedAt || null };
-          saveSharedTripMap(sharedMap);
-        }catch(err){
-          console.warn('Could not load this trip:', err);
-          alert('Could not load this trip — check your connection and try again.');
-          pill.style.opacity = '';
-          return;
-        }
-      }
-      appData.activeTripId = trip.id;
-      activeDayId = trip.days[0].id;
-      activeTravelerFilter = [];
-      render();
-      if(isDifferentTrip && !wasPlaceholder){
-        refreshActiveTripFromSupabase();
-      }
-    };
-    scroll.appendChild(pill);
-  });
-  const addBtn = document.createElement('button');
-  addBtn.className = 'add-trip-btn';
-  addBtn.textContent = '+ New Trip';
-  addBtn.onclick = openTripWizard;
-  scroll.appendChild(addBtn);
-
-  const hasArchived = appData.trips.some(t => t.archivedAt);
-  if(hasArchived){
-    const archiveToggle = document.createElement('button');
-    archiveToggle.className = 'archive-toggle-btn';
-    archiveToggle.textContent = showArchivedTrips ? 'Hide archived' : 'Show archived';
-    archiveToggle.onclick = () => { showArchivedTrips = !showArchivedTrips; render(); };
-    scroll.appendChild(archiveToggle);
-  }
-
-  const existingThemeBtn = bar.querySelector('.theme-switch-btn');
-  if(existingThemeBtn) existingThemeBtn.remove();
-  const existingRefreshBtn = bar.querySelector('.refresh-trip-btn');
-  if(existingRefreshBtn) existingRefreshBtn.remove();
+  bar.innerHTML = '';
   const refreshBtn = document.createElement('button');
   refreshBtn.className = 'refresh-trip-btn';
   refreshBtn.textContent = '↻ Sync';
@@ -4981,6 +4956,87 @@ function renderTripSwitcher(){
   themeBtn.title = 'Theme and other device preferences';
   themeBtn.onclick = openThemePicker;
   bar.appendChild(themeBtn);
+}
+
+function openTripSwitchModal(){
+  renderTripSwitchList();
+  document.getElementById('tripSwitchOverlay').classList.add('active');
+}
+function closeTripSwitchModal(){
+  document.getElementById('tripSwitchOverlay').classList.remove('active');
+}
+document.getElementById('tripSwitchCloseBtn').onclick = closeTripSwitchModal;
+document.getElementById('tripTitleTrigger').onclick = openTripSwitchModal;
+
+function renderTripSwitchList(){
+  const body = document.getElementById('tripSwitchBody');
+  body.innerHTML = '';
+  const visibleTrips = appData.trips.filter(trip => !trip.archivedAt || showArchivedTrips || trip.id === appData.activeTripId);
+  visibleTrips.forEach(trip => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'trip-switch-item' + (trip.id === appData.activeTripId ? ' active' : '') + (trip.archivedAt ? ' archived' : '');
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'trip-switch-item-name';
+    nameSpan.textContent = trip.title || 'Untitled trip';
+    item.appendChild(nameSpan);
+    if(appData.trips.length > 1){
+      const del = document.createElement('span');
+      del.className = 'del';
+      del.textContent = '✕';
+      del.onclick = (e) => { e.stopPropagation(); removeTrip(trip.id); renderTripSwitchList(); };
+      item.appendChild(del);
+    }
+    item.onclick = async () => {
+      const wasPlaceholder = !!trip._isPlaceholder;
+      const isDifferentTrip = trip.id !== appData.activeTripId;
+      if(wasPlaceholder){
+        item.style.opacity = '.6';
+        try{
+          const remoteData = await fetchRemoteTripData(trip.supabaseId);
+          mergeRemoteIntoLocalTrip(trip, remoteData, appData.travelers);
+          delete trip._isPlaceholder;
+          const sharedMap = getSharedTripMap();
+          sharedMap[trip.supabaseId] = { localTripId: trip.id, title: trip.title, dates: trip.dates, lastOpenedAt: new Date().toISOString(), archivedAt: trip.archivedAt || null };
+          saveSharedTripMap(sharedMap);
+        }catch(err){
+          console.warn('Could not load this trip:', err);
+          alert('Could not load this trip — check your connection and try again.');
+          item.style.opacity = '';
+          return;
+        }
+      }
+      appData.activeTripId = trip.id;
+      activeDayId = trip.days[0].id;
+      activeTravelerFilter = [];
+      closeTripSwitchModal();
+      render();
+      if(isDifferentTrip && !wasPlaceholder){
+        refreshActiveTripFromSupabase();
+      }
+    };
+    body.appendChild(item);
+  });
+
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'trip-switch-new-btn';
+  addBtn.textContent = '+ New Trip';
+  addBtn.onclick = () => {
+    closeTripSwitchModal();
+    openTripWizard();
+  };
+  body.appendChild(addBtn);
+
+  const hasArchived = appData.trips.some(t => t.archivedAt);
+  if(hasArchived){
+    const archiveToggle = document.createElement('button');
+    archiveToggle.type = 'button';
+    archiveToggle.className = 'archive-toggle-btn';
+    archiveToggle.textContent = showArchivedTrips ? 'Hide archived' : 'Show archived';
+    archiveToggle.onclick = () => { showArchivedTrips = !showArchivedTrips; renderTripSwitchList(); };
+    body.appendChild(archiveToggle);
+  }
 }
 
 function addTrip(){
@@ -7100,6 +7156,31 @@ function renderToolsMenu(){
   loadLabel.textContent = '📂 Load Trips from a Backup File';
   body.appendChild(loadLabel);
 
+  const archiveStatusNote = document.createElement('p');
+  archiveStatusNote.className = 'section-empty-note';
+  archiveStatusNote.style.marginTop = '14px';
+  archiveStatusNote.textContent = trip.archivedAt
+    ? `Archived ${new Date(trip.archivedAt).toLocaleDateString()} — hidden from the switcher by default, but still fully here whenever you need it.`
+    : "Archiving hides a trip from your everyday switcher without deleting anything — good for trips that are done, without losing the ability to look back at them.";
+  body.appendChild(archiveStatusNote);
+  const archiveBtn = document.createElement('button');
+  archiveBtn.type = 'button';
+  archiveBtn.className = 'print-packing-btn';
+  archiveBtn.textContent = trip.archivedAt ? '📤 Unarchive this trip' : '📦 Archive this trip';
+  archiveBtn.onclick = () => {
+    trip.archivedAt = trip.archivedAt ? null : new Date().toISOString();
+    handleTripFieldBlur(trip);
+    if(trip.supabaseId){
+      const sharedMap = getSharedTripMap();
+      if(sharedMap[trip.supabaseId]){
+        sharedMap[trip.supabaseId].archivedAt = trip.archivedAt;
+        saveSharedTripMap(sharedMap);
+      }
+    }
+    renderToolsMenu();
+  };
+  body.appendChild(archiveBtn);
+
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
   removeBtn.className = 'tools-menu-danger-btn';
@@ -7503,14 +7584,6 @@ function renderGroceryMasterEditor(){
   body.appendChild(addRow);
 }
 
-document.getElementById('tripTitle').addEventListener('input', e => {
-  getActiveTrip().title = e.target.textContent;
-  renderTripSwitcher();
-});
-document.getElementById('tripTitle').addEventListener('blur', () => {
-  handleTripFieldBlur(getActiveTrip());
-});
-
 function getTripSummaryText(trip){
   const parts = [];
   if(trip.startDate){
@@ -7593,6 +7666,23 @@ function renderTripDetails(trip){
   renderTripSubsection(wrap, trip, 'basics', '📅', 'Trip Basics', basicsSummary, body => {
     const fieldsWrap = document.createElement('div');
     fieldsWrap.className = 'trip-basics-fields';
+
+    const nameRow = document.createElement('div');
+    nameRow.className = 'day-info-row';
+    nameRow.innerHTML = `
+      <div class="day-info-field day-info-field-full">
+        <label for="tripNameField">Trip name</label>
+        <input type="text" id="tripNameField" value="${escapeHtml(trip.title || '')}" placeholder="e.g. Our Disney World Trip" />
+      </div>
+    `;
+    nameRow.querySelector('#tripNameField').addEventListener('input', e => {
+      trip.title = e.target.value;
+      document.getElementById('tripTitle').textContent = trip.title || 'Untitled trip';
+    });
+    nameRow.querySelector('#tripNameField').addEventListener('blur', () => {
+      handleTripFieldBlur(trip);
+    });
+    fieldsWrap.appendChild(nameRow);
 
     const row1 = document.createElement('div');
     row1.className = 'day-info-row';
@@ -7982,52 +8072,9 @@ function renderTripDetails(trip){
     renderOverview(trip, body);
   });
 
-  // --- Share & Export ---
-  renderTripSubsection(wrap, trip, 'share', '📤', 'Share & Export', 'See Tools menu', body => {
-    const backupNote = document.createElement('p');
-    backupNote.className = 'wizard-note';
-    backupNote.style.marginBottom = '12px';
-    backupNote.textContent = 'Every time you hit "Save All Trips," you also get a fresh backup file downloaded to your device — worth keeping the most recent one somewhere safe, in case anything ever needs restoring.';
-    body.appendChild(backupNote);
-
-    const toolsNote = document.createElement('p');
-    toolsNote.className = 'section-empty-note';
-    toolsNote.textContent = 'Printing, sharing this trip, and exporting to calendar have all moved to the Tools menu.';
-    body.appendChild(toolsNote);
-  });
-
-  // --- Archive ---
-  const archiveStatusText = trip.archivedAt ? `Archived ${new Date(trip.archivedAt).toLocaleDateString()}` : 'Active trip';
-  renderTripSubsection(wrap, trip, 'archive', '📦', 'Archive', archiveStatusText, body => {
-    const statusLine = document.createElement('p');
-    statusLine.className = 'section-empty-note';
-    statusLine.textContent = trip.archivedAt
-      ? "This trip is archived — it's hidden from the switcher by default, but still fully here whenever you need it."
-      : "Archiving hides a trip from your everyday switcher without deleting anything — good for trips that are done, without losing the ability to look back at them.";
-    body.appendChild(statusLine);
-
-    const archiveBtn = document.createElement('button');
-    archiveBtn.type = 'button';
-    archiveBtn.className = 'print-packing-btn';
-    archiveBtn.textContent = trip.archivedAt ? '📤 Unarchive this trip' : '📦 Archive this trip';
-    archiveBtn.onclick = () => {
-      trip.archivedAt = trip.archivedAt ? null : new Date().toISOString();
-      render();
-      handleTripFieldBlur(trip);
-      if(trip.supabaseId){
-        const sharedMap = getSharedTripMap();
-        if(sharedMap[trip.supabaseId]){
-          sharedMap[trip.supabaseId].archivedAt = trip.archivedAt;
-          saveSharedTripMap(sharedMap);
-        }
-      }
-    };
-    body.appendChild(archiveBtn);
-  });
-
   const versionLine = document.createElement('div');
   versionLine.className = 'app-version-line';
-  versionLine.textContent = `Park Days · v${APP_VERSION}`;
+  versionLine.textContent = `Trip Days · v${APP_VERSION}`;
   wrap.appendChild(versionLine);
 }
 
