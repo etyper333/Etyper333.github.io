@@ -2899,7 +2899,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.55';
+const APP_VERSION = '1.57';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -3135,8 +3135,25 @@ async function syncSingleGroceryItemUpdate(trip, item){
 // (see the delete*FromSupabaseNow functions above). If an update matches nothing here,
 // that means someone else deleted it since we last looked -- tracked and reported
 // back rather than silently ignored.
+// True if this trip has any real, deliberate content - used to prevent a trip still
+// sitting in its default, untouched state from ever being synced to Supabase at all.
+function tripHasMeaningfulContent(trip){
+  if(trip.title && trip.title.trim() !== 'Our Disney World Trip') return true;
+  if(trip.startDate) return true;
+  if(trip.dates && trip.dates.trim()) return true;
+  if(Array.isArray(trip.travelerIds) && trip.travelerIds.length > 0) return true;
+  if(Array.isArray(trip.stays) && trip.stays.length > 0) return true;
+  if(Array.isArray(trip.days) && trip.days.some(d => d.items && d.items.length > 0)) return true;
+  if(trip.notes && trip.notes.trim()) return true;
+  return false;
+}
+
 async function syncTripToSupabase(trip, allTravelers){
   const deletedByOthers = [];
+
+  if(!trip.supabaseId && !tripHasMeaningfulContent(trip)){
+    return deletedByOthers;
+  }
 
   if(trip.supabaseId){
     await supabaseClient.from('trips').update({
@@ -4021,6 +4038,11 @@ async function syncAndRefreshActiveTrip(){
 async function refreshActiveTripFromSupabase(){
   const trip = getActiveTrip();
   if(!trip || !trip.supabaseId || trip._isPlaceholder) return;
+  if(hasUnsavedChanges()){
+    // Never let a background refresh overwrite local data that hasn't synced yet -
+    // the remote copy could be stale relative to changes about to be pushed.
+    return;
+  }
   try{
     const remoteData = await fetchRemoteTripData(trip.supabaseId);
     mergeRemoteIntoLocalTrip(trip, remoteData, appData.travelers);
