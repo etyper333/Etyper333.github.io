@@ -234,7 +234,6 @@
     font-family:'Inter',sans-serif;
     background:var(--cream);
     color:var(--ink);
-    padding-bottom:60px;
   }
   h1,h2,h3,.display{
     font-family:'Baloo 2',sans-serif;
@@ -2290,7 +2289,7 @@
   }
   .packing-sticky-addrow{
     position:sticky;
-    bottom:calc(var(--footer-height, 60px) + 10px);
+    bottom:10px;
     background:var(--paper);
     border:1.5px solid var(--line);
     border-radius:var(--radius-lg);
@@ -2591,39 +2590,18 @@
     color:var(--accent-positive-text);
   }
 
-  footer.toolbar{
-    position:fixed;
-    bottom:0;left:0;right:0;
-    background:var(--paper);
-    border-top:1px solid var(--line);
-    padding:10px 16px;
-    display:flex;
-    gap:8px;
-    justify-content:center;
-    z-index:6;
-  }
-  footer.toolbar button, footer.toolbar label{
-    font-family:'Inter',sans-serif;
-    font-size:12.5px;
-    font-weight:700;
-    padding:9px 14px;
-    border-radius:var(--radius-xl);
-    cursor:pointer;
-    border:1.5px solid var(--sky);
-    background:var(--paper);
-    color:var(--sky);
-  }
-  footer.toolbar .primary{
-    background:var(--sky);
-    color:white;
-  }
   .unsaved-indicator{
     display:flex;
     align-items:center;
+    flex-shrink:0;
     font-family:'Inter',sans-serif;
-    font-size:12px;
+    font-size:11.5px;
     font-weight:700;
-    color:var(--coral);
+    color:#fff;
+    background:var(--coral);
+    padding:6px 10px;
+    border-radius:var(--radius-xl);
+    white-space:nowrap;
   }
   input[type=file]{display:none;}
 
@@ -2634,7 +2612,7 @@
     body{background:#fff;padding-bottom:0;}
 
     /* App chrome not relevant on paper, in either print mode */
-    .trip-switcher, .view-tabs, .lists-sub-tabs, .view-options-wrap, .monorail, footer.toolbar,
+    .trip-switcher, .view-tabs, .lists-sub-tabs, .view-options-wrap, .monorail,
     .remove-day-btn, .add-day-btn, .section-add-btn, .item-actions,
     .accordion.accent, .add-form, .chevron,
     .manage-list-link, .dining-reminder-manage-link, .print-packing-btn,
@@ -2781,6 +2759,7 @@
       <span class="trip-summary-text"></span>
       <span class="trip-summary-chevron">▾</span>
     </button>
+    <span id="unsavedIndicator" class="unsaved-indicator" style="display:none;" title="You have changes that haven't synced yet">● Not Synced</span>
     <button type="button" id="toolsMenuTrigger" class="tools-menu-trigger">☰ Tools</button>
   </div>
   <div id="tripDetailsWrap" style="max-width:640px;margin:0 auto;padding:14px 0 4px;"></div>
@@ -2915,16 +2894,12 @@
   </div>
 </div>
 
-<footer class="toolbar">
-  <button class="primary" id="saveBtn">Save All Trips</button>
-  <span id="unsavedIndicator" class="unsaved-indicator" style="display:none;" title="You have changes that haven't been saved to a file yet">● Unsaved</span>
-</footer>
 <input type="file" id="loadInput" accept="application/json" style="display:none;" />
 
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.53';
+const APP_VERSION = '1.55';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4029,6 +4004,20 @@ function buildPlaceholderTrip(entry){
 // Refreshes the currently active trip with fresh data from Supabase, reusing the exact
 // fetch-and-merge logic already proven for shared links and switching to a placeholder
 // trip. Safe to call often - a no-op for trips that have never been synced.
+async function syncAndRefreshActiveTrip(){
+  let syncSucceeded = true;
+  try{
+    await syncAllTripsToSupabase();
+  }catch(err){
+    console.warn('Sync step had an issue (refresh will still proceed):', err);
+    syncSucceeded = false;
+  }
+  if(syncSucceeded){
+    markSaved();
+  }
+  await refreshActiveTripFromSupabase();
+}
+
 async function refreshActiveTripFromSupabase(){
   const trip = getActiveTrip();
   if(!trip || !trip.supabaseId || trip._isPlaceholder) return;
@@ -4956,12 +4945,12 @@ function renderTripSwitcher(){
   if(existingRefreshBtn) existingRefreshBtn.remove();
   const refreshBtn = document.createElement('button');
   refreshBtn.className = 'refresh-trip-btn';
-  refreshBtn.textContent = '↻ Refresh';
-  refreshBtn.title = 'Check for the latest updates to this trip';
+  refreshBtn.textContent = '↻ Sync';
+  refreshBtn.title = 'Push your changes and check for the latest updates to this trip';
   refreshBtn.onclick = async () => {
     refreshBtn.disabled = true;
-    refreshBtn.textContent = '↻ Refreshing…';
-    await refreshActiveTripFromSupabase();
+    refreshBtn.textContent = '↻ Syncing…';
+    await syncAndRefreshActiveTrip();
   };
   bar.appendChild(refreshBtn);
   const themeBtn = document.createElement('button');
@@ -6716,9 +6705,6 @@ function renderPackingPanel(){
   manageBtn.textContent = 'Edit Catalog';
   manageBtn.onclick = openMasterEditor;
   wrap.appendChild(manageBtn);
-
-  const footerEl = document.querySelector('footer.toolbar');
-  if(footerEl) document.documentElement.style.setProperty('--footer-height', footerEl.offsetHeight + 'px');
 }
 
 function renderPackingItemRow(trip, name, row, isCustom, essential){
@@ -7033,7 +7019,7 @@ function renderToolsMenu(){
       : activeTravelerFilter.map(id => getTravelerName(id)).filter(Boolean).join(', ');
     const exportBtn = document.createElement('button');
     exportBtn.type = 'button';
-    exportBtn.className = 'add-stay-btn';
+    exportBtn.className = 'print-packing-btn';
     exportBtn.textContent = `📅 Export to Calendar (${filterSummary})`;
     exportBtn.title = 'Exports whatever the traveler filter on the Itinerary tab is currently set to';
     exportBtn.onclick = () => {
@@ -7051,9 +7037,44 @@ function renderToolsMenu(){
     body.appendChild(exportBtn);
   }
 
+  const downloadBtn = document.createElement('button');
+  downloadBtn.type = 'button';
+  downloadBtn.className = 'print-packing-btn';
+  downloadBtn.textContent = '💾 Download Backup';
+  downloadBtn.title = 'Syncs first, then downloads a full backup file of every trip';
+  downloadBtn.onclick = async () => {
+    downloadBtn.disabled = true;
+    downloadBtn.textContent = '💾 Syncing…';
+    let deletedByOthers = [];
+    let syncSucceeded = true;
+    try{
+      deletedByOthers = await syncAllTripsToSupabase();
+    }catch(err){
+      console.warn('Supabase sync step had an issue (backup download proceeding regardless):', err);
+      syncSucceeded = false;
+    }
+    if(syncSucceeded) markSaved();
+    const blob = new Blob([JSON.stringify(appData, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `park-days-trips.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    if(deletedByOthers.length){
+      render();
+      const names = deletedByOthers.map(d => `"${d.name}"`).join(', ');
+      const plural = deletedByOthers.length > 1;
+      alert(`Heads up: ${plural ? 'these were' : 'this was'} removed by someone else since you last looked, so any changes you made ${plural ? "weren't" : "wasn't"} saved: ${names}`);
+    } else {
+      closeToolsMenu();
+    }
+  };
+  body.appendChild(downloadBtn);
+
   const loadLabel = document.createElement('label');
   loadLabel.setAttribute('for', 'loadInput');
-  loadLabel.className = 'add-stay-btn tools-menu-load-label';
+  loadLabel.className = 'print-packing-btn tools-menu-load-label';
   loadLabel.textContent = '📂 Load Trips from a Backup File';
   body.appendChild(loadLabel);
 
@@ -8040,29 +8061,6 @@ function renderResortsMasterEditor(){
   };
   body.appendChild(addRow);
 }
-
-document.getElementById('saveBtn').onclick = async () => {
-  let deletedByOthers = [];
-  try{
-    deletedByOthers = await syncAllTripsToSupabase();
-  }catch(err){
-    console.warn('Supabase sync step had an issue (local save proceeding regardless):', err);
-  }
-  const blob = new Blob([JSON.stringify(appData, null, 2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `park-days-trips.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-  markSaved();
-  if(deletedByOthers.length){
-    render();
-    const names = deletedByOthers.map(d => `"${d.name}"`).join(', ');
-    const plural = deletedByOthers.length > 1;
-    alert(`Heads up: ${plural ? 'these were' : 'this was'} removed by someone else since you last looked, so any changes you made ${plural ? "weren't" : "wasn't"} saved: ${names}`);
-  }
-};
 
 document.getElementById('loadInput').addEventListener('change', e => {
   const file = e.target.files[0];
