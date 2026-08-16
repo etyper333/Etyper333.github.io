@@ -340,6 +340,19 @@
   .tools-menu-section{
     margin-bottom:14px;
   }
+  .tools-print-checkbox-row{
+    display:flex;
+    gap:16px;
+    margin:8px 0 12px;
+  }
+  .tools-print-checkbox-label{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:13.5px;
+    font-weight:600;
+    cursor:pointer;
+  }
   .tools-menu-load-label{
     display:block;
     text-align:center;
@@ -2637,9 +2650,14 @@
       display:none !important;
     }
 
-    /* Default print mode: itinerary. Always shows days regardless of active tab. */
+    /* Default print mode: itinerary shows unless explicitly hidden; packing stays hidden
+       unless explicitly shown. Two independent flags rather than one mutually-exclusive
+       toggle, so any combination - itinerary only, packing only, or both - falls out
+       naturally rather than needing its own special case. */
     #dayPanels{display:block !important;}
-    #packingPanelWrap{display:none !important;}
+    body.print-hide-itinerary #dayPanels{display:none !important;}
+    body.print-hide-itinerary #tripDetailsWrap{display:none !important;}
+    body:not(.print-show-packing) #packingPanelWrap{display:none !important;}
     .itinerary-sidebar{display:none !important;}
     .itinerary-layout{display:block !important;max-width:none !important;padding:0 !important;}
     .day-panel{
@@ -2648,15 +2666,16 @@
       break-inside:avoid;
     }
 
-    /* Packing list print mode, triggered from the Packing List tab's own print button */
-    body.printing-packing-list #dayPanels{display:none !important;}
-    body.printing-packing-list #tripDetailsWrap{display:none !important;}
-    body.printing-packing-list #packingPanelWrap{
+    body.print-show-packing #packingPanelWrap{
       display:block !important;
       max-width:none !important;
       padding:0 !important;
+      page-break-before:always;
     }
-    body.printing-packing-list #packingPanelWrap::before{
+    body.print-show-packing.print-hide-itinerary #packingPanelWrap{
+      page-break-before:auto;
+    }
+    body.print-show-packing #packingPanelWrap::before{
       content:"Packing List";
       display:block;
       font-family:'Baloo 2',sans-serif;
@@ -2665,7 +2684,7 @@
       color:#000;
       margin-bottom:10px;
     }
-    body.printing-packing-list .packing-category-block{
+    body.print-show-packing .packing-category-block{
       break-inside:avoid;
     }
 
@@ -2905,7 +2924,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.52';
+const APP_VERSION = '1.53';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -6594,7 +6613,7 @@ function renderPackingPanel(){
   printBtn.type = 'button';
   printBtn.className = 'print-packing-btn';
   printBtn.textContent = '🖨️ Print';
-  printBtn.onclick = printPackingList;
+  printBtn.onclick = () => printSelected(false, true);
   btnRow.appendChild(printBtn);
 
   const copyBtn = document.createElement('button');
@@ -6925,6 +6944,61 @@ function renderToolsMenu(){
   body.innerHTML = '';
   const trip = getActiveTrip();
   if(!trip) return;
+
+  const printSection = document.createElement('div');
+  printSection.className = 'tools-menu-section';
+  const printLabel = document.createElement('div');
+  printLabel.className = 'packing-category-title';
+  printLabel.textContent = 'Print';
+  printSection.appendChild(printLabel);
+
+  const checkboxRow = document.createElement('div');
+  checkboxRow.className = 'tools-print-checkbox-row';
+  checkboxRow.innerHTML = `
+    <label class="tools-print-checkbox-label">
+      <input type="checkbox" data-print-check="itinerary" checked /> Itinerary
+    </label>
+    <label class="tools-print-checkbox-label">
+      <input type="checkbox" data-print-check="packing" /> Packing List
+    </label>
+  `;
+  printSection.appendChild(checkboxRow);
+
+  const printSelectedBtn = document.createElement('button');
+  printSelectedBtn.type = 'button';
+  printSelectedBtn.className = 'print-packing-btn';
+  printSelectedBtn.textContent = '🖨️ Print Selected';
+  printSelectedBtn.onclick = () => {
+    const includeItinerary = checkboxRow.querySelector('[data-print-check="itinerary"]').checked;
+    const includePacking = checkboxRow.querySelector('[data-print-check="packing"]').checked;
+    if(!includeItinerary && !includePacking){
+      alert('Choose at least one thing to print.');
+      return;
+    }
+    printSelected(includeItinerary, includePacking);
+  };
+  printSection.appendChild(printSelectedBtn);
+
+  const copyTextBtn = document.createElement('button');
+  copyTextBtn.type = 'button';
+  copyTextBtn.className = 'print-packing-btn';
+  copyTextBtn.textContent = '📋 Copy Packing List as Text';
+  copyTextBtn.onclick = async () => {
+    const text = generatePackingListText(trip);
+    if(!text){
+      alert('Nothing on your packing list yet.');
+      return;
+    }
+    try{
+      await navigator.clipboard.writeText(text);
+      copyTextBtn.textContent = '✓ Copied!';
+      setTimeout(() => { copyTextBtn.textContent = '📋 Copy Packing List as Text'; }, 1500);
+    }catch(err){
+      alert('Could not copy automatically. Here\'s your list:\n\n' + text);
+    }
+  };
+  printSection.appendChild(copyTextBtn);
+  body.appendChild(printSection);
 
   const shareSection = document.createElement('div');
   shareSection.className = 'tools-menu-section';
@@ -7866,24 +7940,16 @@ function renderTripDetails(trip){
   });
 
   // --- Share & Export ---
-  renderTripSubsection(wrap, trip, 'share', '📤', 'Share & Export', 'Print', body => {
+  renderTripSubsection(wrap, trip, 'share', '📤', 'Share & Export', 'See Tools menu', body => {
     const backupNote = document.createElement('p');
     backupNote.className = 'wizard-note';
     backupNote.style.marginBottom = '12px';
     backupNote.textContent = 'Every time you hit "Save All Trips," you also get a fresh backup file downloaded to your device — worth keeping the most recent one somewhere safe, in case anything ever needs restoring.';
     body.appendChild(backupNote);
 
-    const printItineraryBtn = document.createElement('button');
-    printItineraryBtn.type = 'button';
-    printItineraryBtn.className = 'print-packing-btn';
-    printItineraryBtn.textContent = '🖨️ Print itinerary';
-    printItineraryBtn.onclick = printItinerary;
-    body.appendChild(printItineraryBtn);
-
     const toolsNote = document.createElement('p');
     toolsNote.className = 'section-empty-note';
-    toolsNote.style.marginTop = '10px';
-    toolsNote.textContent = 'Sharing this trip and exporting to calendar have moved to the Tools menu.';
+    toolsNote.textContent = 'Printing, sharing this trip, and exporting to calendar have all moved to the Tools menu.';
     body.appendChild(toolsNote);
   });
 
@@ -8115,19 +8181,27 @@ document.getElementById('loadInput').addEventListener('change', e => {
   e.target.value = '';
 });
 
-function printItinerary(){
-  document.body.classList.remove('printing-packing-list');
-  const wasTimeline = itineraryDisplayMode === 'timeline';
+function printSelected(includeItinerary, includePacking){
+  if(!includeItinerary && !includePacking) return;
+  document.body.classList.toggle('print-hide-itinerary', !includeItinerary);
+  document.body.classList.toggle('print-show-packing', includePacking);
+  const wasTimeline = includeItinerary && itineraryDisplayMode === 'timeline';
   if(wasTimeline){
     itineraryDisplayMode = 'cards';
     render();
   }
   window.print();
-  if(wasTimeline){
-    const restore = () => { itineraryDisplayMode = 'timeline'; render(); };
-    window.addEventListener('afterprint', restore, { once: true });
-    setTimeout(restore, 60000);
-  }
+  const cleanup = () => {
+    document.body.classList.remove('print-hide-itinerary', 'print-show-packing');
+    if(wasTimeline){
+      itineraryDisplayMode = 'timeline';
+      render();
+    }
+  };
+  window.addEventListener('afterprint', cleanup, { once: true });
+  // Safety-net cleanup only, well outside normal print-dialog interaction time,
+  // in case afterprint somehow doesn't fire in some browser.
+  setTimeout(cleanup, 60000);
 }
 
 function updateCompactToggleBtn(){
@@ -8145,15 +8219,6 @@ document.getElementById('compactToggleBtn').onclick = () => {
 };
 updateCompactToggleBtn();
 
-function printPackingList(){
-  document.body.classList.add('printing-packing-list');
-  const cleanup = () => document.body.classList.remove('printing-packing-list');
-  window.addEventListener('afterprint', cleanup, { once: true });
-  window.print();
-  // Safety-net cleanup only, well outside normal print-dialog interaction time,
-  // in case afterprint somehow doesn't fire in some browser.
-  setTimeout(cleanup, 60000);
-}
 
 (async function initApp(){
   applyStartupTheme();
