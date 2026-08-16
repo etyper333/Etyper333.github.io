@@ -337,6 +337,31 @@
     flex-direction:column;
     gap:10px;
   }
+  .tools-menu-section{
+    margin-bottom:14px;
+  }
+  .tools-menu-load-label{
+    display:block;
+    text-align:center;
+    text-decoration:none;
+    margin-top:10px;
+    cursor:pointer;
+  }
+  .tools-menu-danger-btn{
+    display:block;
+    width:100%;
+    box-sizing:border-box;
+    margin-top:18px;
+    padding:10px 14px;
+    border-radius:var(--radius-md);
+    border:1.5px solid var(--accent-high-text);
+    background:var(--accent-high-bg);
+    color:var(--accent-high-text);
+    font-family:'Inter',sans-serif;
+    font-size:13.5px;
+    font-weight:700;
+    cursor:pointer;
+  }
   .theme-card{
     display:flex;
     align-items:center;
@@ -785,7 +810,8 @@
     display:flex;
     align-items:center;
     gap:8px;
-    width:100%;
+    flex:1;
+    min-width:0;
     text-align:left;
     background:rgba(255,255,255,.08);
     border:1px solid rgba(255,255,255,.2);
@@ -796,6 +822,30 @@
     font-size:13px;
     font-weight:600;
     cursor:pointer;
+  }
+  .tools-menu-trigger{
+    flex-shrink:0;
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.2);
+    border-radius:var(--radius-md);
+    padding:9px 12px;
+    color:var(--header-text);
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .trip-summary-label{
+    flex-shrink:0;
+  }
+  .trip-summary-text{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    min-width:0;
+  }
+  .trip-summary-chevron{
+    flex-shrink:0;
   }
   .trip-summary-trigger .trip-summary-label{
     flex-shrink:0;
@@ -2712,6 +2762,7 @@
       <span class="trip-summary-text"></span>
       <span class="trip-summary-chevron">▾</span>
     </button>
+    <button type="button" id="toolsMenuTrigger" class="tools-menu-trigger">☰ Tools</button>
   </div>
   <div id="tripDetailsWrap" style="max-width:640px;margin:0 auto;padding:14px 0 4px;"></div>
 </header>
@@ -2811,10 +2862,19 @@
 
 <div class="master-editor-overlay" id="themePickerOverlay">
   <div class="master-editor">
-    <h2>Choose a Theme</h2>
-    <p class="sub">Pick a color palette for the planner. This is just for this device, right now — not something saved or shared with others.</p>
+    <h2>Settings</h2>
+    <p class="sub">Device-level preferences — not something saved or shared with others.</p>
     <div id="themePickerBody"></div>
     <button class="master-editor-close" id="themePickerCloseBtn">Done</button>
+  </div>
+</div>
+
+<div class="master-editor-overlay" id="toolsMenuOverlay">
+  <div class="master-editor">
+    <h2>Tools</h2>
+    <p class="sub">Actions for this trip.</p>
+    <div id="toolsMenuBody"></div>
+    <button class="master-editor-close" id="toolsMenuCloseBtn">Done</button>
   </div>
 </div>
 
@@ -2839,14 +2899,13 @@
 <footer class="toolbar">
   <button class="primary" id="saveBtn">Save All Trips</button>
   <span id="unsavedIndicator" class="unsaved-indicator" style="display:none;" title="You have changes that haven't been saved to a file yet">● Unsaved</span>
-  <label for="loadInput">Load Trips</label>
-  <input type="file" id="loadInput" accept="application/json" />
 </footer>
+<input type="file" id="loadInput" accept="application/json" style="display:none;" />
 
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.51';
+const APP_VERSION = '1.52';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -3839,6 +3898,27 @@ function applyStartupTheme(){
     saveThemePreference(appData.theme);
   }
   document.documentElement.setAttribute('data-theme', appData.theme);
+}
+
+function getStoredDefaultView(){
+  try{
+    return localStorage.getItem('parkDaysDefaultView');
+  }catch(err){
+    return null;
+  }
+}
+function saveDefaultViewPreference(mode){
+  try{
+    localStorage.setItem('parkDaysDefaultView', mode);
+  }catch(err){
+    console.warn('Could not remember this default view choice for next time:', err);
+  }
+}
+function applyStartupDefaultView(){
+  const stored = getStoredDefaultView();
+  if(stored === 'cards' || stored === 'timeline'){
+    itineraryDisplayMode = stored;
+  }
 }
 
 function getSharedTripMap(){
@@ -4867,8 +4947,8 @@ function renderTripSwitcher(){
   bar.appendChild(refreshBtn);
   const themeBtn = document.createElement('button');
   themeBtn.className = 'theme-switch-btn';
-  themeBtn.textContent = '🎨 Theme';
-  themeBtn.title = 'Change color theme';
+  themeBtn.textContent = '⚙️ Settings';
+  themeBtn.title = 'Theme and other device preferences';
   themeBtn.onclick = openThemePicker;
   bar.appendChild(themeBtn);
 }
@@ -6830,6 +6910,95 @@ function renderBuildPackingListModal(){
   });
 }
 
+function openToolsMenu(){
+  renderToolsMenu();
+  document.getElementById('toolsMenuOverlay').classList.add('active');
+}
+function closeToolsMenu(){
+  document.getElementById('toolsMenuOverlay').classList.remove('active');
+  render();
+}
+document.getElementById('toolsMenuCloseBtn').onclick = closeToolsMenu;
+
+function renderToolsMenu(){
+  const body = document.getElementById('toolsMenuBody');
+  body.innerHTML = '';
+  const trip = getActiveTrip();
+  if(!trip) return;
+
+  const shareSection = document.createElement('div');
+  shareSection.className = 'tools-menu-section';
+  if(trip.supabaseId){
+    const shareUrl = `${window.location.origin}${window.location.pathname}?trip=${trip.supabaseId}`;
+    shareSection.innerHTML = `
+      <label class="share-link-label">Share this trip</label>
+      <div class="share-link-row">
+        <input type="text" readonly value="${escapeHtml(shareUrl)}" class="share-link-input" />
+        <button type="button" class="share-link-copy-btn">Copy Link</button>
+      </div>
+      <p class="share-link-note">Anyone with this link can view and edit this trip — no account needed.</p>
+    `;
+    const copyBtn = shareSection.querySelector('.share-link-copy-btn');
+    copyBtn.onclick = async () => {
+      try{
+        await navigator.clipboard.writeText(shareUrl);
+        copyBtn.textContent = '✓ Copied!';
+        setTimeout(() => { copyBtn.textContent = 'Copy Link'; }, 1500);
+      }catch(err){
+        alert('Could not copy automatically. Here is your link:\n\n' + shareUrl);
+      }
+    };
+  } else {
+    shareSection.innerHTML = '<p class="section-empty-note">Save this trip at least once to get a shareable link.</p>';
+  }
+  body.appendChild(shareSection);
+
+  if(trip.travelerIds.length > 0){
+    const filterSummary = activeTravelerFilter.length === 0
+      ? 'All Plans'
+      : activeTravelerFilter.map(id => getTravelerName(id)).filter(Boolean).join(', ');
+    const exportBtn = document.createElement('button');
+    exportBtn.type = 'button';
+    exportBtn.className = 'add-stay-btn';
+    exportBtn.textContent = `📅 Export to Calendar (${filterSummary})`;
+    exportBtn.title = 'Exports whatever the traveler filter on the Itinerary tab is currently set to';
+    exportBtn.onclick = () => {
+      const ics = generateICS(trip);
+      if(!ics) return;
+      const safeTitle = (trip.title || 'trip').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+      const blob = new Blob([ics], {type:'text/calendar'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${safeTitle}-calendar.ics`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+    body.appendChild(exportBtn);
+  }
+
+  const loadLabel = document.createElement('label');
+  loadLabel.setAttribute('for', 'loadInput');
+  loadLabel.className = 'add-stay-btn tools-menu-load-label';
+  loadLabel.textContent = '📂 Load Trips from a Backup File';
+  body.appendChild(loadLabel);
+
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'tools-menu-danger-btn';
+  removeBtn.textContent = `Remove "${trip.title || 'this trip'}" from this device`;
+  removeBtn.onclick = () => {
+    if(appData.trips.length <= 1){
+      alert("This is your only trip, so it can't be removed.");
+      return;
+    }
+    if(!confirm(`This removes "${trip.title || 'this trip'}" from your device only. It doesn't delete anything, and nobody else loses access — you can always get it back using the same share link.\n\nContinue?`)) return;
+    closeToolsMenu();
+    removeTrip(trip.id);
+  };
+  body.appendChild(removeBtn);
+}
+
 function openThemePicker(){
   renderThemePicker();
   document.getElementById('themePickerOverlay').classList.add('active');
@@ -6839,10 +7008,37 @@ function closeThemePicker(){
   render();
 }
 document.getElementById('themePickerCloseBtn').onclick = closeThemePicker;
+document.getElementById('toolsMenuTrigger').onclick = openToolsMenu;
 
 function renderThemePicker(){
   const body = document.getElementById('themePickerBody');
   body.innerHTML = '';
+
+  const viewLabel = document.createElement('div');
+  viewLabel.className = 'packing-category-title';
+  viewLabel.textContent = 'Default View';
+  body.appendChild(viewLabel);
+  const viewSub = document.createElement('p');
+  viewSub.className = 'section-empty-note';
+  viewSub.textContent = 'Which itinerary view opens by default on this device.';
+  body.appendChild(viewSub);
+  const viewToggleRow = document.createElement('div');
+  viewToggleRow.className = 'status-toggle-row';
+  viewToggleRow.style.marginBottom = '18px';
+  const storedView = getStoredDefaultView() === 'timeline' ? 'timeline' : 'cards';
+  [{ key: 'cards', label: 'Cards' }, { key: 'timeline', label: 'Timeline' }].forEach(opt => {
+    const optBtn = document.createElement('button');
+    optBtn.type = 'button';
+    optBtn.textContent = opt.label;
+    optBtn.className = storedView === opt.key ? 'on-confirmed' : '';
+    optBtn.onclick = () => {
+      saveDefaultViewPreference(opt.key);
+      renderThemePicker();
+    };
+    viewToggleRow.appendChild(optBtn);
+  });
+  body.appendChild(viewToggleRow);
+
   const grid = document.createElement('div');
   grid.className = 'theme-card-grid';
   THEMES.forEach(theme => {
@@ -7670,7 +7866,7 @@ function renderTripDetails(trip){
   });
 
   // --- Share & Export ---
-  renderTripSubsection(wrap, trip, 'share', '📤', 'Share & Export', 'Print, calendar export', body => {
+  renderTripSubsection(wrap, trip, 'share', '📤', 'Share & Export', 'Print', body => {
     const backupNote = document.createElement('p');
     backupNote.className = 'wizard-note';
     backupNote.style.marginBottom = '12px';
@@ -7684,59 +7880,11 @@ function renderTripDetails(trip){
     printItineraryBtn.onclick = printItinerary;
     body.appendChild(printItineraryBtn);
 
-    if(trip.supabaseId){
-      const shareUrl = `${window.location.origin}${window.location.pathname}?trip=${trip.supabaseId}`;
-      const shareWrap = document.createElement('div');
-      shareWrap.className = 'share-link-wrap';
-      shareWrap.innerHTML = `
-        <label class="share-link-label">Share this trip</label>
-        <div class="share-link-row">
-          <input type="text" readonly value="${escapeHtml(shareUrl)}" class="share-link-input" />
-          <button type="button" class="share-link-copy-btn">Copy Link</button>
-        </div>
-        <p class="share-link-note">Anyone with this link can view and edit this trip — no account needed.</p>
-      `;
-      const copyBtn = shareWrap.querySelector('.share-link-copy-btn');
-      copyBtn.onclick = async () => {
-        try{
-          await navigator.clipboard.writeText(shareUrl);
-          copyBtn.textContent = '✓ Copied!';
-          setTimeout(() => { copyBtn.textContent = 'Copy Link'; }, 1500);
-        }catch(err){
-          alert('Could not copy automatically. Here is your link:\n\n' + shareUrl);
-        }
-      };
-      body.appendChild(shareWrap);
-    } else {
-      const note = document.createElement('p');
-      note.className = 'section-empty-note';
-      note.textContent = 'Save this trip at least once to get a shareable link.';
-      body.appendChild(note);
-    }
-
-    if(trip.travelerIds.length > 0){
-      const filterSummary = activeTravelerFilter.length === 0
-        ? 'All Plans'
-        : activeTravelerFilter.map(id => getTravelerName(id)).filter(Boolean).join(', ');
-      const exportBtn = document.createElement('button');
-      exportBtn.type = 'button';
-      exportBtn.className = 'add-stay-btn';
-      exportBtn.textContent = `📅 Export to Calendar (${filterSummary})`;
-      exportBtn.title = 'Exports whatever the traveler filter on the Itinerary tab is currently set to';
-      exportBtn.onclick = () => {
-        const ics = generateICS(trip);
-        if(!ics) return;
-        const safeTitle = (trip.title || 'trip').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
-        const blob = new Blob([ics], {type:'text/calendar'});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${safeTitle}-calendar.ics`;
-        a.click();
-        URL.revokeObjectURL(url);
-      };
-      body.appendChild(exportBtn);
-    }
+    const toolsNote = document.createElement('p');
+    toolsNote.className = 'section-empty-note';
+    toolsNote.style.marginTop = '10px';
+    toolsNote.textContent = 'Sharing this trip and exporting to calendar have moved to the Tools menu.';
+    body.appendChild(toolsNote);
   });
 
   // --- Archive ---
@@ -8009,6 +8157,7 @@ function printPackingList(){
 
 (async function initApp(){
   applyStartupTheme();
+  applyStartupDefaultView();
   const loadedFromLink = await loadSharedTripFromUrlIfPresent();
   if(!loadedFromLink){
     await loadRememberedTripsIfNoLinkPresent();
