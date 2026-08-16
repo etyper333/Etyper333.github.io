@@ -1331,6 +1331,11 @@
     min-width:130px;
     margin:0 8px 8px 0;
   }
+  .day-info-field-narrow{
+    flex:0 0 auto;
+    min-width:0;
+    width:130px;
+  }
   .day-info-field:last-child{
     margin-right:0;
   }
@@ -2652,18 +2657,19 @@
     .trip-subsection-archive, .trip-notes-visibility-hint, .trip-notes-edit-row,
     .empty-state,
     .dining-reservations-block,
-    #groceryPanelWrap, #tripTitle[contenteditable]::after{
+    #tripTitle[contenteditable]::after{
       display:none !important;
     }
 
-    /* Default print mode: itinerary shows unless explicitly hidden; packing stays hidden
-       unless explicitly shown. Two independent flags rather than one mutually-exclusive
-       toggle, so any combination - itinerary only, packing only, or both - falls out
-       naturally rather than needing its own special case. */
+    /* Default print mode: itinerary shows unless explicitly hidden; packing and grocery
+       stay hidden unless explicitly shown. Independent flags rather than one mutually-
+       exclusive toggle, so any combination falls out naturally rather than needing its
+       own special case. */
     #dayPanels{display:block !important;}
     body.print-hide-itinerary #dayPanels{display:none !important;}
     body.print-hide-itinerary #tripDetailsWrap{display:none !important;}
     body:not(.print-show-packing) #packingPanelWrap{display:none !important;}
+    body:not(.print-show-grocery) #groceryPanelWrap{display:none !important;}
     .itinerary-sidebar{display:none !important;}
     .itinerary-layout{display:block !important;max-width:none !important;padding:0 !important;}
     .day-panel{
@@ -2689,6 +2695,27 @@
       font-weight:700;
       color:#000;
       margin-bottom:10px;
+    }
+    body.print-show-grocery #groceryPanelWrap{
+      display:block !important;
+      max-width:none !important;
+      padding:0 !important;
+      page-break-before:always;
+    }
+    body.print-show-grocery.print-hide-itinerary:not(.print-show-packing) #groceryPanelWrap{
+      page-break-before:auto;
+    }
+    body.print-show-grocery #groceryPanelWrap::before{
+      content:"Grocery List";
+      display:block;
+      font-family:'Baloo 2',sans-serif;
+      font-size:20px;
+      font-weight:700;
+      color:#000;
+      margin-bottom:10px;
+    }
+    body.print-show-grocery .packing-category-block{
+      break-inside:avoid;
     }
     body.print-show-packing .packing-category-block{
       break-inside:avoid;
@@ -2938,7 +2965,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.60';
+const APP_VERSION = '1.61';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5165,7 +5192,7 @@ function renderWizardStep2(body, trip){
     <div class="wizard-step-title">How long are we here for?</div>
     <div class="wizard-step-sub">Best guess is fine — days are easy to add or trim later.</div>
     <div class="day-info-row">
-      <div class="day-info-field">
+      <div class="day-info-field day-info-field-narrow">
         <label>Nights</label>
         <select data-role="wizNights">
           ${Array.from({length:30}, (_,i)=>i+1).map(n => `<option value="${n}" ${n===nights?'selected':''}>${n} night${n===1?'':'s'}</option>`).join('')}
@@ -7026,6 +7053,9 @@ function renderToolsMenu(){
     <label class="tools-print-checkbox-label">
       <input type="checkbox" data-print-check="packing" /> Packing List
     </label>
+    <label class="tools-print-checkbox-label">
+      <input type="checkbox" data-print-check="grocery" /> Grocery List
+    </label>
   `;
   printSection.appendChild(checkboxRow);
 
@@ -7036,11 +7066,12 @@ function renderToolsMenu(){
   printSelectedBtn.onclick = () => {
     const includeItinerary = checkboxRow.querySelector('[data-print-check="itinerary"]').checked;
     const includePacking = checkboxRow.querySelector('[data-print-check="packing"]').checked;
-    if(!includeItinerary && !includePacking){
+    const includeGrocery = checkboxRow.querySelector('[data-print-check="grocery"]').checked;
+    if(!includeItinerary && !includePacking && !includeGrocery){
       alert('Choose at least one thing to print.');
       return;
     }
-    printSelected(includeItinerary, includePacking);
+    printSelected(includeItinerary, includePacking, includeGrocery);
   };
   printSection.appendChild(printSelectedBtn);
 
@@ -7727,7 +7758,7 @@ function renderTripDetails(trip){
     row1b.className = 'day-info-row';
     const currentNights = Math.max(1, trip.days.length - 1);
     row1b.innerHTML = `
-      <div class="day-info-field">
+      <div class="day-info-field day-info-field-narrow">
         <label for="tripLength">Trip length (nights)</label>
         <select id="tripLength">
           ${Array.from({length:30}, (_,i)=>i+1).map(n => `<option value="${n}" ${n===currentNights?'selected':''}>${n} night${n===1?'':'s'}</option>`).join('')}
@@ -7784,7 +7815,7 @@ function renderTripDetails(trip){
     const addTravelerRow = document.createElement('div');
     addTravelerRow.className = 'packing-add-row';
     addTravelerRow.innerHTML = `
-      <input type="text" placeholder="Add a traveler by name" list="travelerSuggestions" />
+      <input type="text" placeholder="Add travelers by name, comma-separated" list="travelerSuggestions" />
       <datalist id="travelerSuggestions">
         ${appData.travelers.map(t => `<option value="${escapeHtml(t.name)}"></option>`).join('')}
       </datalist>
@@ -7793,13 +7824,15 @@ function renderTripDetails(trip){
     const travelerInput = addTravelerRow.querySelector('input');
     const addTravelerBtn = addTravelerRow.querySelector('button');
     const submitTraveler = () => {
-      const name = travelerInput.value.trim();
-      if(!name) return;
-      const id = getOrCreateTraveler(name);
-      if(id && !trip.travelerIds.includes(id)){
-        trip.travelerIds.push(id);
-        syncNewTravelerToSupabase(id, trip);
-      }
+      const raw = travelerInput.value.trim();
+      if(!raw) return;
+      raw.split(',').map(n => n.trim()).filter(Boolean).forEach(name => {
+        const id = getOrCreateTraveler(name);
+        if(id && !trip.travelerIds.includes(id)){
+          trip.travelerIds.push(id);
+          syncNewTravelerToSupabase(id, trip);
+        }
+      });
       render();
     };
     addTravelerBtn.onclick = submitTraveler;
@@ -8258,10 +8291,11 @@ document.getElementById('loadInput').addEventListener('change', e => {
   e.target.value = '';
 });
 
-function printSelected(includeItinerary, includePacking){
-  if(!includeItinerary && !includePacking) return;
+function printSelected(includeItinerary, includePacking, includeGrocery){
+  if(!includeItinerary && !includePacking && !includeGrocery) return;
   document.body.classList.toggle('print-hide-itinerary', !includeItinerary);
   document.body.classList.toggle('print-show-packing', includePacking);
+  document.body.classList.toggle('print-show-grocery', includeGrocery);
   const wasTimeline = includeItinerary && itineraryDisplayMode === 'timeline';
   if(wasTimeline){
     itineraryDisplayMode = 'cards';
@@ -8269,7 +8303,7 @@ function printSelected(includeItinerary, includePacking){
   }
   window.print();
   const cleanup = () => {
-    document.body.classList.remove('print-hide-itinerary', 'print-show-packing');
+    document.body.classList.remove('print-hide-itinerary', 'print-show-packing', 'print-show-grocery');
     if(wasTimeline){
       itineraryDisplayMode = 'timeline';
       render();
