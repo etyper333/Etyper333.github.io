@@ -242,6 +242,7 @@
   .trip-switcher{
     display:flex;
     align-items:center;
+    justify-content:flex-end;
     gap:8px;
     padding:10px 14px;
     background:var(--sky-deep);
@@ -333,6 +334,11 @@
   .refresh-trip-btn:disabled{
     opacity:.6;
     cursor:default;
+  }
+  .refresh-trip-btn.sync-needed{
+    background:var(--coral);
+    border-color:var(--coral);
+    color:#fff;
   }
   .theme-card-grid{
     display:flex;
@@ -434,6 +440,13 @@
   }
   #tripDetailsWrap{
     color:var(--ink);
+  }
+  .trip-details-wrap-bg{
+    background:linear-gradient(180deg,var(--sky) 0%,var(--sky-deep) 100%);
+    max-width:640px;
+    margin:0 auto;
+    padding:14px 20px 4px;
+    box-sizing:border-box;
   }
   .app-version-line{
     text-align:center;
@@ -2618,19 +2631,6 @@
     color:var(--accent-positive-text);
   }
 
-  .unsaved-indicator{
-    display:flex;
-    align-items:center;
-    flex-shrink:0;
-    font-family:'Inter',sans-serif;
-    font-size:11.5px;
-    font-weight:700;
-    color:#fff;
-    background:var(--coral);
-    padding:6px 10px;
-    border-radius:var(--radius-xl);
-    white-space:nowrap;
-  }
   input[type=file]{display:none;}
 
   @media(max-width:400px){
@@ -2725,7 +2725,7 @@
     .day-title-display{font-size:18px;}
 
     /* Use the full page width instead of the mobile-width column */
-    main, #tripDetailsWrap{max-width:none !important;padding:0 !important;display:block !important;}
+    main, #tripDetailsWrap{max-width:none !important;padding:0 !important;display:block !important;background:none !important;}
 
     /* Condense vertical spacing that was sized for touch targets, not paper.
        Packing item cards reuse .item-card/.item-body, so these apply there too. */
@@ -2782,17 +2782,18 @@
     <h1 id="tripTitle">Our Disney World Trip</h1>
     <span class="trip-title-chevron">▾</span>
   </button>
-  <div class="trip-meta">
-    <button type="button" id="tripSummaryTrigger" class="trip-summary-trigger">
-      <span class="trip-summary-label">🏨 Trip Details</span>
-      <span class="trip-summary-text"></span>
-      <span class="trip-summary-chevron">▾</span>
-    </button>
-    <span id="unsavedIndicator" class="unsaved-indicator" style="display:none;" title="You have changes that haven't synced yet">● Not Synced</span>
-    <button type="button" id="toolsMenuTrigger" class="tools-menu-trigger">☰ Tools</button>
-  </div>
-  <div id="tripDetailsWrap" style="max-width:640px;margin:0 auto;padding:14px 0 4px;"></div>
 </header>
+
+<div class="trip-meta">
+  <button type="button" id="tripSummaryTrigger" class="trip-summary-trigger">
+    <span class="trip-summary-label">🏨 Trip Details</span>
+    <span class="trip-summary-text"></span>
+    <span class="trip-summary-chevron">▾</span>
+  </button>
+  <button type="button" id="syncBtn" class="refresh-trip-btn">↻ Sync</button>
+  <button type="button" id="toolsMenuTrigger" class="tools-menu-trigger">☰ Tools</button>
+</div>
+<div id="tripDetailsWrap" class="trip-details-wrap-bg"></div>
 
 <div class="master-editor-overlay" id="tripSwitchOverlay">
   <div class="master-editor">
@@ -2937,7 +2938,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.58';
+const APP_VERSION = '1.60';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4808,10 +4809,20 @@ function markSaved(){
 function hasUnsavedChanges(){
   return lastSavedSnapshot !== null && getSaveComparableSnapshot() !== lastSavedSnapshot;
 }
+let syncInProgress = false;
 function updateUnsavedIndicator(){
-  const el = document.getElementById('unsavedIndicator');
-  if(!el) return;
-  el.style.display = hasUnsavedChanges() ? '' : 'none';
+  const btn = document.getElementById('syncBtn');
+  if(!btn || syncInProgress) return;
+  btn.disabled = false;
+  if(hasUnsavedChanges()){
+    btn.textContent = '● Not Synced';
+    btn.title = 'You have changes that haven\'t synced yet — tap to sync now';
+    btn.classList.add('sync-needed');
+  } else {
+    btn.textContent = '↻ Sync';
+    btn.title = 'Push your changes and check for the latest updates to this trip';
+    btn.classList.remove('sync-needed');
+  }
 }
 
 function getActiveTrip(){
@@ -4940,16 +4951,6 @@ document.getElementById('listsSubTabs').addEventListener('click', e => {
 function renderTripSwitcher(){
   const bar = document.getElementById('tripSwitcher');
   bar.innerHTML = '';
-  const refreshBtn = document.createElement('button');
-  refreshBtn.className = 'refresh-trip-btn';
-  refreshBtn.textContent = '↻ Sync';
-  refreshBtn.title = 'Push your changes and check for the latest updates to this trip';
-  refreshBtn.onclick = async () => {
-    refreshBtn.disabled = true;
-    refreshBtn.textContent = '↻ Syncing…';
-    await syncAndRefreshActiveTrip();
-  };
-  bar.appendChild(refreshBtn);
   const themeBtn = document.createElement('button');
   themeBtn.className = 'theme-switch-btn';
   themeBtn.textContent = '⚙️ Settings';
@@ -7207,6 +7208,15 @@ function closeThemePicker(){
 }
 document.getElementById('themePickerCloseBtn').onclick = closeThemePicker;
 document.getElementById('toolsMenuTrigger').onclick = openToolsMenu;
+document.getElementById('syncBtn').onclick = async () => {
+  const btn = document.getElementById('syncBtn');
+  syncInProgress = true;
+  btn.disabled = true;
+  btn.textContent = '↻ Syncing…';
+  await syncAndRefreshActiveTrip();
+  syncInProgress = false;
+  updateUnsavedIndicator();
+};
 
 function renderThemePicker(){
   const body = document.getElementById('themePickerBody');
