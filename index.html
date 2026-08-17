@@ -2993,7 +2993,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.64';
+const APP_VERSION = '1.65';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4670,6 +4670,11 @@ function getTravelerName(id){
 function crowdKey(dayId, park){
   return dayId + ':' + park;
 }
+function getAllCrowdKeysForTrip(trip){
+  const keys = new Set(Object.keys(trip.crowdLevels || {}));
+  (trip.manualCrowdSlots || []).forEach(slot => keys.add(crowdKey(slot.dayId, slot.park)));
+  return keys;
+}
 function getCrowdLevel(trip, dayId, park){
   if(!trip.crowdLevels) return '';
   return trip.crowdLevels[crowdKey(dayId, park)] || '';
@@ -4955,7 +4960,7 @@ function establishBaselinesForTrip(trip){
     }
   });
   if(trip.crowdLevels){
-    Object.keys(trip.crowdLevels).forEach(key => {
+    getAllCrowdKeysForTrip(trip).forEach(key => {
       if(trip.supabaseCrowdMap && trip.supabaseCrowdMap[key]){
         recordBaselines['crowd:' + trip.id + ':' + key] = trip.crowdLevels[key] || '';
       }
@@ -5006,10 +5011,8 @@ function hasUnsavedChanges(){
       }
     }
     if(trip.crowdLevels){
-      for(const key of Object.keys(trip.crowdLevels)){
-        if(trip.supabaseCrowdMap && trip.supabaseCrowdMap[key]){
-          if(recordBaselines['crowd:' + trip.id + ':' + key] !== (trip.crowdLevels[key] || '')) return true;
-        }
+      for(const key of getAllCrowdKeysForTrip(trip)){
+        if(recordBaselines['crowd:' + trip.id + ':' + key] !== (trip.crowdLevels[key] || '')) return true;
       }
     }
   }
