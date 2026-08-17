@@ -271,6 +271,18 @@
   .trip-switch-item.archived{
     opacity:.6;
   }
+  .trip-switch-archived-badge{
+    flex-shrink:0;
+    font-size:10.5px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--slate);
+    background:var(--line);
+    padding:3px 7px;
+    border-radius:var(--radius-sm);
+    margin-left:8px;
+  }
   .trip-switch-item-name{
     flex:1;
     min-width:0;
@@ -2620,6 +2632,12 @@
     cursor:pointer;
     margin-top:10px;
   }
+  .master-editor-close-sticky{
+    position:sticky;
+    bottom:0;
+    border-top:1px solid rgba(255,255,255,.25);
+    box-shadow:0 -4px 10px rgba(0,0,0,.08);
+  }
   .timeline-modal-delete-btn{
     display:block;
     width:100%;
@@ -2902,7 +2920,7 @@
     <h2>Edit Packing Catalog</h2>
     <p class="sub">This master list is shared across all your trips. Mark items "always pack" if they should be included on every trip automatically (like medical supplies).</p>
     <div id="masterEditorBody"></div>
-    <button class="master-editor-close" id="masterEditorCloseBtn">Done</button>
+    <button class="master-editor-close master-editor-close-sticky" id="masterEditorCloseBtn">Done</button>
   </div>
 </div>
 
@@ -2911,7 +2929,7 @@
     <h2>Build Packing List</h2>
     <p class="sub">Add items from the catalog to this trip's packing list. Use "+ Add all" to grab a whole category at once, or add items one at a time.</p>
     <div id="buildPackingListBody"></div>
-    <button class="master-editor-close" id="buildPackingListCloseBtn">Done</button>
+    <button class="master-editor-close master-editor-close-sticky" id="buildPackingListCloseBtn">Done</button>
   </div>
 </div>
 
@@ -2976,7 +2994,7 @@
     <h2>Manage Grocery Catalog</h2>
     <p class="sub">This catalog is shared across all your trips. Nothing here is added to a trip automatically — you'll pick what applies each time.</p>
     <div id="groceryMasterEditorBody"></div>
-    <button class="master-editor-close" id="groceryMasterEditorCloseBtn">Done</button>
+    <button class="master-editor-close master-editor-close-sticky" id="groceryMasterEditorCloseBtn">Done</button>
   </div>
 </div>
 
@@ -2985,7 +3003,7 @@
     <h2>Manage Disney Resorts List</h2>
     <p class="sub">Used to spot Disney-owned resort check-ins for the dining reservation reminder, matched against whatever you type in a day's Hotel field. Add nicknames or abbreviations you actually use (like "GF" for Grand Floridian) so matching works reliably.</p>
     <div id="resortsMasterEditorBody"></div>
-    <button class="master-editor-close" id="resortsMasterEditorCloseBtn">Done</button>
+    <button class="master-editor-close master-editor-close-sticky" id="resortsMasterEditorCloseBtn">Done</button>
   </div>
 </div>
 
@@ -2994,7 +3012,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.66';
+const APP_VERSION = '1.68';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5191,6 +5209,12 @@ function renderTripSwitchList(){
     nameSpan.className = 'trip-switch-item-name';
     nameSpan.textContent = trip.title || 'Untitled trip';
     item.appendChild(nameSpan);
+    if(trip.archivedAt){
+      const badge = document.createElement('span');
+      badge.className = 'trip-switch-archived-badge';
+      badge.textContent = 'Archived';
+      item.appendChild(badge);
+    }
     if(appData.trips.length > 1){
       const del = document.createElement('span');
       del.className = 'del';
@@ -7126,17 +7150,44 @@ function closeTravelerColorModal(){
   render();
 }
 
+// Shared check for the three catalog editors: every existing row already commits
+// immediately on edit, so the only genuinely uncommitted state any of them can have
+// is text sitting in the add-new-item row before it's been submitted.
+function bodyHasUnsubmittedAddRowText(bodyId){
+  const addRow = document.querySelector('#' + bodyId + ' .master-add-row');
+  if(!addRow) return false;
+  return Array.from(addRow.querySelectorAll('input[type="text"]')).some(input => input.value.trim() !== '');
+}
+
 // Tap-outside-to-close for modals with no meaningful "unsaved changes" to protect -
 // either pure navigation, or everything they contain already commits immediately.
 [
   ['tripSwitchOverlay', closeTripSwitchModal],
   ['themePickerOverlay', closeThemePicker],
   ['toolsMenuOverlay', closeToolsMenu],
-  ['travelerColorOverlay', closeTravelerColorModal]
+  ['travelerColorOverlay', closeTravelerColorModal],
+  ['buildPackingListOverlay', closeBuildPackingListModal]
 ].forEach(([overlayId, closeFn]) => {
   document.getElementById(overlayId).addEventListener('click', e => {
     if(e.target.id !== overlayId) return;
     closeFn();
+  });
+});
+
+// Catalog editors: same tap-outside pattern, but confirm first if there's
+// unsubmitted text in the add-new-item row that would otherwise be lost silently.
+[
+  ['masterEditorOverlay', 'masterEditorBody', closeMasterEditor],
+  ['groceryMasterEditorOverlay', 'groceryMasterEditorBody', closeGroceryMasterEditor],
+  ['resortsMasterEditorOverlay', 'resortsMasterEditorBody', closeResortsMasterEditor]
+].forEach(([overlayId, bodyId, closeFn]) => {
+  document.getElementById(overlayId).addEventListener('click', e => {
+    if(e.target.id !== overlayId) return;
+    if(bodyHasUnsubmittedAddRowText(bodyId)){
+      if(confirm('Discard the item you were adding?')) closeFn();
+    } else {
+      closeFn();
+    }
   });
 });
 
