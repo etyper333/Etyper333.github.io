@@ -1803,10 +1803,6 @@
     border-radius:var(--radius-xl);
     width:fit-content;
   }
-  .item-status.status-confirmed{
-    background:var(--accent-positive-bg);
-    color:var(--accent-positive-text);
-  }
   .item-status.status-tentative{
     background:var(--accent-neutral-bg);
     color:var(--accent-neutral-text);
@@ -2076,6 +2072,13 @@
   }
   .suggestion-item:hover, .suggestion-item:active{
     background:var(--cream);
+  }
+  .suggestion-item-hint{
+    padding:8px 12px;
+    font-size:11.5px;
+    font-style:italic;
+    color:var(--slate);
+    cursor:default;
   }
   .submit-btn{
     background:var(--coral);
@@ -2674,11 +2677,6 @@
     color:var(--slate);
     cursor:pointer;
   }
-  .status-toggle-row button.on-tentative{
-    background:var(--accent-neutral-bg);
-    border-color:var(--slate);
-    color:var(--ink);
-  }
   .status-toggle-row button.on-confirmed{
     background:var(--accent-positive-bg);
     border-color:var(--sage);
@@ -3012,7 +3010,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.68';
+const APP_VERSION = '1.70';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -3030,7 +3028,7 @@ async function syncNewItemToSupabase(item, day, trip){
     const itemPayload = {
       time: item.time || null, end_time: item.endTime || null, section: item.section || '',
       type: item.type || '', name: item.name || '', is_main_plan: !!item.isMainPlan,
-      status: item.status || 'tentative', confirmation_number: item.confirmationNumber || '',
+      status: item.status || 'confirmed', confirmation_number: item.confirmationNumber || '',
       meal_service: item.mealService || '', meal_period: item.mealPeriod || '', notes: item.notes || ''
     };
     const { data, error } = await supabaseClient.from('items').insert([{ ...itemPayload, day_id: day.supabaseId }]).select().single();
@@ -3327,7 +3325,7 @@ async function syncTripToSupabase(trip, allTravelers){
       const itemPayload = {
         time: item.time || null, end_time: item.endTime || null, section: item.section || '',
         type: item.type || '', name: item.name || '', is_main_plan: !!item.isMainPlan,
-        status: item.status || 'tentative', confirmation_number: item.confirmationNumber || '',
+        status: item.status || 'confirmed', confirmation_number: item.confirmationNumber || '',
         meal_service: item.mealService || '', meal_period: item.mealPeriod || '', notes: item.notes || ''
       };
       if(item.supabaseId){
@@ -3537,7 +3535,7 @@ function snapshotItemFields(item){
   return {
     time: item.time || '', endTime: item.endTime || '', section: item.section || '',
     type: item.type || '', name: item.name || '', isMainPlan: !!item.isMainPlan,
-    status: item.status || 'tentative', confirmationNumber: item.confirmationNumber || '',
+    status: item.status || 'confirmed', confirmationNumber: item.confirmationNumber || '',
     mealService: item.mealService || '', mealPeriod: item.mealPeriod || '', notes: item.notes || ''
   };
 }
@@ -3576,7 +3574,7 @@ async function resolveAndCommitItemEdit(item, day, trip, submittedValues, editBa
   const current = {
     time: currentRow.time || '', endTime: currentRow.end_time || '', section: currentRow.section || '',
     type: currentRow.type || '', name: currentRow.name || '', isMainPlan: !!currentRow.is_main_plan,
-    status: currentRow.status || 'tentative', confirmationNumber: currentRow.confirmation_number || '',
+    status: currentRow.status || 'confirmed', confirmationNumber: currentRow.confirmation_number || '',
     mealService: currentRow.meal_service || '', mealPeriod: currentRow.meal_period || '', notes: currentRow.notes || ''
   };
 
@@ -3684,7 +3682,7 @@ async function syncSingleItemUpdate(item, trip){
     const itemPayload = {
       time: item.time || null, end_time: item.endTime || null, section: item.section || '',
       type: item.type || '', name: item.name || '', is_main_plan: !!item.isMainPlan,
-      status: item.status || 'tentative', confirmation_number: item.confirmationNumber || '',
+      status: item.status || 'confirmed', confirmation_number: item.confirmationNumber || '',
       meal_service: item.mealService || '', meal_period: item.mealPeriod || '', notes: item.notes || ''
     };
     const { data: updateResult } = await supabaseClient.from('items').update(itemPayload).eq('id', item.supabaseId).select();
@@ -3830,7 +3828,7 @@ async function fetchRemoteTripData(supabaseTripId){
       items: itemRows.filter(i => i.day_id === dayRow.id).map(itemRow => ({
         supabaseId: itemRow.id, time: itemRow.time || '', endTime: itemRow.end_time || '',
         section: itemRow.section || '', type: itemRow.type || '', name: itemRow.name || '',
-        isMainPlan: !!itemRow.is_main_plan, status: itemRow.status || 'tentative',
+        isMainPlan: !!itemRow.is_main_plan, status: itemRow.status || 'confirmed',
         confirmationNumber: itemRow.confirmation_number || '', mealService: itemRow.meal_service || '',
         mealPeriod: itemRow.meal_period || '', notes: itemRow.notes || '',
         travelerSupaIds: tagRows.filter(t => t.item_id === itemRow.id).map(t => t.traveler_id)
@@ -4326,7 +4324,7 @@ function buildICSEventLines(day, dayDate, item, dtstamp){
   lines.push('SUMMARY:' + escapeICSText(item.name));
   if(location) lines.push('LOCATION:' + escapeICSText(location));
   if(descParts.length) lines.push('DESCRIPTION:' + escapeICSText(descParts.join('\n')));
-  lines.push('STATUS:' + (item.status === 'confirmed' ? 'CONFIRMED' : 'TENTATIVE'));
+  lines.push('STATUS:' + (item.status === 'tentative' ? 'TENTATIVE' : 'CONFIRMED'));
   lines.push('END:VEVENT');
   return lines;
 }
@@ -4506,6 +4504,76 @@ function setTripLength(trip, nights){
 }
 
 const PARKS = ["","Magic Kingdom","EPCOT","Hollywood Studios","Animal Kingdom","Disney Springs","Typhoon Lagoon","Blizzard Beach","Pool Time","Resort","Off-site / Travel Day","Other"];
+
+// Curated item-name suggestions: real, schedulable places and logistics only -
+// deliberately excludes rides and touring items (not predictably calendarable),
+// Food Stand/Cart, Market, Room Service, and pure delivery services.
+const ITEM_NAME_SUGGESTIONS = [
+  // Logistics
+  "Mears Connect / Airport Shuttle","Monorail","Skyliner","Bus Transportation","Boat Transportation",
+  "Bell Services","Rope Drop","Resort Check-In","Resort Check-Out","Coffee Run",
+  // Magic Kingdom
+  "Be Our Guest Restaurant","Casey's Corner","Cinderella's Royal Table","Columbia Harbour House",
+  "Cosmic Ray's Starlight Café","Gaston's Tavern","Golden Oak Outpost","Jungle Navigation Co. Ltd. Skipper Canteen",
+  "Liberty Tree Tavern","Main Street Bakery","Pecos Bill Tall Tale Inn and Cafe","Pinocchio Village Haus",
+  "Sleepy Hollow Refreshments","The Crystal Palace","The Diamond Horseshoe","The Friar's Nook",
+  "The Lunching Pad","The Plaza Restaurant","Tony's Town Square Restaurant","Tortuga Tavern",
+  // EPCOT
+  "Akershus Royal Banquet Hall","Biergarten Restaurant","Chefs de France","Connections Café","Connections Eatery",
+  "Coral Reef Restaurant","Crêpes à Emporter","Garden Grill Restaurant","Katsura Grill","Kringla Bakeri og Kafe",
+  "La Cantina de San Angel","La Crêperie de Paris","La Hacienda de San Angel","Le Cellier Steakhouse",
+  "Les Halles Boulangerie-Patisserie","Lotus Blossom Café","Monsieur Paul","Nine Dragons Restaurant",
+  "Refreshment Outpost","Refreshment Port","Regal Eagle Smokehouse","Rose & Crown Dining Room",
+  "San Angel Inn Restaurante","Shiki-Sai: Sushi Izakaya","Sommerfest","Space 220 Restaurant","Spice Road Table",
+  "Sunshine Seasons","Takumi-Tei","Tangierine Café","Teppan Edo","The Odyssey","Tutto Italia Ristorante",
+  "Via Napoli Ristorante e Pizzeria","Yorkshire County Fish Shop",
+  // Hollywood Studios
+  "50's Prime Time Café","ABC Commissary","Backlot Express","Catalina Eddie's","Docking Bay 7 Food and Cargo",
+  "Dockside Diner","Fairfax Fare","Hollywood & Vine","Mama Melrose's Ristorante Italiano","PizzeRizzo",
+  "Ronto Roasters","Rosie's All-American Cafe","Roundup Rodeo BBQ","Sci-Fi Dine-In Theater Restaurant",
+  "The Hollywood Brown Derby","The Trolley Car Café","Woody's Lunch Box",
+  // Animal Kingdom
+  "Creature Comforts","Flame Tree Barbecue","Harambe Market","Mr. Kamal's","Pizzafari","Rainforest Cafe",
+  "Satu'li Canteen","Tamu Tamu Refreshments","Tiffins","Tusker House Restaurant","Yak & Yeti Local Food Cafes",
+  "Yak & Yeti Restaurant","Zuri's Sweet Shop",
+  // Typhoon Lagoon
+  "Leaning Palms","Lowtide Lou's","Snack Shack","Surf Doggies","Typhoon Tilly's",
+  // Blizzard Beach
+  "Avalunch","Cooling Hut","Lottawatta Lodge","Warming Hut",
+  // Disney Springs - Dining
+  "4 Rivers Cantina Barbacoa","Amorette's Patisserie","B.B. Wolf's Sausage Co.","Blaze Fast-Fire'd Pizza",
+  "Chef Art Smith's Homecomin'","Chicken Guy!","City Works Eatery & Pour House","Cookes of Dublin","D-Luxe Burger",
+  "Earl of Sandwich","Enzo's Hideaway","Erin McKenna's Bakery NYC","Everglazed Donuts & Cold Brew","Frontera Cocina",
+  "Ghirardelli Soda Fountain and Chocolate Shop","Gideon's Bakehouse","House of Blues Restaurant & Bar",
+  "Häagen-Dazs Kiosk","Jaleo by José Andrés","Maria and Enzo's Ristorante","Morimoto Asia","Paddlefish","Paradiso 37",
+  "Pepe by José Andrés","Pizza Ponte","Planet Hollywood","Raglan Road Irish Pub & Restaurant",
+  "Rainforest Cafe (Marketplace)","Salt & Straw","Splitsville Dining Room","Sprinkles","STK Orlando",
+  "Summer House on the Lake","T-REX","Terralina Crafted Italian","The BOATHOUSE","The Daily Poutine","The Edison",
+  "The Polite Pig","The Smokehouse at House of Blues","Vivoli il Gelato","Wine Bar George","Wolfgang Puck Bar & Grill",
+  // Disney Springs - Attractions & Entertainment
+  "Splitsville Luxury Lanes","LEVEL99","Aerophile – The World Leader in Balloon Flight",
+  "Drawn to Life (Cirque du Soleil)","AMC Disney Springs 24 Dine-In Theatres",
+  // Other Destinations
+  "Fantasia Gardens & Fairways Miniature Golf","Winter Summerland Miniature Golf","ESPN Wide World of Sports","Boardwalk",
+  // Bar/Lounge exceptions
+  "Oga's Cantina","Trader Sam's Grog Grotto","River Roost Lounge",
+  // Fort Wilderness
+  "Trail's End Restaurant","Meadow Snack Bar","P & J's Southern Takeout","Hoop-Dee-Doo Musical Revue",
+  "Chuck Wagon","Meadows Trading Post","Settlement Trading Post",
+  // Resorts
+  "Boma - Flavors of Africa","Jiko - The Cooking Place","The Mara","Sanaa","Sanaa Kuamsha Breakfast",
+  "World Premiere Food Court","Intermission Food Court","End Zone Food Court","Landscape of Flavors",
+  "Beaches & Cream Soda Shop","Cape May Cafe","Hurricane Hanna's Waterside Bar and Grill","Beach Club Marketplace",
+  "Flying Fish","Trattoria al Forno","BoardWalk Deli","Centertown Market","Sebastian's Bistro","Spyglass Grill",
+  "California Grill","Chef Mickey's","Contempo Café","Steakhouse 71","The Sand Bar","Maya Grill",
+  "Rix Sports Bar & Grill","Three Bridges Bar and Grill","Toledo","Cafe Rix","El Mercado de Coronado",
+  "1900 Park Fare","Cítricos","Grand Floridian Cafe","Narcoossee's","Victoria & Albert's","Gasparilla Island Grill",
+  "Olivia's Cafe","Good's Food to Go","'Ohana","Kona Café","Capt. Cook's","Everything POP Shopping and Dining",
+  "Sassagoula Floatworks & Food Factory","Boatwright's Dining Hall","Riverside Mill Food Court",
+  "Topolino's Terrace","Primo Piatto","Le Petit Cafe","The Turf Club Bar and Grill","The Artist's Palette",
+  "The Paddock Grill","Chip 'n' Dale's Café","Whispering Canyon Cafe","Story Book Dining at Artist Point",
+  "Roaring Fork","Geyser Point Bar & Grill","Ale & Compass Restaurant","Yachtsman Steakhouse","Market at Ale and Compass"
+];
 const CROWD_LEVEL_PARKS = ["Magic Kingdom","EPCOT","Hollywood Studios","Animal Kingdom"];
 const TYPES = [
   {key:"activity", label:"Activity", icon:"🎡"},
@@ -4558,10 +4626,6 @@ function getEffectiveDurationMinutes(item){
   if(endMin < startMin) endMin += 1440;
   return Math.max(0, endMin - startMin);
 }
-const STATUSES = [
-  {key:"tentative", label:"Tentative"},
-  {key:"confirmed", label:"Confirmed"},
-];
 const MEAL_SERVICES = [
   {key:"qs", label:"QS"},
   {key:"ts", label:"TS"},
@@ -4915,7 +4979,7 @@ function getItemSnapshot(item){
   return JSON.stringify({
     time: item.time || null, endTime: item.endTime || null, section: item.section || '',
     type: item.type || '', name: item.name || '', isMainPlan: !!item.isMainPlan,
-    status: item.status || 'tentative', confirmationNumber: item.confirmationNumber || '',
+    status: item.status || 'confirmed', confirmationNumber: item.confirmationNumber || '',
     mealService: item.mealService || '', mealPeriod: item.mealPeriod || '', notes: item.notes || '',
     travelerIds: (Array.isArray(item.travelerIds) ? item.travelerIds.slice().sort() : [])
   });
@@ -5080,7 +5144,7 @@ function migrateDayParksToMainPlanItems(trip){
           id: cryptoId(),
           name: park,
           type: 'activity',
-          status: 'tentative',
+          status: 'confirmed',
           time: '',
           section: sec,
           isMainPlan: true,
@@ -5995,7 +6059,7 @@ function renderDayTimelineGrid(panel, day, trip){
     const columnCount = visibleCount + ((cluster.length > 2 && !isExpanded) ? 1 : 0);
     cluster.slice(0, visibleCount).forEach((entry, i) => {
       const block = document.createElement('div');
-      const status = entry.item.status === 'confirmed' ? 'confirmed' : 'tentative';
+      const status = entry.item.status === 'tentative' ? 'tentative' : 'confirmed';
       block.className = `timeline-block tab-${entry.item.type} status-${status}` + (entry.item.isMainPlan ? ' main-plan' : '');
       const top = (entry.startMin - windowStart) / 60 * PIXELS_PER_HOUR;
       const height = Math.max(20, (entry.endMin - entry.startMin) / 60 * PIXELS_PER_HOUR);
@@ -6248,7 +6312,7 @@ function renderDayPanels(){
       if(expandedSectionAddForm.has(sectionFormKey)){
         const inlineForm = buildItemFieldsForm(
           day,
-          { status: 'tentative', section: sec.key },
+          { status: 'confirmed', section: sec.key },
           'Add to ' + sec.label,
           (values) => {
             const newItem = Object.assign({ id: cryptoId() }, values);
@@ -6360,8 +6424,9 @@ function renderItemCard(day, item){
   const card = document.createElement('div');
   card.className = 'item-card';
   const typeInfo = TYPES.find(t=>t.key===item.type) || TYPES[0];
-  const status = item.status === 'confirmed' ? 'confirmed' : 'tentative';
-  const statusLabel = status === 'confirmed' ? '✓ Confirmed' : '◌ Tentative';
+  const status = item.status === 'tentative' ? 'tentative' : 'confirmed';
+  const isPencilledIn = status === 'tentative';
+  const statusLabel = '✏️ Penciled in';
   const mealService = MEAL_SERVICES.find(m => m.key === item.mealService);
   const mealPeriod = MEAL_PERIODS.find(p => p.key === item.mealPeriod);
   let mealBadgeLabel = '';
@@ -6375,7 +6440,8 @@ function renderItemCard(day, item){
     ? item.travelerIds.map(id => getTravelerName(id)).filter(Boolean)
     : [];
 
-  const compactLine2Parts = [statusLabel];
+  const compactLine2Parts = [];
+  if(isPencilledIn) compactLine2Parts.push(statusLabel);
   if(item.isMainPlan) compactLine2Parts.push('📌 Main Plan');
   if(mealBadgeLabel) compactLine2Parts.push(mealBadgeLabel);
   if(travelerNames.length) compactLine2Parts.push(travelerNames.join(', '));
@@ -6393,7 +6459,7 @@ function renderItemCard(day, item){
         <div class="item-name">${escapeHtml(getItemDisplayName(item))}</div>
         <div class="item-badges-row">
           ${item.isMainPlan ? '<span class="item-main-plan-badge">📌 Main Plan</span>' : ''}
-          <span class="item-status status-${status}">${statusLabel}</span>
+          ${isPencilledIn ? `<span class="item-status status-tentative">${statusLabel}</span>` : ''}
           ${mealBadgeLabel ? `<span class="item-meal-badge">${mealBadgeLabel}</span>` : ''}
           ${travelerNames.map(n => `<span class="item-traveler-badge">${escapeHtml(n)}</span>`).join('')}
         </div>
@@ -6405,7 +6471,7 @@ function renderItemCard(day, item){
         <div class="item-compact-line2">${escapeHtml(compactLine2Parts.join(' · '))}</div>
       </div>
       <div class="item-actions">
-        <button data-role="toggle-status">${status === 'confirmed' ? 'Mark tentative' : 'Mark confirmed'}</button>
+        <button data-role="toggle-status">${status === 'confirmed' ? 'Pencil this in' : 'Confirm this'}</button>
         <button data-role="edit">Edit</button>
         <button data-role="main-plan">${item.isMainPlan ? 'Unset Main Plan' : '📌 Set as Main Plan'}</button>
         <button data-role="calendar" title="Add this item to your calendar">📅 Calendar</button>
@@ -6471,12 +6537,11 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   wrap.addEventListener('input', () => { formTouched = true; });
   wrap.addEventListener('change', () => { formTouched = true; });
   wrap.addEventListener('click', e => {
-    if(e.target.closest('[data-status]') || e.target.closest('.landmark-checkbox-label') || e.target.closest('[data-role="clear-time"]')){
+    if(e.target.closest('.landmark-checkbox-label') || e.target.closest('[data-role="clear-time"]')){
       formTouched = true;
     }
   });
   wrap.isDirty = () => formTouched;
-  let pendingStatus = initial.status === 'confirmed' ? 'confirmed' : 'tentative';
   wrap.innerHTML = `
     <div class="form-row-label">What kind of item is this?</div>
     <div class="form-row">
@@ -6525,9 +6590,11 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
       </label>
     </div>
     <div data-role="who-wrap"></div>
-    <div class="status-toggle-row">
-      <button type="button" data-status="tentative" class="${pendingStatus === 'tentative' ? 'on-tentative' : ''}">Tentative</button>
-      <button type="button" data-status="confirmed" class="${pendingStatus === 'confirmed' ? 'on-confirmed' : ''}">Confirmed</button>
+    <div class="form-row">
+      <label class="main-plan-checkbox-label">
+        <input type="checkbox" data-f="isPencilledInCheckbox" ${initial.status === 'tentative' ? 'checked' : ''} />
+        <span>✏️ Penciled in — not confirmed yet</span>
+      </label>
     </div>
     <div class="form-row">
       <input type="text" data-f="confirmationNumber" placeholder="Confirmation # (optional)" value="${escapeHtml(initial.confirmationNumber || '')}" />
@@ -6618,7 +6685,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   mealServiceForDuration.addEventListener('change', syncEndTimeUI);
 
   const nameInput = wrap.querySelector('[data-f="name"]');
-  attachSuggestionDropdown(nameInput, () => PARKS.filter(p => p && p !== 'Other'));
+  attachSuggestionDropdown(nameInput, () => [...PARKS.filter(p => p && p !== 'Other'), ...ITEM_NAME_SUGGESTIONS]);
   const mainPlanCheckbox = wrap.querySelector('[data-f="isMainPlanCheckbox"]');
   const mainPlanLabel = wrap.querySelector('[data-role="main-plan-label"]');
   const syncMainPlanUI = () => {
@@ -6687,14 +6754,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
     renderWho();
   }
 
-  const statusBtns = wrap.querySelectorAll('.status-toggle-row button');
-  statusBtns.forEach(btn => {
-    btn.onclick = () => {
-      pendingStatus = btn.dataset.status;
-      statusBtns.forEach(b => b.classList.remove('on-tentative','on-confirmed'));
-      btn.classList.add(pendingStatus === 'confirmed' ? 'on-confirmed' : 'on-tentative');
-    };
-  });
+  const pencilledInCheckbox = wrap.querySelector('[data-f="isPencilledInCheckbox"]');
   wrap.querySelector('[data-role="submit"]').onclick = () => {
     const isMainPlan = mainPlanCheckbox.checked && !mainPlanCheckbox.disabled;
     const name = wrap.querySelector('[data-f="name"]').value.trim();
@@ -6748,7 +6808,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
       nameOther: '',
       isMainPlan,
       endTime: finalEndTime,
-      status: pendingStatus,
+      status: pencilledInCheckbox.checked ? 'tentative' : 'confirmed',
       mealService: type === 'dining' ? mealService : '',
       mealPeriod: (type === 'dining' && mealService !== 'snack') ? mealPeriod : '',
       confirmationNumber: wrap.querySelector('[data-f="confirmationNumber"]').value.trim(),
@@ -6765,7 +6825,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
 function renderAddForm(day){
   return buildItemFieldsForm(
     day,
-    { status: 'tentative' },
+    { status: 'confirmed' },
     'Add to Day',
     (values) => {
       const newItem = Object.assign({ id: cryptoId() }, values);
@@ -6796,13 +6856,18 @@ function attachSuggestionDropdown(inputEl, getSuggestions){
   dropdown.className = 'suggestion-dropdown';
   wrap.appendChild(dropdown);
 
+  const MAX_SUGGESTIONS = 8;
   const hideDropdown = () => { dropdown.style.display = 'none'; };
   const showMatches = () => {
     const val = inputEl.value.trim().toLowerCase();
     if(!val){ hideDropdown(); return; }
-    const matches = getSuggestions().filter(s => s.toLowerCase().includes(val));
-    if(matches.length === 0){ hideDropdown(); return; }
+    const allMatches = getSuggestions().filter(s => s.toLowerCase().includes(val));
+    if(allMatches.length === 0){ hideDropdown(); return; }
+    const matches = allMatches.slice(0, MAX_SUGGESTIONS);
     dropdown.innerHTML = matches.map(m => `<div class="suggestion-item">${escapeHtml(m)}</div>`).join('');
+    if(allMatches.length > MAX_SUGGESTIONS){
+      dropdown.innerHTML += `<div class="suggestion-item-hint">+${allMatches.length - MAX_SUGGESTIONS} more — keep typing to narrow it down</div>`;
+    }
     dropdown.style.display = 'block';
   };
 
@@ -8565,7 +8630,7 @@ document.getElementById('loadInput').addEventListener('change', e => {
           (day.items||[]).forEach(item => {
             if(!item.id) item.id = cryptoId();
             if(item.type === 'ride' || item.type === 'show') item.type = 'activity';
-            if(item.status === undefined) item.status = 'tentative';
+            if(item.status === undefined) item.status = 'confirmed';
             if(item.confirmationNumber === undefined) item.confirmationNumber = '';
             if(item.section === undefined) item.section = '';
             if(item.mealService === undefined) item.mealService = '';
