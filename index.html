@@ -2382,19 +2382,20 @@
     height:100dvh;
     background:var(--backdrop);
     z-index:20;
-    align-items:flex-end;
+    align-items:center;
     justify-content:center;
+    padding:14px;
   }
   .master-editor-overlay.active{display:flex;}
   .master-editor{
     background:var(--cream);
     width:100%;
     max-width:640px;
-    max-height:85vh;
-    max-height:85dvh;
+    max-height:80vh;
+    max-height:80dvh;
     overflow-y:auto;
-    border-radius:18px 18px 0 0;
-    padding:18px 16px calc(24px + env(safe-area-inset-bottom));
+    border-radius:var(--radius-xl);
+    padding:18px 16px calc(18px + env(safe-area-inset-bottom));
   }
   #wizardOverlay{
     align-items:center;
@@ -2993,7 +2994,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.65';
+const APP_VERSION = '1.66';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -7118,10 +7119,26 @@ function openTravelerColorPicker(trip, travelerId){
   });
   document.getElementById('travelerColorOverlay').classList.add('active');
 }
-document.getElementById('travelerColorCloseBtn').onclick = () => {
+document.getElementById('travelerColorCloseBtn').onclick = closeTravelerColorModal;
+
+function closeTravelerColorModal(){
   document.getElementById('travelerColorOverlay').classList.remove('active');
   render();
-};
+}
+
+// Tap-outside-to-close for modals with no meaningful "unsaved changes" to protect -
+// either pure navigation, or everything they contain already commits immediately.
+[
+  ['tripSwitchOverlay', closeTripSwitchModal],
+  ['themePickerOverlay', closeThemePicker],
+  ['toolsMenuOverlay', closeToolsMenu],
+  ['travelerColorOverlay', closeTravelerColorModal]
+].forEach(([overlayId, closeFn]) => {
+  document.getElementById(overlayId).addEventListener('click', e => {
+    if(e.target.id !== overlayId) return;
+    closeFn();
+  });
+});
 
 let currentItemEditForm = null;
 function openItemEditModal(day, item){
@@ -7369,6 +7386,12 @@ function renderToolsMenu(){
     body.appendChild(exportBtn);
   }
 
+  const manageTripLabel = document.createElement('div');
+  manageTripLabel.className = 'packing-category-title';
+  manageTripLabel.style.marginTop = '18px';
+  manageTripLabel.textContent = 'Manage This Trip';
+  body.appendChild(manageTripLabel);
+
   const downloadBtn = document.createElement('button');
   downloadBtn.type = 'button';
   downloadBtn.className = 'print-packing-btn';
@@ -7403,12 +7426,6 @@ function renderToolsMenu(){
     }
   };
   body.appendChild(downloadBtn);
-
-  const loadLabel = document.createElement('label');
-  loadLabel.setAttribute('for', 'loadInput');
-  loadLabel.className = 'print-packing-btn tools-menu-load-label';
-  loadLabel.textContent = '📂 Load Trips from a Backup File';
-  body.appendChild(loadLabel);
 
   const archiveStatusNote = document.createElement('p');
   archiveStatusNote.className = 'section-empty-note';
@@ -7449,6 +7466,29 @@ function renderToolsMenu(){
     removeTrip(trip.id);
   };
   body.appendChild(removeBtn);
+
+  const manageAllLabel = document.createElement('div');
+  manageAllLabel.className = 'packing-category-title';
+  manageAllLabel.style.marginTop = '18px';
+  manageAllLabel.textContent = 'Manage All Trips';
+  body.appendChild(manageAllLabel);
+
+  const loadLabel = document.createElement('label');
+  loadLabel.setAttribute('for', 'loadInput');
+  loadLabel.className = 'print-packing-btn tools-menu-load-label';
+  loadLabel.textContent = '📂 Load Trips from a Backup File';
+  body.appendChild(loadLabel);
+
+  const viewArchivedBtn = document.createElement('button');
+  viewArchivedBtn.type = 'button';
+  viewArchivedBtn.className = 'print-packing-btn';
+  viewArchivedBtn.textContent = '🗄️ View Archived Trips';
+  viewArchivedBtn.onclick = () => {
+    showArchivedTrips = true;
+    closeToolsMenu();
+    openTripSwitchModal();
+  };
+  body.appendChild(viewArchivedBtn);
 }
 
 function openThemePicker(){
