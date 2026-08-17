@@ -365,6 +365,37 @@
     gap:16px;
     margin:8px 0 12px;
   }
+  .calendar-export-quick-actions{
+    display:flex;
+    gap:10px;
+    margin:4px 0 12px;
+  }
+  .calendar-export-quick-actions button{
+    flex:1;
+    font-family:'Inter',sans-serif;
+    font-size:12.5px;
+    font-weight:600;
+    padding:8px;
+    border-radius:var(--radius-md);
+    border:1.5px solid var(--line);
+    background:var(--paper);
+    color:var(--ink);
+    cursor:pointer;
+  }
+  .calendar-export-item-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:8px 4px;
+    font-size:13.5px;
+    cursor:pointer;
+    border-bottom:1px solid var(--line);
+  }
+  .calendar-export-item-row input{
+    flex-shrink:0;
+    width:18px;
+    height:18px;
+  }
   .tools-print-checkbox-label{
     display:flex;
     align-items:center;
@@ -2931,6 +2962,19 @@
   </div>
 </div>
 
+<div class="master-editor-overlay" id="calendarExportOverlay">
+  <div class="master-editor">
+    <h2>Export to Calendar</h2>
+    <p class="sub">Everything's included by default, except items still Penciled In. Uncheck anything you don't want on your calendar.</p>
+    <div class="calendar-export-quick-actions">
+      <button type="button" id="calendarExportSelectAll">Select All</button>
+      <button type="button" id="calendarExportSelectNone">Select None</button>
+    </div>
+    <div id="calendarExportBody"></div>
+    <button type="button" class="master-editor-close master-editor-close-sticky" id="calendarExportSubmitBtn">📅 Export Selected</button>
+  </div>
+</div>
+
 <div class="master-editor-overlay" id="itemEditOverlay">
   <div class="master-editor">
     <h2>Edit Item</h2>
@@ -3010,7 +3054,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.70';
+const APP_VERSION = '1.71';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4328,7 +4372,7 @@ function buildICSEventLines(day, dayDate, item, dtstamp){
   lines.push('END:VEVENT');
   return lines;
 }
-function generateICS(trip){
+function generateICS(trip, selectedItemIds){
   if(!trip.startDate){
     alert('Set a trip start date first (in Trip Details) so events can be placed on real calendar dates.');
     return null;
@@ -4343,7 +4387,7 @@ function generateICS(trip){
   let eventCount = 0;
   trip.days.forEach((day, dayIndex) => {
     const dayDate = computeDayDate(trip, dayIndex);
-    day.items.filter(itemMatchesFilter).forEach(item => {
+    day.items.filter(item => selectedItemIds.has(item.id)).forEach(item => {
       lines.push(...buildICSEventLines(day, dayDate, item, dtstamp));
       eventCount++;
     });
@@ -4352,11 +4396,92 @@ function generateICS(trip){
   lines.push('END:VCALENDAR');
 
   if(eventCount === 0){
-    alert('No items to export for the current filter.');
+    alert('No items were selected to export.');
     return null;
   }
   return lines.join('\r\n');
 }
+let calendarExportSelectedIds = new Set();
+let calendarExportTrip = null;
+
+function openCalendarExportModal(trip){
+  if(!trip.startDate){
+    alert('Set a trip start date first (in Trip Details) so events can be placed on real calendar dates.');
+    return;
+  }
+  calendarExportTrip = trip;
+  calendarExportSelectedIds = new Set();
+  trip.days.forEach(day => {
+    day.items.forEach(item => {
+      if(item.status !== 'tentative') calendarExportSelectedIds.add(item.id);
+    });
+  });
+  renderCalendarExportModal();
+  document.getElementById('calendarExportOverlay').classList.add('active');
+}
+function closeCalendarExportModal(){
+  document.getElementById('calendarExportOverlay').classList.remove('active');
+  calendarExportTrip = null;
+}
+function renderCalendarExportModal(){
+  const trip = calendarExportTrip;
+  const body = document.getElementById('calendarExportBody');
+  body.innerHTML = '';
+  if(!trip) return;
+  trip.days.forEach((day, dayIndex) => {
+    if(day.items.length === 0) return;
+    const dayLabel = document.createElement('div');
+    dayLabel.className = 'packing-category-title';
+    dayLabel.textContent = getDayDisplayLabel(trip, dayIndex, day, true);
+    body.appendChild(dayLabel);
+    const sortedItems = [...day.items].sort((a,b) => (a.time||'').localeCompare(b.time||''));
+    sortedItems.forEach(item => {
+      const row = document.createElement('label');
+      row.className = 'calendar-export-item-row';
+      const timeLabel = item.time ? formatTime(item.time) : 'No time set';
+      const tentativeTag = item.status === 'tentative' ? ' — ✏️ Penciled in' : '';
+      row.innerHTML = `
+        <input type="checkbox" ${calendarExportSelectedIds.has(item.id) ? 'checked' : ''} />
+        <span>${timeLabel} — ${escapeHtml(getItemDisplayName(item))}${tentativeTag}</span>
+      `;
+      row.querySelector('input').onchange = e => {
+        if(e.target.checked) calendarExportSelectedIds.add(item.id);
+        else calendarExportSelectedIds.delete(item.id);
+      };
+      body.appendChild(row);
+    });
+  });
+}
+document.getElementById('calendarExportSelectAll').onclick = () => {
+  const trip = calendarExportTrip;
+  if(!trip) return;
+  trip.days.forEach(day => day.items.forEach(item => calendarExportSelectedIds.add(item.id)));
+  renderCalendarExportModal();
+};
+document.getElementById('calendarExportSelectNone').onclick = () => {
+  calendarExportSelectedIds = new Set();
+  renderCalendarExportModal();
+};
+document.getElementById('calendarExportSubmitBtn').onclick = () => {
+  const trip = calendarExportTrip;
+  if(!trip) return;
+  const ics = generateICS(trip, calendarExportSelectedIds);
+  if(!ics) return;
+  const safeTitle = (trip.title || 'trip').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  const blob = new Blob([ics], {type:'text/calendar'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${safeTitle}-calendar.ics`;
+  a.click();
+  URL.revokeObjectURL(url);
+  closeCalendarExportModal();
+};
+document.getElementById('calendarExportOverlay').addEventListener('click', e => {
+  if(e.target.id !== 'calendarExportOverlay') return;
+  closeCalendarExportModal();
+});
+
 function generateSingleItemICS(trip, day, item){
   if(!trip.startDate){
     alert('Set a trip start date first (in Trip Details) so this event can be placed on a real calendar date.');
@@ -7478,29 +7603,15 @@ function renderToolsMenu(){
   }
   body.appendChild(shareSection);
 
-  if(trip.travelerIds.length > 0){
-    const filterSummary = activeTravelerFilter.length === 0
-      ? 'All Plans'
-      : activeTravelerFilter.map(id => getTravelerName(id)).filter(Boolean).join(', ');
-    const exportBtn = document.createElement('button');
-    exportBtn.type = 'button';
-    exportBtn.className = 'print-packing-btn';
-    exportBtn.textContent = `📅 Export to Calendar (${filterSummary})`;
-    exportBtn.title = 'Exports whatever the traveler filter on the Itinerary tab is currently set to';
-    exportBtn.onclick = () => {
-      const ics = generateICS(trip);
-      if(!ics) return;
-      const safeTitle = (trip.title || 'trip').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
-      const blob = new Blob([ics], {type:'text/calendar'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${safeTitle}-calendar.ics`;
-      a.click();
-      URL.revokeObjectURL(url);
-    };
-    body.appendChild(exportBtn);
-  }
+  const exportBtn = document.createElement('button');
+  exportBtn.type = 'button';
+  exportBtn.className = 'print-packing-btn';
+  exportBtn.textContent = '📅 Export to Calendar';
+  exportBtn.onclick = () => {
+    closeToolsMenu();
+    openCalendarExportModal(trip);
+  };
+  body.appendChild(exportBtn);
 
   const manageTripLabel = document.createElement('div');
   manageTripLabel.className = 'packing-category-title';
