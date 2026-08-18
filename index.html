@@ -2936,7 +2936,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.72';
+const APP_VERSION = '1.73';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4691,25 +4691,31 @@ function defaultPackingMaster(){
   return [
     ...cat("Park Essentials", false, [
       "Lightweight backpack or park bag","Refillable water bottles","Cooling towels","Portable fan or neck fan",
-      "Ponchos","Sunscreen","Hats & sunglasses","Hand sanitizer","Wet wipes","Autograph book & pen",
-      "Disney MagicBands","Phone charger / portable power bank","Ziploc bags","Park snacks"
+      "Ponchos","Sunscreen / Sunscreen Stick","Hat","Sunglasses","Hand sanitizer","Wet wipes",
+      "Autograph book & pen","Disney MagicBands","Portable Phone Charger","Park snacks","Pins & Pin Lanyard"
     ]),
     ...cat("Clothing & Footwear", false, [
-      "Comfortable walking shoes","Sandals or flip-flops","Swimsuits & cover-ups","Pajamas","Matching shirts",
+      "Comfortable walking shoes","Sandals or flip-flops","Swimsuits & cover-ups","Pajamas","Matching Group Shirts",
       "Light jacket or sweater","Extra socks & underwear"
     ]),
-    ...cat("Food/Room Supplies", false, [
-      "Canned goods / pantry snacks","Cereal","Non-dairy creamer","Tea","Applesauce / cinnamon","Popcorn",
-      "Laundry detergent","Wet bag","Device chargers / hub"
+    ...cat("Room & Food", false, [
+      "Batteries for Fans or Electronics","Charger - Watch","Charger - MagicBand+","Ziploc bags",
+      "Charger Hub","Laundry detergent","Wet bag","Charger - Phones & Devices"
     ]),
     ...cat("Toiletries", false, [
       "Toothbrush & toothpaste","Shampoo & conditioner","Deodorant","Lip balm with SPF","Bubble bath","Bug spray"
     ]),
     ...cat("Medications & First Aid", false, [
-      "Daily medications","Motion sickness relief","Pain relievers","Allergy medicine","Small first aid kit"
+      "Prescriptions","Motion sickness relief","Pain relievers","Allergy medicine","Small first aid kit",
+      "Child Medicines","Thermometer"
     ]),
-    ...cat("Extras for Kids", false, [
-      "Glow sticks","Sticker books, coloring books, or small toys","Stuffed animal or blanket","Bubble wand","Wikistix"
+    ...cat("Kids", false, [
+      "Glow sticks","Sticker books, coloring books, or small toys","Stuffed animal or blanket","Bubble wand","Wikistix",
+      "Nightlight for Room","Potty Training Needs","Stool","Stroller","Pool Toys",
+      "Noise-Cancelling / Low Volume Headphones","Snack Containers / Pouches"
+    ]),
+    ...cat("Misc Travel", false, [
+      "Cash for Tipping","Books"
     ]),
   ];
 }
@@ -4872,19 +4878,19 @@ function defaultGroceryMaster(){
   const cat = (name, items) => items.map(i => ({ id: cryptoId(), name: i, category: name }));
   return [
     ...cat("Produce", [
-      "Bananas","Apples","Grapes","Baby carrots","Salad kit"
+      "Apples","Baby carrots","Bananas","Grapes","Salad kit"
     ]),
-    ...cat("Dairy & Refrigerated", [
-      "Milk","Yogurt (single)","Yogurt (6-pack)","String cheese","White cheddar","Deli ham","Butter","Eggs"
+    ...cat("Refrigerated", [
+      "Bacon","Butter","Cheese","Deli Meat","Waffles or Breakfast Sandwiches","Eggs",
+      "Frozen vegetables","Milk","Salami","String cheese","Uncrustables","Yogurt","Hummus"
     ]),
-    ...cat("Pantry / Breakfast", [
-      "Cereal","Oatmeal","Granola bars","Bread","English muffins","Peanut butter","Mac & cheese"
+    ...cat("Pantry", [
+      "Applesauce","Bread","Canned Goods","Cereal","English muffins","Mac & cheese","Oatmeal",
+      "Peanut butter","Popcorn","Crackers","Chips or Snack Mix","Granola bars","Oil"
     ]),
     ...cat("Drinks / Coffee", [
-      "Bottled water","Coffee (grounds)","Coffee pods","Non-dairy creamer","Juice boxes","Gatorade / Powerade"
-    ]),
-    ...cat("Frozen", [
-      "Eggo waffles","Uncrustables (single)","Uncrustables (4-pack)","Frozen fruit","Frozen vegetables","Ice pops"
+      "Bottled water","Coffee (grounds)","Coffee pods","Creamer","Gatorade / Powerade","Juice boxes",
+      "Tea","Wine / Beer"
     ]),
   ];
 }
@@ -7655,7 +7661,7 @@ function syncGroceryToPacking(trip, groceryItem){
         id: cryptoId(),
         custom: true,
         name,
-        category: 'Food/Room Supplies',
+        category: 'Room & Food',
         checked: false,
         linkedGroceryId: groceryItem.id
       };
@@ -8329,16 +8335,17 @@ document.getElementById('loadInput').addEventListener('change', e => {
       if(!Array.isArray(normalized.packingMaster) || normalized.packingMaster.length === 0){
         normalized.packingMaster = defaultPackingMaster();
       }
-      // migrate renamed packing category
+      // migrate renamed packing category (handles both the original and the more recent intermediate name)
+      const oldPackingCategoryNames = ['Trip Needs / Food for Suite', 'Food/Room Supplies'];
       normalized.packingMaster.forEach(mi => {
-        if(mi.category === 'Trip Needs / Food for Suite') mi.category = 'Food/Room Supplies';
+        if(oldPackingCategoryNames.includes(mi.category)) mi.category = 'Room & Food';
       });
       (normalized.trips || []).forEach(t => {
         if(Array.isArray(t.packingCategories)){
-          t.packingCategories = t.packingCategories.map(c => c === 'Trip Needs / Food for Suite' ? 'Food/Room Supplies' : c);
+          t.packingCategories = t.packingCategories.map(c => oldPackingCategoryNames.includes(c) ? 'Room & Food' : c);
         }
         (t.packingItems || []).forEach(pi => {
-          if(pi.category === 'Trip Needs / Food for Suite') pi.category = 'Food/Room Supplies';
+          if(oldPackingCategoryNames.includes(pi.category)) pi.category = 'Room & Food';
         });
       });
       if(!Array.isArray(normalized.groceryMaster) || normalized.groceryMaster.length === 0){
