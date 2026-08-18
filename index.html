@@ -635,17 +635,6 @@
     opacity:.8;
     font-weight:500;
   }
-  .dining-reminder-manage-link{
-    font-size:11px;
-    color:var(--slate);
-    text-decoration:underline;
-    background:none;
-    border:none;
-    cursor:pointer;
-    padding:0;
-    margin-top:2px;
-    align-self:flex-start;
-  }
   .stay-card{
     background:var(--paper);
     border:1.5px solid var(--line);
@@ -2359,19 +2348,6 @@
   }
   .tab-grocery-pack{background:var(--slate);}
   .tab-grocery-delivery{background:var(--marigold);}
-  .manage-list-link{
-    display:block;
-    text-align:center;
-    font-size:12.5px;
-    font-weight:600;
-    color:var(--sky);
-    text-decoration:underline;
-    background:none;
-    border:none;
-    cursor:pointer;
-    margin:0 0 30px;
-    width:100%;
-  }
   .print-packing-btn{
     display:block;
     width:100%;
@@ -2583,75 +2559,6 @@
     color:var(--slate);
     margin:0 0 16px;
   }
-  .master-item-row{
-    display:flex;
-    align-items:center;
-    gap:8px;
-    background:var(--paper);
-    border:1px solid var(--line);
-    border-radius:var(--radius-md);
-    padding:8px 10px;
-    margin-bottom:6px;
-  }
-  .master-item-row input[type=text]{
-    flex:1.4;
-    font-family:'Inter',sans-serif;
-    font-size:13px;
-    padding:7px 8px;
-    border-radius:var(--radius-sm);
-    border:1.5px solid var(--line);
-  }
-  .master-item-row select{
-    flex:1;
-    font-family:'Inter',sans-serif;
-    font-size:12px;
-    padding:7px 6px;
-    border-radius:var(--radius-sm);
-    border:1.5px solid var(--line);
-  }
-  .master-item-row label.ess-label{
-    display:flex;
-    align-items:center;
-    gap:4px;
-    font-size:10.5px;
-    font-weight:700;
-    color:var(--slate);
-    flex-shrink:0;
-  }
-  .master-item-row .del-item{
-    font-size:11px;
-    border:none;
-    background:none;
-    color:var(--slate);
-    cursor:pointer;
-    text-decoration:underline;
-    flex-shrink:0;
-  }
-  .master-add-row{
-    display:flex;
-    gap:6px;
-    margin:14px 0 20px;
-    flex-wrap:wrap;
-  }
-  .master-add-row input, .master-add-row select{
-    font-family:'Inter',sans-serif;
-    font-size:13px;
-    padding:8px 9px;
-    border-radius:var(--radius-sm);
-    border:1.5px solid var(--line);
-  }
-  .master-add-row input[type=text]{flex:2;min-width:140px;}
-  .master-add-row select{flex:1;min-width:120px;}
-  .master-add-row button{
-    background:var(--sky);
-    color:white;
-    border:none;
-    padding:0 14px;
-    border-radius:var(--radius-sm);
-    font-weight:700;
-    font-size:12.5px;
-    cursor:pointer;
-  }
   .master-editor-close{
     display:block;
     width:100%;
@@ -2726,7 +2633,7 @@
     .trip-switcher, .view-tabs, .lists-sub-tabs, .view-options-wrap, .monorail,
     .remove-day-btn, .add-day-btn, .section-add-btn, .item-actions,
     .accordion.accent, .add-form, .chevron,
-    .manage-list-link, .dining-reminder-manage-link, .print-packing-btn,
+    .print-packing-btn,
     .master-editor-overlay, .theme-switch-btn, .trip-title-chevron,
     .packing-intro, .category-toggle-row, .packing-add-row,
     .who-toggle-link, .add-stay-btn, .stay-card-remove, .stay-warning,
@@ -2944,14 +2851,6 @@
 
 <main id="groceryPanelWrap" class="packing-panel" style="max-width:640px;margin:0 auto;padding:18px 16px 0;"></main>
 
-<div class="master-editor-overlay" id="masterEditorOverlay">
-  <div class="master-editor">
-    <h2>Edit Packing Catalog</h2>
-    <p class="sub">This master list is shared across all your trips. Mark items "always pack" if they should be included on every trip automatically (like medical supplies).</p>
-    <div id="masterEditorBody"></div>
-    <button class="master-editor-close master-editor-close-sticky" id="masterEditorCloseBtn">Done</button>
-  </div>
-</div>
 
 <div class="master-editor-overlay" id="buildPackingListOverlay">
   <div class="master-editor">
@@ -3031,30 +2930,13 @@
   </div>
 </div>
 
-<div class="master-editor-overlay" id="groceryMasterEditorOverlay">
-  <div class="master-editor">
-    <h2>Manage Grocery Catalog</h2>
-    <p class="sub">This catalog is shared across all your trips. Nothing here is added to a trip automatically — you'll pick what applies each time.</p>
-    <div id="groceryMasterEditorBody"></div>
-    <button class="master-editor-close master-editor-close-sticky" id="groceryMasterEditorCloseBtn">Done</button>
-  </div>
-</div>
-
-<div class="master-editor-overlay" id="resortsMasterEditorOverlay">
-  <div class="master-editor">
-    <h2>Manage Disney Resorts List</h2>
-    <p class="sub">Used to spot Disney-owned resort check-ins for the dining reservation reminder, matched against whatever you type in a day's Hotel field. Add nicknames or abbreviations you actually use (like "GF" for Grand Floridian) so matching works reliably.</p>
-    <div id="resortsMasterEditorBody"></div>
-    <button class="master-editor-close master-editor-close-sticky" id="resortsMasterEditorCloseBtn">Done</button>
-  </div>
-</div>
 
 <input type="file" id="loadInput" accept="application/json" style="display:none;" />
 
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.71';
+const APP_VERSION = '1.72';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -7241,13 +7123,6 @@ function renderPackingPanel(){
   };
   input.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); addBtn.click(); } });
   wrap.appendChild(addRow);
-
-  const manageBtn = document.createElement('button');
-  manageBtn.type = 'button';
-  manageBtn.className = 'manage-list-link';
-  manageBtn.textContent = 'Edit Catalog';
-  manageBtn.onclick = openMasterEditor;
-  wrap.appendChild(manageBtn);
 }
 
 function renderPackingItemRow(trip, name, row, isCustom, essential){
@@ -7292,15 +7167,6 @@ function renderPackingItemRow(trip, name, row, isCustom, essential){
   return el;
 }
 
-function openMasterEditor(){
-  renderMasterEditor();
-  document.getElementById('masterEditorOverlay').classList.add('active');
-}
-function closeMasterEditor(){
-  document.getElementById('masterEditorOverlay').classList.remove('active');
-  render();
-}
-document.getElementById('masterEditorCloseBtn').onclick = closeMasterEditor;
 
 function openTravelerColorPicker(trip, travelerId){
   const body = document.getElementById('travelerColorBody');
@@ -7340,15 +7206,6 @@ function closeTravelerColorModal(){
   render();
 }
 
-// Shared check for the three catalog editors: every existing row already commits
-// immediately on edit, so the only genuinely uncommitted state any of them can have
-// is text sitting in the add-new-item row before it's been submitted.
-function bodyHasUnsubmittedAddRowText(bodyId){
-  const addRow = document.querySelector('#' + bodyId + ' .master-add-row');
-  if(!addRow) return false;
-  return Array.from(addRow.querySelectorAll('input[type="text"]')).some(input => input.value.trim() !== '');
-}
-
 // Tap-outside-to-close for modals with no meaningful "unsaved changes" to protect -
 // either pure navigation, or everything they contain already commits immediately.
 [
@@ -7361,23 +7218,6 @@ function bodyHasUnsubmittedAddRowText(bodyId){
   document.getElementById(overlayId).addEventListener('click', e => {
     if(e.target.id !== overlayId) return;
     closeFn();
-  });
-});
-
-// Catalog editors: same tap-outside pattern, but confirm first if there's
-// unsubmitted text in the add-new-item row that would otherwise be lost silently.
-[
-  ['masterEditorOverlay', 'masterEditorBody', closeMasterEditor],
-  ['groceryMasterEditorOverlay', 'groceryMasterEditorBody', closeGroceryMasterEditor],
-  ['resortsMasterEditorOverlay', 'resortsMasterEditorBody', closeResortsMasterEditor]
-].forEach(([overlayId, bodyId, closeFn]) => {
-  document.getElementById(overlayId).addEventListener('click', e => {
-    if(e.target.id !== overlayId) return;
-    if(bodyHasUnsubmittedAddRowText(bodyId)){
-      if(confirm('Discard the item you were adding?')) closeFn();
-    } else {
-      closeFn();
-    }
   });
 });
 
@@ -7792,64 +7632,6 @@ function renderThemePicker(){
   body.appendChild(grid);
 }
 
-function renderMasterEditor(){
-  const body = document.getElementById('masterEditorBody');
-  body.innerHTML = '';
-  const categories = [...new Set(appData.packingMaster.map(i=>i.category))];
-
-  categories.forEach(cat => {
-    const items = appData.packingMaster.filter(i=>i.category===cat);
-    const title = document.createElement('div');
-    title.className = 'packing-category-title';
-    title.textContent = cat;
-    body.appendChild(title);
-    items.forEach(mi => {
-      const row = document.createElement('div');
-      row.className = 'master-item-row';
-      row.innerHTML = `
-        <input type="text" value="${escapeHtml(mi.name)}" data-role="name" />
-        <select data-role="category">${categories.map(c=>`<option value="${escapeHtml(c)}" ${c===mi.category?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select>
-        <label class="ess-label"><input type="checkbox" data-role="essential" ${mi.essential?'checked':''} /> Always pack</label>
-        <button type="button" class="del-item">Remove</button>
-      `;
-      row.querySelector('[data-role="name"]').oninput = e => { mi.name = e.target.value; };
-      row.querySelector('[data-role="category"]').onchange = e => { mi.category = e.target.value; };
-      row.querySelector('[data-role="essential"]').onchange = e => { mi.essential = e.target.checked; };
-      row.querySelector('.del-item').onclick = () => {
-        appData.packingMaster = appData.packingMaster.filter(i=>i.id!==mi.id);
-        renderMasterEditor();
-      };
-      body.appendChild(row);
-    });
-  });
-
-  const addRow = document.createElement('div');
-  addRow.className = 'master-add-row';
-  addRow.innerHTML = `
-    <input type="text" placeholder="New item name" data-f="name" />
-    <select data-f="category">
-      ${categories.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}
-      <option value="__new__">+ New category</option>
-    </select>
-    <button type="button">Add item</button>
-  `;
-  addRow.querySelector('button').onclick = () => {
-    const nameInput = addRow.querySelector('[data-f="name"]');
-    const name = nameInput.value.trim();
-    if(!name) return;
-    let category = addRow.querySelector('[data-f="category"]').value;
-    if(category === '__new__'){
-      category = prompt('New category name:');
-      if(!category || !category.trim()) return;
-      category = category.trim();
-    }
-    appData.packingMaster.push({ id: cryptoId(), name, category, essential:false });
-    nameInput.value = '';
-    renderMasterEditor();
-  };
-  body.appendChild(addRow);
-}
-
 function getGroceryItemName(gi){
   if(gi.custom) return gi.name;
   const master = appData.groceryMaster.find(m => m.id === gi.itemId);
@@ -7967,13 +7749,6 @@ function renderGroceryPanel(){
   };
   nameInput.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); addBtn.click(); } });
   wrap.appendChild(addRow);
-
-  const manageBtn = document.createElement('button');
-  manageBtn.type = 'button';
-  manageBtn.className = 'manage-list-link';
-  manageBtn.textContent = 'Manage grocery catalog';
-  manageBtn.onclick = openGroceryMasterEditor;
-  wrap.appendChild(manageBtn);
 }
 
 function renderGroceryCatalogRow(trip, masterItem){
@@ -8046,72 +7821,6 @@ function renderGroceryItemRow(trip, name, gi){
     render();
   };
   return el;
-}
-
-function openGroceryMasterEditor(){
-  renderGroceryMasterEditor();
-  document.getElementById('groceryMasterEditorOverlay').classList.add('active');
-}
-function closeGroceryMasterEditor(){
-  document.getElementById('groceryMasterEditorOverlay').classList.remove('active');
-  render();
-}
-document.getElementById('groceryMasterEditorCloseBtn').onclick = closeGroceryMasterEditor;
-
-function renderGroceryMasterEditor(){
-  const body = document.getElementById('groceryMasterEditorBody');
-  body.innerHTML = '';
-  const categories = [...new Set(appData.groceryMaster.map(i=>i.category))];
-
-  categories.forEach(cat => {
-    const items = appData.groceryMaster.filter(i=>i.category===cat);
-    const title = document.createElement('div');
-    title.className = 'packing-category-title';
-    title.textContent = cat;
-    body.appendChild(title);
-    items.forEach(mi => {
-      const row = document.createElement('div');
-      row.className = 'master-item-row';
-      row.innerHTML = `
-        <input type="text" value="${escapeHtml(mi.name)}" data-role="name" />
-        <select data-role="category">${categories.map(c=>`<option value="${escapeHtml(c)}" ${c===mi.category?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select>
-        <button type="button" class="del-item">Remove</button>
-      `;
-      row.querySelector('[data-role="name"]').oninput = e => { mi.name = e.target.value; };
-      row.querySelector('[data-role="category"]').onchange = e => { mi.category = e.target.value; };
-      row.querySelector('.del-item').onclick = () => {
-        appData.groceryMaster = appData.groceryMaster.filter(i=>i.id!==mi.id);
-        renderGroceryMasterEditor();
-      };
-      body.appendChild(row);
-    });
-  });
-
-  const addRow = document.createElement('div');
-  addRow.className = 'master-add-row';
-  addRow.innerHTML = `
-    <input type="text" placeholder="New item name" data-f="name" />
-    <select data-f="category">
-      ${categories.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}
-      <option value="__new__">+ New category</option>
-    </select>
-    <button type="button">Add item</button>
-  `;
-  addRow.querySelector('button').onclick = () => {
-    const nameInput = addRow.querySelector('[data-f="name"]');
-    const name = nameInput.value.trim();
-    if(!name) return;
-    let category = addRow.querySelector('[data-f="category"]').value;
-    if(category === '__new__'){
-      category = prompt('New category name:');
-      if(!category || !category.trim()) return;
-      category = category.trim();
-    }
-    appData.groceryMaster.push({ id: cryptoId(), name, category });
-    nameInput.value = '';
-    renderGroceryMasterEditor();
-  };
-  body.appendChild(addRow);
 }
 
 function getTripSummaryText(trip){
@@ -8486,13 +8195,6 @@ function renderTripDetails(trip){
       });
       diningBlock.appendChild(diningRow);
 
-      const manageBtn = document.createElement('button');
-      manageBtn.type = 'button';
-      manageBtn.className = 'dining-reminder-manage-link';
-      manageBtn.textContent = 'Manage Disney resorts list';
-      manageBtn.onclick = openResortsMasterEditor;
-      diningBlock.appendChild(manageBtn);
-
       body.appendChild(diningBlock);
     }
   });
@@ -8605,59 +8307,6 @@ function renderTripDetails(trip){
   versionLine.className = 'app-version-line';
   versionLine.textContent = `Trip Days · v${APP_VERSION}`;
   wrap.appendChild(versionLine);
-}
-
-function openResortsMasterEditor(){
-  renderResortsMasterEditor();
-  document.getElementById('resortsMasterEditorOverlay').classList.add('active');
-}
-function closeResortsMasterEditor(){
-  document.getElementById('resortsMasterEditorOverlay').classList.remove('active');
-  render();
-}
-document.getElementById('resortsMasterEditorCloseBtn').onclick = closeResortsMasterEditor;
-
-function renderResortsMasterEditor(){
-  const body = document.getElementById('resortsMasterEditorBody');
-  body.innerHTML = '';
-  appData.disneyResorts.forEach(resort => {
-    const row = document.createElement('div');
-    row.className = 'master-item-row';
-    row.innerHTML = `
-      <input type="text" value="${escapeHtml(resort.name)}" data-role="name" />
-      <input type="text" value="${escapeHtml((resort.nicknames||[]).join(', '))}" placeholder="Nicknames, comma separated" data-role="nicknames" />
-      <button type="button" class="del-item">Remove</button>
-    `;
-    row.querySelector('[data-role="name"]').oninput = e => { resort.name = e.target.value; };
-    row.querySelector('[data-role="nicknames"]').oninput = e => {
-      resort.nicknames = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
-    };
-    row.querySelector('.del-item').onclick = () => {
-      appData.disneyResorts = appData.disneyResorts.filter(r => r.id !== resort.id);
-      renderResortsMasterEditor();
-    };
-    body.appendChild(row);
-  });
-
-  const addRow = document.createElement('div');
-  addRow.className = 'master-add-row';
-  addRow.innerHTML = `
-    <input type="text" placeholder="Resort name" data-f="name" />
-    <input type="text" placeholder="Nicknames, comma separated" data-f="nicknames" style="flex:1;min-width:140px;" />
-    <button type="button">Add resort</button>
-  `;
-  addRow.querySelector('button').onclick = () => {
-    const nameInput = addRow.querySelector('[data-f="name"]');
-    const nickInput = addRow.querySelector('[data-f="nicknames"]');
-    const name = nameInput.value.trim();
-    if(!name) return;
-    const nicknames = nickInput.value.split(',').map(s => s.trim()).filter(Boolean);
-    appData.disneyResorts.push({ id: cryptoId(), name, nicknames });
-    nameInput.value = '';
-    nickInput.value = '';
-    renderResortsMasterEditor();
-  };
-  body.appendChild(addRow);
 }
 
 document.getElementById('loadInput').addEventListener('change', e => {
