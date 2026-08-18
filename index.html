@@ -1542,6 +1542,34 @@
     padding:0;
     flex-shrink:0;
   }
+  .crowd-levels-table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+  }
+  .crowd-levels-table th{
+    text-align:left;
+    font-size:10.5px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--slate);
+    padding:0 8px 6px;
+    border-bottom:1.5px solid var(--line);
+  }
+  .crowd-levels-table td{
+    padding:8px;
+    border-bottom:1px solid var(--line);
+    color:var(--ink);
+  }
+  .crowd-levels-table tr:last-child td{
+    border-bottom:none;
+  }
+  .crowd-levels-table td:last-child{
+    font-weight:700;
+    text-align:center;
+    width:50px;
+  }
   .print-only-fact{
     display:none;
   }
@@ -2874,6 +2902,15 @@
   </div>
 </div>
 
+<div class="master-editor-overlay" id="crowdLevelsManagerOverlay">
+  <div class="master-editor">
+    <h2>Manage Crowd Levels</h2>
+    <p class="sub">Day, park, and a level are all needed together to save. ⭐ marks a park that's already this day's Main Plan.</p>
+    <div id="crowdLevelsManagerBody"></div>
+    <button class="master-editor-close master-editor-close-sticky" id="crowdLevelsManagerCloseBtn">Done</button>
+  </div>
+</div>
+
 <div class="master-editor-overlay" id="itemEditOverlay">
   <div class="master-editor">
     <h2>Edit Item</h2>
@@ -2936,7 +2973,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.73';
+const APP_VERSION = '1.74';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -3313,12 +3350,6 @@ async function syncTripToSupabase(trip, allTravelers){
     const sepIdx = key.indexOf(':');
     crowdPairs.set(key, { dayId: key.slice(0, sepIdx), park: key.slice(sepIdx + 1), level: trip.crowdLevels[key] });
   });
-  (trip.manualCrowdSlots || []).forEach(slot => {
-    const key = crowdKey(slot.dayId, slot.park);
-    if(!crowdPairs.has(key)){
-      crowdPairs.set(key, { dayId: slot.dayId, park: slot.park, level: '' });
-    }
-  });
   const dayLocalToSupaForCrowd = {};
   trip.days.forEach(d => { if(d.supabaseId) dayLocalToSupaForCrowd[d.id] = d.supabaseId; });
 
@@ -3333,7 +3364,6 @@ async function syncTripToSupabase(trip, allTravelers){
         deletedByOthers.push({ type: 'crowd level', name: pair.park + ' crowd level' });
         delete trip.supabaseCrowdMap[key];
         if(trip.crowdLevels) delete trip.crowdLevels[key];
-        trip.manualCrowdSlots = (trip.manualCrowdSlots || []).filter(s => crowdKey(s.dayId, s.park) !== key);
       }
     } else {
       const { data, error } = await supabaseClient.from('crowd_levels').insert([{ ...crowdPayload, trip_id: trip.supabaseId }]).select().single();
@@ -3866,14 +3896,12 @@ function mergeRemoteIntoLocalTrip(localTrip, remoteData, allTravelers){
 
     if(!localTrip.crowdLevels) localTrip.crowdLevels = {};
     if(!localTrip.supabaseCrowdMap) localTrip.supabaseCrowdMap = {};
-    if(!Array.isArray(localTrip.manualCrowdSlots)) localTrip.manualCrowdSlots = [];
 
     const remoteSupaIds = new Set(remoteData.crowdLevels.map(c => c.supabaseId));
     Object.keys(localTrip.supabaseCrowdMap).forEach(key => {
       if(!remoteSupaIds.has(localTrip.supabaseCrowdMap[key])){
         delete localTrip.supabaseCrowdMap[key];
         delete localTrip.crowdLevels[key];
-        localTrip.manualCrowdSlots = localTrip.manualCrowdSlots.filter(s => (s.dayId + ':' + s.park) !== key);
       }
     });
 
@@ -3886,9 +3914,6 @@ function mergeRemoteIntoLocalTrip(localTrip, remoteData, allTravelers){
         localTrip.crowdLevels[key] = remoteCrowd.level;
       } else {
         delete localTrip.crowdLevels[key];
-        if(!localTrip.manualCrowdSlots.some(s => (s.dayId + ':' + s.park) === key)){
-          localTrip.manualCrowdSlots.push({ dayId: localDayId, park: remoteCrowd.park });
-        }
       }
     });
   }
@@ -4026,7 +4051,7 @@ async function loadSharedTripFromUrlIfPresent(){
         id: cryptoId(), supabaseId: tripCode,
         title: remoteData.title, dates: remoteData.dates, startDate: remoteData.startDate,
         travelerIds: [], supabaseTravelerMap: {}, notes: '', packingNotes: '', groceryNotes: '', archivedAt: null,
-        stays: [], crowdLevels: {}, manualCrowdSlots: [],
+        stays: [], crowdLevels: {},
         packingCategories: [], packingItems: [], groceryItems: [],
         days: []
       };
@@ -4058,7 +4083,7 @@ function buildPlaceholderTrip(entry){
     id: entry.localTripId || cryptoId(), supabaseId: entry.supaId,
     title: entry.title || 'Untitled trip', dates: entry.dates || '', startDate: '',
     travelerIds: [], supabaseTravelerMap: {}, notes: '', archivedAt: entry.archivedAt || null,
-    stays: [], crowdLevels: {}, manualCrowdSlots: [],
+    stays: [], crowdLevels: {},
     packingCategories: [], packingItems: [], groceryItems: [],
     days: [ defaultDay(1) ],
     _isPlaceholder: true
@@ -4131,7 +4156,7 @@ async function loadRememberedTripsIfNoLinkPresent(){
       id: mostRecent.localTripId || cryptoId(), supabaseId: mostRecent.supaId,
       title: remoteData.title, dates: remoteData.dates, startDate: remoteData.startDate,
       travelerIds: [], supabaseTravelerMap: {}, notes: '', packingNotes: '', groceryNotes: '', archivedAt: null,
-      stays: [], crowdLevels: {}, manualCrowdSlots: [],
+      stays: [], crowdLevels: {},
       packingCategories: [], packingItems: [], groceryItems: [],
       days: []
     };
@@ -4304,6 +4329,119 @@ function openCalendarExportModal(trip){
 function closeCalendarExportModal(){
   document.getElementById('calendarExportOverlay').classList.remove('active');
   calendarExportTrip = null;
+}
+
+let crowdLevelsManagerTrip = null;
+function openCrowdLevelsManager(trip){
+  crowdLevelsManagerTrip = trip;
+  renderCrowdLevelsManager();
+  document.getElementById('crowdLevelsManagerOverlay').classList.add('active');
+}
+function closeCrowdLevelsManager(){
+  document.getElementById('crowdLevelsManagerOverlay').classList.remove('active');
+  crowdLevelsManagerTrip = null;
+  render();
+}
+document.getElementById('crowdLevelsManagerCloseBtn').onclick = closeCrowdLevelsManager;
+
+function renderCrowdLevelsManager(){
+  const trip = crowdLevelsManagerTrip;
+  const body = document.getElementById('crowdLevelsManagerBody');
+  body.innerHTML = '';
+  if(!trip) return;
+
+  const setLevels = getSetCrowdLevels(trip);
+  if(setLevels.length === 0){
+    const note = document.createElement('div');
+    note.className = 'section-empty-note';
+    note.textContent = 'Nothing set yet.';
+    body.appendChild(note);
+  } else {
+    setLevels.forEach(slot => {
+      const row = document.createElement('div');
+      row.className = 'crowd-entry-row';
+      row.innerHTML = `
+        <span class="crowd-entry-label">${escapeHtml(slot.dayLabel)}<span class="park-name">${escapeHtml(slot.park)}</span></span>
+        <select aria-label="Crowd level for ${escapeHtml(slot.park)} on ${escapeHtml(slot.dayLabel)}">
+          ${Array.from({length:10}, (_,i)=>i+1).map(n=>`<option value="${n}" ${String(n)===slot.level?'selected':''}>${n}</option>`).join('')}
+        </select>
+        <button type="button" class="crowd-remove-btn" aria-label="Remove">×</button>
+      `;
+      row.querySelector('select').onchange = e => {
+        setCrowdLevel(trip, slot.dayId, slot.park, e.target.value);
+        renderCrowdLevelsManager();
+        syncSingleCrowdLevelUpdate(trip, slot.dayId, slot.park, e.target.value).then(result => {
+          if(!result.ok){
+            setCrowdLevel(trip, slot.dayId, slot.park, '');
+            renderCrowdLevelsManager();
+            showRemovedByOtherMessage(result);
+          }
+        });
+      };
+      row.querySelector('.crowd-remove-btn').onclick = async () => {
+        const removeBtn = row.querySelector('.crowd-remove-btn');
+        removeBtn.disabled = true;
+        await deleteCrowdLevelFromSupabaseNow(trip, slot.dayId, slot.park);
+        setCrowdLevel(trip, slot.dayId, slot.park, '');
+        renderCrowdLevelsManager();
+      };
+      body.appendChild(row);
+    });
+  }
+
+  const addLabel = document.createElement('div');
+  addLabel.style.cssText = 'font-size:11.5px;font-weight:600;color:var(--slate);margin:14px 0 4px;';
+  addLabel.textContent = 'Add a new crowd level — day, park, and level are all required:';
+  body.appendChild(addLabel);
+
+  const mainPlanKeys = getMainPlanCrowdParkKeys(trip);
+
+  const addRow = document.createElement('div');
+  addRow.className = 'packing-add-row';
+  addRow.innerHTML = `
+    <select aria-label="Day" data-role="day">
+      ${trip.days.map((d,i) => `<option value="${d.id}">${escapeHtml(getDayDisplayLabel(trip, i, d, true))}</option>`).join('')}
+    </select>
+    <select aria-label="Park" data-role="park"></select>
+    <select aria-label="Crowd level" data-role="level">
+      <option value="">Level</option>
+      ${Array.from({length:10}, (_,i)=>i+1).map(n=>`<option value="${n}">${n}</option>`).join('')}
+    </select>
+    <button type="button">+ Add</button>
+  `;
+  const daySelect = addRow.querySelector('[data-role="day"]');
+  const parkSelect = addRow.querySelector('[data-role="park"]');
+  const levelSelect = addRow.querySelector('[data-role="level"]');
+
+  const refreshParkOptions = () => {
+    const dayId = daySelect.value;
+    parkSelect.innerHTML = CROWD_LEVEL_PARKS.map(p => {
+      const star = mainPlanKeys.has(crowdKey(dayId, p)) ? '⭐ ' : '';
+      return `<option value="${escapeHtml(p)}">${star}${escapeHtml(p)}</option>`;
+    }).join('');
+  };
+  refreshParkOptions();
+  daySelect.onchange = refreshParkOptions;
+
+  addRow.querySelector('button').onclick = () => {
+    const dayId = daySelect.value;
+    const park = parkSelect.value;
+    const level = levelSelect.value;
+    if(!dayId || !park || !level){
+      alert('Choose a day, park, and level to save.');
+      return;
+    }
+    setCrowdLevel(trip, dayId, park, level);
+    renderCrowdLevelsManager();
+    syncSingleCrowdLevelUpdate(trip, dayId, park, level).then(result => {
+      if(!result.ok){
+        setCrowdLevel(trip, dayId, park, '');
+        renderCrowdLevelsManager();
+        showRemovedByOtherMessage(result);
+      }
+    });
+  };
+  body.appendChild(addRow);
 }
 function renderCalendarExportModal(){
   const trip = calendarExportTrip;
@@ -4767,9 +4905,7 @@ function crowdKey(dayId, park){
   return dayId + ':' + park;
 }
 function getAllCrowdKeysForTrip(trip){
-  const keys = new Set(Object.keys(trip.crowdLevels || {}));
-  (trip.manualCrowdSlots || []).forEach(slot => keys.add(crowdKey(slot.dayId, slot.park)));
-  return keys;
+  return new Set(Object.keys(trip.crowdLevels || {}));
 }
 function getCrowdLevel(trip, dayId, park){
   if(!trip.crowdLevels) return '';
@@ -4788,34 +4924,39 @@ function getCrowdClass(value){
   if(!n) return '';
   return n <= 3 ? 'crowd-low' : (n <= 7 ? 'crowd-mid' : 'crowd-high');
 }
-function getCrowdLevelSlots(trip){
-  const map = new Map();
-
-  trip.days.forEach((day, i) => {
+// Returns every crowd level that's actually been set (day+park+level all present) -
+// the single source of truth for what's shown anywhere, now that partial,
+// no-number entries are no longer a supported state.
+function getSetCrowdLevels(trip){
+  const entries = [];
+  Object.keys(trip.crowdLevels || {}).forEach(key => {
+    const level = trip.crowdLevels[key];
+    if(!level) return;
+    const sepIdx = key.indexOf(':');
+    const dayId = key.slice(0, sepIdx);
+    const park = key.slice(sepIdx + 1);
+    const dayIndex = trip.days.findIndex(d => d.id === dayId);
+    if(dayIndex === -1) return;
+    entries.push({ dayId, dayIndex, dayLabel: getDayDisplayLabel(trip, dayIndex, trip.days[dayIndex], true), park, level });
+  });
+  return entries.sort((a, b) => {
+    if(a.dayIndex !== b.dayIndex) return a.dayIndex - b.dayIndex;
+    return a.park.localeCompare(b.park);
+  });
+}
+// Purely for the Manage Crowd Levels picker's star indicator - does this day+park
+// combination happen to match a current Main Plan item. Convenience only; doesn't
+// drive what's saved or displayed anywhere else.
+function getMainPlanCrowdParkKeys(trip){
+  const keys = new Set();
+  trip.days.forEach(day => {
     ['morning','afternoon','evening'].forEach(sec => {
       const mainPlanItem = getMainPlanForSection(day, sec);
       const park = mainPlanItem ? mainPlanItem.name : '';
-      if(!CROWD_LEVEL_PARKS.includes(park)) return;
-      const key = crowdKey(day.id, park);
-      if(map.has(key)) return;
-      map.set(key, { dayId: day.id, dayLabel: getDayDisplayLabel(trip, i, day, true), park, removable: false });
+      if(CROWD_LEVEL_PARKS.includes(park)) keys.add(crowdKey(day.id, park));
     });
   });
-
-  (trip.manualCrowdSlots || []).forEach(slot => {
-    const key = crowdKey(slot.dayId, slot.park);
-    if(map.has(key)) return;
-    const dayIndex = trip.days.findIndex(d => d.id === slot.dayId);
-    if(dayIndex === -1) return;
-    map.set(key, { dayId: slot.dayId, dayLabel: getDayDisplayLabel(trip, dayIndex, trip.days[dayIndex], true), park: slot.park, removable: true });
-  });
-
-  return Array.from(map.values()).sort((a, b) => {
-    const ai = trip.days.findIndex(d => d.id === a.dayId);
-    const bi = trip.days.findIndex(d => d.id === b.dayId);
-    if(ai !== bi) return ai - bi;
-    return a.park.localeCompare(b.park);
-  });
+  return keys;
 }
 function migrateDayCrowdLevelsToTrip(trip){
   if(!trip.crowdLevels) trip.crowdLevels = {};
@@ -4926,7 +5067,6 @@ function defaultTrip(){
     stays: [],
     travelerIds: [],
     crowdLevels: {},
-    manualCrowdSlots: [],
     packingCategories: [],
     packingItems: [],
     groceryItems: []
@@ -5791,13 +5931,11 @@ function renderItinerarySidebar(trip){
     .sort((a,b) => (a.time||'').localeCompare(b.time||''));
 
   const crowdFacts = [];
-  getCrowdLevelSlots(trip)
+  getSetCrowdLevels(trip)
     .filter(s => s.dayId === day.id)
     .forEach(slot => {
-      const val = getCrowdLevel(trip, day.id, slot.park);
-      if(!val) return;
       if(!crowdFacts.some(f => f.park === slot.park)){
-        crowdFacts.push({ park: slot.park, val });
+        crowdFacts.push({ park: slot.park, val: slot.level });
       }
     });
 
@@ -7219,7 +7357,8 @@ function closeTravelerColorModal(){
   ['themePickerOverlay', closeThemePicker],
   ['toolsMenuOverlay', closeToolsMenu],
   ['travelerColorOverlay', closeTravelerColorModal],
-  ['buildPackingListOverlay', closeBuildPackingListModal]
+  ['buildPackingListOverlay', closeBuildPackingListModal],
+  ['crowdLevelsManagerOverlay', closeCrowdLevelsManager]
 ].forEach(([overlayId, closeFn]) => {
   document.getElementById(overlayId).addEventListener('click', e => {
     if(e.target.id !== overlayId) return;
@@ -7458,6 +7597,16 @@ function renderToolsMenu(){
     openCalendarExportModal(trip);
   };
   body.appendChild(exportBtn);
+
+  const crowdBtn = document.createElement('button');
+  crowdBtn.type = 'button';
+  crowdBtn.className = 'print-packing-btn';
+  crowdBtn.textContent = '🎢 Manage Crowd Levels';
+  crowdBtn.onclick = () => {
+    closeToolsMenu();
+    openCrowdLevelsManager(trip);
+  };
+  body.appendChild(crowdBtn);
 
   const manageTripLabel = document.createElement('div');
   manageTripLabel.className = 'packing-category-title';
@@ -8205,103 +8354,27 @@ function renderTripDetails(trip){
     }
   });
 
-  // --- Crowd Levels ---
-  const crowdSlots = getCrowdLevelSlots(trip);
-  const crowdSetCount = crowdSlots.filter(s => getCrowdLevel(trip, s.dayId, s.park)).length;
-  const crowdSummary = crowdSlots.length
-    ? `${crowdSetCount} of ${crowdSlots.length} set`
-    : 'Nothing saved yet';
-
-  renderTripSubsection(wrap, trip, 'crowd', '🎢', 'Crowd Levels', crowdSummary, body => {
-    const introNote = document.createElement('div');
-    introNote.className = 'section-empty-note';
-    introNote.textContent = "Flag a park visit as the Main Plan and it'll show up here to set a crowd level — or add one to set below at any time. Crowd levels can be found on many Disney touring plan sites.";
-    body.appendChild(introNote);
-
-    if(crowdSlots.length > 0){
-      crowdSlots.forEach(slot => {
-        const val = getCrowdLevel(trip, slot.dayId, slot.park);
-        const row = document.createElement('div');
-        row.className = 'crowd-entry-row';
-        row.innerHTML = `
-          <span class="crowd-entry-label">${escapeHtml(slot.dayLabel)}<span class="park-name">${escapeHtml(slot.park)}</span></span>
-          <select aria-label="Crowd level for ${escapeHtml(slot.park)} on ${escapeHtml(slot.dayLabel)}">
-            <option value="">—</option>
-            ${Array.from({length:10}, (_,i)=>i+1).map(n=>`<option value="${n}" ${String(n)===val?'selected':''}>${n}</option>`).join('')}
-          </select>
-          <button type="button" class="crowd-remove-btn" aria-label="Remove">×</button>
-        `;
-        row.querySelector('select').onchange = e => {
-          setCrowdLevel(trip, slot.dayId, slot.park, e.target.value);
-          render();
-          syncSingleCrowdLevelUpdate(trip, slot.dayId, slot.park, e.target.value).then(result => {
-            if(!result.ok){
-              setCrowdLevel(trip, slot.dayId, slot.park, '');
-              trip.manualCrowdSlots = (trip.manualCrowdSlots || []).filter(s => !(s.dayId === slot.dayId && s.park === slot.park));
-              render();
-              showRemovedByOtherMessage(result);
-            }
-          });
-        };
-        row.querySelector('.crowd-remove-btn').onclick = async () => {
-          const removeBtn = row.querySelector('.crowd-remove-btn');
-          removeBtn.disabled = true;
-          await deleteCrowdLevelFromSupabaseNow(trip, slot.dayId, slot.park);
-          trip.manualCrowdSlots = (trip.manualCrowdSlots || []).filter(s => !(s.dayId === slot.dayId && s.park === slot.park));
-          setCrowdLevel(trip, slot.dayId, slot.park, '');
-          render();
-        };
-        body.appendChild(row);
-      });
-    }
-
-    const addSlotLabel = document.createElement('div');
-    addSlotLabel.style.cssText = 'font-size:11.5px;font-weight:600;color:var(--slate);margin:10px 0 4px;';
-    addSlotLabel.textContent = "Save a crowd level for a park before it's assigned to your itinerary:";
-    body.appendChild(addSlotLabel);
-
-    const addSlotRow = document.createElement('div');
-    addSlotRow.className = 'packing-add-row';
-    addSlotRow.innerHTML = `
-      <select aria-label="Day">
-        ${trip.days.map((d,i) => `<option value="${d.id}">${escapeHtml(getDayDisplayLabel(trip, i, d, true))}</option>`).join('')}
-      </select>
-      <select aria-label="Park">
-        ${CROWD_LEVEL_PARKS.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('')}
-      </select>
-      <select aria-label="Crowd level (optional)">
-        <option value="">Level (optional)</option>
-        ${Array.from({length:10}, (_,i)=>i+1).map(n=>`<option value="${n}">${n}</option>`).join('')}
-      </select>
-      <button type="button">+ Add</button>
-    `;
-    const [daySelect, parkSelect, levelSelect] = addSlotRow.querySelectorAll('select');
-    addSlotRow.querySelector('button').onclick = () => {
-      if(!Array.isArray(trip.manualCrowdSlots)) trip.manualCrowdSlots = [];
-      const dayId = daySelect.value;
-      const park = parkSelect.value;
-      const level = levelSelect.value;
-      const alreadyTracked = getCrowdLevelSlots(trip).some(s => s.dayId === dayId && s.park === park);
-      if(!alreadyTracked){
-        trip.manualCrowdSlots.push({ dayId, park });
-      }
-      if(level){
-        setCrowdLevel(trip, dayId, park, level);
-      }
-      render();
-      if(level){
-        syncSingleCrowdLevelUpdate(trip, dayId, park, level).then(result => {
-          if(!result.ok){
-            setCrowdLevel(trip, dayId, park, '');
-            trip.manualCrowdSlots = (trip.manualCrowdSlots || []).filter(s => !(s.dayId === dayId && s.park === park));
-            render();
-            showRemovedByOtherMessage(result);
-          }
-        });
-      }
-    };
-    body.appendChild(addSlotRow);
-  });
+  // --- Crowd Levels (read-only; editing lives in Tools > Manage Crowd Levels) ---
+  const setCrowdLevels = getSetCrowdLevels(trip);
+  if(setCrowdLevels.length > 0){
+    renderTripSubsection(wrap, trip, 'crowd', '🎢', 'Crowd Levels', `${setCrowdLevels.length} set`, body => {
+      const table = document.createElement('table');
+      table.className = 'crowd-levels-table';
+      table.innerHTML = `
+        <thead><tr><th>Day</th><th>Park</th><th>Level</th></tr></thead>
+        <tbody>
+          ${setCrowdLevels.map(s => `
+            <tr>
+              <td>${escapeHtml(s.dayLabel)}</td>
+              <td>${escapeHtml(s.park)}</td>
+              <td>${escapeHtml(s.level)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      `;
+      body.appendChild(table);
+    });
+  }
 
   // --- Trip Overview ---
   const overviewSummary = `${trip.days.length} day${trip.days.length === 1 ? '' : 's'} · tap a day to jump in`;
@@ -8410,7 +8483,6 @@ document.getElementById('loadInput').addEventListener('change', e => {
         if(!trip.crowdLevels || typeof trip.crowdLevels !== 'object' || Array.isArray(trip.crowdLevels)){
           trip.crowdLevels = {};
         }
-        if(!Array.isArray(trip.manualCrowdSlots)) trip.manualCrowdSlots = [];
         if(trip.notes === undefined) trip.notes = '';
         if(trip.packingNotes === undefined) trip.packingNotes = '';
         if(trip.groceryNotes === undefined) trip.groceryNotes = '';
