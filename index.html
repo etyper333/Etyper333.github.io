@@ -660,6 +660,13 @@
     padding:0;
     margin-top:8px;
   }
+  .stay-card-remove.danger{
+    color:var(--coral);
+    font-weight:700;
+    margin-top:10px;
+    padding-top:10px;
+    border-top:1px dashed var(--line);
+  }
   .stay-card-remove:disabled{
     opacity:.6;
     cursor:default;
@@ -855,6 +862,18 @@
     cursor:pointer;
     width:100%;
     box-sizing:border-box;
+    padding:10px 12px;
+    border-radius:var(--radius-md);
+    border:1.5px solid var(--line);
+  }
+  .main-plan-checkbox-label.checked{
+    background:rgba(143,163,60,.14);
+    border-color:var(--marigold);
+  }
+  .pencilled-checkbox-label.checked{
+    background:rgba(122,140,126,.12);
+    border-style:dashed;
+    border-color:var(--slate);
   }
   .main-plan-checkbox-label input[type=checkbox]{
     accent-color:var(--coral);
@@ -1348,6 +1367,10 @@
     font-size:12px;
     cursor:pointer;
     text-decoration:underline;
+  }
+  .remove-day-btn.danger{
+    color:var(--coral);
+    font-weight:700;
   }
 
   .day-info-row{
@@ -1942,6 +1965,7 @@
     display:flex;
     gap:10px;
     margin-top:4px;
+    flex-wrap:wrap;
   }
   .item-actions button{
     font-size:11.5px;
@@ -1951,6 +1975,11 @@
     cursor:pointer;
     padding:0;
     text-decoration:underline;
+  }
+  .item-actions button.danger{
+    color:var(--coral);
+    font-weight:700;
+    margin-left:auto;
   }
   .item-actions button:disabled{
     opacity:.6;
@@ -2082,6 +2111,70 @@
     margin-bottom:4px;
   }
   .form-row > *{flex:1;min-width:110px;}
+  .section-group{
+    margin-bottom:18px;
+    padding-bottom:16px;
+    border-bottom:1px solid var(--line);
+  }
+  .section-group:last-of-type{
+    border-bottom:none;
+    margin-bottom:8px;
+    padding-bottom:0;
+  }
+  .section-heading{
+    font-family:'Baloo 2',sans-serif;
+    font-size:12.5px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:var(--sky);
+    margin:0 0 10px;
+  }
+  .name-row{
+    background:var(--cream);
+    border:1.5px solid var(--sage);
+    border-radius:var(--radius-md);
+    padding:10px;
+    margin-bottom:8px;
+  }
+  .name-row label{
+    font-size:11.5px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--sky);
+    margin-bottom:4px;
+    display:block;
+  }
+  .name-row input{border-color:var(--sage);}
+  .when-row{
+    display:flex;
+    align-items:flex-end;
+    gap:10px;
+    margin-bottom:8px;
+  }
+  .when-field{
+    flex:1;
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+  }
+  .when-or{
+    font-size:11px;
+    font-weight:700;
+    color:var(--slate);
+    padding-bottom:11px;
+    flex-shrink:0;
+  }
+  .add-form select{
+    appearance:none;
+    -webkit-appearance:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%237A8C7E' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat:no-repeat;
+    background-position:right 10px center;
+    padding-right:30px;
+    background-color:var(--cream);
+  }
   .form-row input, .form-row select, .form-row textarea{
     font-family:'Inter',sans-serif;
     font-size:13.5px;
@@ -2277,6 +2370,10 @@
     cursor:pointer;
     text-decoration:underline;
     flex-shrink:0;
+  }
+  .packing-item-inner .del-item.danger{
+    color:var(--coral);
+    font-weight:700;
   }
   .packing-item-inner .del-item:disabled{
     opacity:.6;
@@ -2973,7 +3070,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.74';
+const APP_VERSION = '1.78';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -6094,8 +6191,14 @@ async function removeDay(dayId){
     alert("Only the first or last day of a trip can be removed, to keep dates in order.");
     return;
   }
-  if(!confirm('Remove this day and its plans?')) return;
   const dayToRemove = trip.days.find(d => d.id === dayId);
+  const itemCount = dayToRemove.items.length;
+  const itemPhrase = itemCount === 0
+    ? "There's nothing on its itinerary yet."
+    : itemCount === 1
+      ? "This will also remove the 1 item on its itinerary."
+      : `This will also remove all ${itemCount} items on its itinerary.`;
+  if(!confirm(`Remove this day? ${itemPhrase}`)) return;
   await deleteDayFromSupabaseNow(dayToRemove);
   trip.days = trip.days.filter(d => d.id !== dayId);
   if(activeDayId === dayId){
@@ -6350,14 +6453,14 @@ function renderDayPanels(){
       row.innerHTML = `
         <div class="day-title-display">${escapeHtml(getDayDisplayLabel(trip, dayIndex, day, true))}</div>
         <input class="day-tag-input${day.dayTag ? '' : ' print-hide-if-empty'}" value="${escapeHtml(day.dayTag || '')}" placeholder="Tag (optional)" data-role="tag" />
-        ${canRemove ? '<button class="remove-day-btn">Remove day</button>' : ''}
+        ${canRemove ? '<button class="remove-day-btn danger">Remove day</button>' : ''}
       `;
       row.querySelector('[data-role="tag"]').oninput = e => { day.dayTag = e.target.value; };
       row.querySelector('[data-role="tag"]').onblur = () => handleDayFieldBlur(trip, day);
     } else {
       row.innerHTML = `
         <input class="day-title-input" value="${escapeHtml(day.label)}" data-role="label" />
-        ${canRemove ? '<button class="remove-day-btn">Remove day</button>' : ''}
+        ${canRemove ? '<button class="remove-day-btn danger">Remove day</button>' : ''}
       `;
       row.querySelector('[data-role="label"]').oninput = e => { day.label = e.target.value; renderMonorail(); };
       row.querySelector('[data-role="label"]').onblur = () => handleDayFieldBlur(trip, day);
@@ -6626,7 +6729,7 @@ function renderItemCard(day, item){
         <button data-role="edit">Edit</button>
         <button data-role="main-plan">${item.isMainPlan ? 'Unset Main Plan' : '📌 Set as Main Plan'}</button>
         <button data-role="calendar" title="Add this item to your calendar">📅 Calendar</button>
-        <button data-role="del">Delete</button>
+        <button data-role="del" class="danger">Delete</button>
       </div>
     </div>
   `;
@@ -6694,65 +6797,86 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   });
   wrap.isDirty = () => formTouched;
   wrap.innerHTML = `
-    <div class="form-row-label">What kind of item is this?</div>
-    <div class="form-row">
-      <select data-f="type">${TYPES.map(t=>`<option value="${t.key}" ${t.key===initial.type?'selected':''}>${t.icon} ${t.label}</option>`).join('')}</select>
-    </div>
-    <div class="form-row-label">Pick a time, or a portion of the day below:</div>
-    <div class="form-row">
-      <input type="time" data-f="time" value="${initial.time || ''}" />
-      <button type="button" class="clear-time-btn" data-role="clear-time" style="display:none;">✕ Clear time</button>
-    </div>
-    <div class="form-row" data-role="section-row">
-      <select data-f="section">
-        <option value="">Choose a portion of the day...</option>
-        ${SECTIONS.map(s=>`<option value="${s.key}" ${s.key===initial.section?'selected':''}>${s.label}</option>`).join('')}
-      </select>
-    </div>
-    <div class="form-row landmark-row">
-      <label class="landmark-checkbox-label">
-        <input type="checkbox" data-f="isLandmarkCheckbox" />
-        <span>📍 No duration — just a moment in time</span>
-      </label>
-    </div>
-    <button type="button" class="who-toggle-link" data-role="end-time-toggle"></button>
-    <div class="form-row" data-role="end-time-row" style="display:none;">
-      <input type="time" data-f="endTime" />
-    </div>
-    <div class="form-row" data-role="meal-row">
-      <select data-f="mealService">
-        <option value="">Service type...</option>
-        ${MEAL_SERVICES.map(m=>`<option value="${m.key}" ${m.key===initial.mealService?'selected':''}>${m.icon ? m.icon+' ' : ''}${m.label}</option>`).join('')}
-      </select>
-      <select data-f="mealPeriod" data-role="meal-period-select">
-        <option value="">Meal...</option>
-        ${MEAL_PERIODS.map(p=>`<option value="${p.key}" ${p.key===initial.mealPeriod?'selected':''}>${p.label === 'B' ? 'Breakfast' : p.label === 'L' ? 'Lunch' : 'Dinner'}</option>`).join('')}
-      </select>
-    </div>
-    <div class="form-row">
-      <div class="suggestion-input-wrap">
-        <input type="text" data-f="name" placeholder="e.g. Hollywood Studios, Be Our Guest lunch" value="${escapeHtml(initial.name || '')}" autocomplete="off" />
+    <div class="section-group">
+      <div class="section-heading">What</div>
+      <label class="form-row-label">Type</label>
+      <div class="form-row">
+        <select data-f="type">${TYPES.map(t=>`<option value="${t.key}" ${t.key===initial.type?'selected':''}>${t.icon} ${t.label}</option>`).join('')}</select>
+      </div>
+      <div class="name-row">
+        <label>Name — required</label>
+        <div class="suggestion-input-wrap">
+          <input type="text" data-f="name" placeholder="e.g. Hollywood Studios, Be Our Guest lunch" value="${escapeHtml(initial.name || '')}" autocomplete="off" />
+        </div>
       </div>
     </div>
-    <div class="form-row">
-      <label class="main-plan-checkbox-label">
-        <input type="checkbox" data-f="isMainPlanCheckbox" ${initial.isMainPlan ? 'checked' : ''} />
-        <span data-role="main-plan-label">📌 Main plan for this part of the day</span>
-      </label>
+
+    <div class="section-group">
+      <div class="section-heading">When</div>
+      <div class="when-row">
+        <div class="when-field">
+          <label class="form-row-label">Time</label>
+          <input type="time" data-f="time" value="${initial.time || ''}" />
+        </div>
+        <div class="when-or" data-role="when-or">or</div>
+        <div class="when-field" data-role="section-row">
+          <label class="form-row-label">Part of Day</label>
+          <select data-f="section">
+            <option value="">Morning / Afternoon / Evening</option>
+            ${SECTIONS.map(s=>`<option value="${s.key}" ${s.key===initial.section?'selected':''}>${s.label}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <button type="button" class="clear-time-btn" data-role="clear-time" style="display:none;">✕ Clear time</button>
+      </div>
+      <div class="form-row landmark-row">
+        <label class="landmark-checkbox-label">
+          <input type="checkbox" data-f="isLandmarkCheckbox" />
+          <span>📍 No duration — just a moment in time</span>
+        </label>
+      </div>
+      <button type="button" class="who-toggle-link" data-role="end-time-toggle"></button>
+      <div class="form-row" data-role="end-time-row" style="display:none;">
+        <input type="time" data-f="endTime" />
+      </div>
+      <div class="form-row" data-role="meal-row">
+        <select data-f="mealService">
+          <option value="">Service type...</option>
+          ${MEAL_SERVICES.map(m=>`<option value="${m.key}" ${m.key===initial.mealService?'selected':''}>${m.icon ? m.icon+' ' : ''}${m.label}</option>`).join('')}
+        </select>
+        <select data-f="mealPeriod" data-role="meal-period-select">
+          <option value="">Meal...</option>
+          ${MEAL_PERIODS.map(p=>`<option value="${p.key}" ${p.key===initial.mealPeriod?'selected':''}>${p.label === 'B' ? 'Breakfast' : p.label === 'L' ? 'Lunch' : 'Dinner'}</option>`).join('')}
+        </select>
+      </div>
     </div>
-    <div data-role="who-wrap"></div>
-    <div class="form-row">
-      <label class="main-plan-checkbox-label">
-        <input type="checkbox" data-f="isPencilledInCheckbox" ${initial.status === 'tentative' ? 'checked' : ''} />
-        <span>✏️ Penciled in — not confirmed yet</span>
-      </label>
+
+    <div class="section-group">
+      <div class="section-heading">Details</div>
+      <div class="form-row">
+        <label class="main-plan-checkbox-label" data-role="main-plan-row">
+          <input type="checkbox" data-f="isMainPlanCheckbox" ${initial.isMainPlan ? 'checked' : ''} />
+          <span data-role="main-plan-label">📌 Main plan for this part of the day</span>
+        </label>
+      </div>
+      <div data-role="who-wrap"></div>
+      <div class="form-row">
+        <label class="main-plan-checkbox-label pencilled-checkbox-label" data-role="pencil-row">
+          <input type="checkbox" data-f="isPencilledInCheckbox" ${initial.status === 'tentative' ? 'checked' : ''} />
+          <span>✏️ Penciled in — not confirmed yet</span>
+        </label>
+      </div>
+      <label class="form-row-label">Confirmation # (optional)</label>
+      <div class="form-row">
+        <input type="text" data-f="confirmationNumber" placeholder="e.g. WDW12345678" value="${escapeHtml(initial.confirmationNumber || '')}" />
+      </div>
+      <label class="form-row-label">Notes</label>
+      <div class="form-row">
+        <textarea data-f="notes" placeholder="Who's going, what to bring...">${escapeHtml(initial.notes || '')}</textarea>
+      </div>
     </div>
-    <div class="form-row">
-      <input type="text" data-f="confirmationNumber" placeholder="Confirmation # (optional)" value="${escapeHtml(initial.confirmationNumber || '')}" />
-    </div>
-    <div class="form-row">
-      <textarea data-f="notes" placeholder="Notes (who's going, what to bring...)">${escapeHtml(initial.notes || '')}</textarea>
-    </div>
+
     <div class="form-row">
       <button type="button" class="submit-btn" data-role="submit">${submitLabel}</button>
       ${onCancel ? '<button type="button" class="cancel-btn" data-role="cancel">Cancel</button>' : ''}
@@ -6761,9 +6885,11 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   const timeInput = wrap.querySelector('[data-f="time"]');
   const clearTimeBtn = wrap.querySelector('[data-role="clear-time"]');
   const sectionRow = wrap.querySelector('[data-role="section-row"]');
+  const whenOr = wrap.querySelector('[data-role="when-or"]');
   const sectionSelect = wrap.querySelector('[data-f="section"]');
   const syncSectionVisibility = () => {
     sectionRow.style.display = timeInput.value ? 'none' : '';
+    whenOr.style.display = timeInput.value ? 'none' : '';
     clearTimeBtn.style.display = timeInput.value ? '' : 'none';
     if(!sectionSelect.value && !timeInput.value && initial.section){
       sectionSelect.value = initial.section;
@@ -6838,7 +6964,11 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   const nameInput = wrap.querySelector('[data-f="name"]');
   attachSuggestionDropdown(nameInput, () => [...PARKS.filter(p => p && p !== 'Other'), ...ITEM_NAME_SUGGESTIONS]);
   const mainPlanCheckbox = wrap.querySelector('[data-f="isMainPlanCheckbox"]');
+  const mainPlanRow = wrap.querySelector('[data-role="main-plan-row"]');
   const mainPlanLabel = wrap.querySelector('[data-role="main-plan-label"]');
+  const syncMainPlanRowStyle = () => { mainPlanRow.classList.toggle('checked', mainPlanCheckbox.checked); };
+  mainPlanCheckbox.addEventListener('change', syncMainPlanRowStyle);
+  syncMainPlanRowStyle();
   const syncMainPlanUI = () => {
     const section = getCurrentFormSection();
     const sectionLabel = section ? (SECTIONS.find(s=>s.key===section)||{}).label : '';
@@ -6906,6 +7036,10 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   }
 
   const pencilledInCheckbox = wrap.querySelector('[data-f="isPencilledInCheckbox"]');
+  const pencilRow = wrap.querySelector('[data-role="pencil-row"]');
+  const syncPencilRowStyle = () => { pencilRow.classList.toggle('checked', pencilledInCheckbox.checked); };
+  pencilledInCheckbox.addEventListener('change', syncPencilRowStyle);
+  syncPencilRowStyle();
   wrap.querySelector('[data-role="submit"]').onclick = () => {
     const isMainPlan = mainPlanCheckbox.checked && !mainPlanCheckbox.disabled;
     const name = wrap.querySelector('[data-f="name"]').value.trim();
@@ -7162,8 +7296,6 @@ function renderPackingPanel(){
   intro.textContent = "Your packing list for this trip. Tap \"Build Packing List\" to add items from the catalog — anything marked \"Always packed\" is included automatically.";
   wrap.appendChild(intro);
 
-  wrap.appendChild(renderPackingGroceryNotesBlock(trip));
-
   const btnRow = document.createElement('div');
   btnRow.className = 'packing-btn-row';
 
@@ -7251,6 +7383,8 @@ function renderPackingPanel(){
     wrap.appendChild(block);
   }
 
+  wrap.appendChild(renderPackingGroceryNotesBlock(trip));
+
   const addRow = document.createElement('div');
   addRow.className = 'packing-add-row packing-sticky-addrow';
   addRow.innerHTML = `<input type="text" placeholder="Add a trip-only item (e.g. conference badge)" /><button type="button">Add</button>`;
@@ -7279,7 +7413,7 @@ function renderPackingItemRow(trip, name, row, isCustom, essential){
       <div class="packing-item-inner">
         <input type="checkbox" ${row.checked ? 'checked' : ''} />
         <span class="packing-item-name">${escapeHtml(name)}</span>
-        ${canRemove ? '<button type="button" class="del-item">Remove</button>' : ''}
+        ${canRemove ? '<button type="button" class="del-item danger">Remove</button>' : ''}
       </div>
     </div>
   `;
@@ -7296,6 +7430,7 @@ function renderPackingItemRow(trip, name, row, isCustom, essential){
   };
   if(canRemove){
     el.querySelector('.del-item').onclick = async () => {
+      if(!confirm(`Remove "${name}" from your packing list?`)) return;
       const delBtn = el.querySelector('.del-item');
       delBtn.disabled = true;
       delBtn.textContent = 'Removing…';
@@ -7837,8 +7972,6 @@ function renderGroceryPanel(){
   intro.textContent = "Nothing is added automatically. Browse the catalog below and choose Pack or Deliver for anything that applies to this trip.";
   wrap.appendChild(intro);
 
-  wrap.appendChild(renderPackingGroceryNotesBlock(trip));
-
   if(trip.groceryItems.length > 0){
     ['pack','delivery'].forEach(channel => {
       const channelItems = trip.groceryItems.filter(gi => gi.channel === channel);
@@ -7879,6 +8012,8 @@ function renderGroceryPanel(){
     });
     wrap.appendChild(block);
   });
+
+  wrap.appendChild(renderPackingGroceryNotesBlock(trip));
 
   const addRow = document.createElement('div');
   addRow.className = 'packing-add-row';
@@ -7951,7 +8086,7 @@ function renderGroceryItemRow(trip, name, gi){
       <div class="packing-item-inner">
         <input type="checkbox" ${gi.checked ? 'checked' : ''} />
         <span class="packing-item-name">${escapeHtml(name)}</span>
-        <button type="button" class="del-item">Remove</button>
+        <button type="button" class="del-item danger">Remove</button>
       </div>
     </div>
   `;
@@ -7967,6 +8102,7 @@ function renderGroceryItemRow(trip, name, gi){
     });
   };
   el.querySelector('.del-item').onclick = async () => {
+    if(!confirm(`Remove "${name}" from your grocery list?`)) return;
     const delBtn = el.querySelector('.del-item');
     delBtn.disabled = true;
     delBtn.textContent = 'Removing…';
@@ -8278,7 +8414,7 @@ function renderTripDetails(trip){
         </div>` : ''}
         <div class="print-only-fact">Hotel: ${escapeHtml(stay.hotel || 'Not set')} · Starts: ${escapeHtml(startDayLabel)}</div>
         <div class="print-only-fact">Confirmation: ${escapeHtml(stay.hotelConfirmation || 'None')} · Room type: ${escapeHtml(roomTypeText)}</div>
-        <button type="button" class="stay-card-remove">Remove this stay</button>
+        <button type="button" class="stay-card-remove danger">Remove this stay</button>
       `;
       card.querySelector('[data-role="hotel"]').oninput = e => { stay.hotel = e.target.value; };
       card.querySelector('[data-role="hotel"]').onblur = () => handleStayFieldBlur(stay, trip);
@@ -8292,6 +8428,7 @@ function renderTripDetails(trip){
         roomTypeOtherInput.onblur = () => handleStayFieldBlur(stay, trip);
       }
       card.querySelector('.stay-card-remove').onclick = async () => {
+        if(!confirm(`Remove ${stay.hotel ? `"${stay.hotel}"` : 'this stay'}?`)) return;
         const removeBtn = card.querySelector('.stay-card-remove');
         removeBtn.disabled = true;
         removeBtn.textContent = 'Removing…';
