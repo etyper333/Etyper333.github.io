@@ -3285,7 +3285,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.95';
+const APP_VERSION = '1.96';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5282,7 +5282,7 @@ function migrateDayHotelsToStays(trip){
   trip.stays = stays;
 }
 
-function setTripLength(trip, nights){
+async function setTripLength(trip, nights){
   nights = Math.max(1, Math.floor(nights) || 1);
   const targetDays = nights + 1;
   const current = trip.days.length;
@@ -5302,6 +5302,9 @@ function setTripLength(trip, nights){
     }
     if(!trip.days.some(d => d.id === activeDayId)){
       activeDayId = trip.days[trip.days.length - 1].id;
+    }
+    for(const removedDay of removedDays){
+      await deleteDayFromSupabaseNow(removedDay);
     }
   }
   return true;
@@ -6377,8 +6380,8 @@ function renderWizardStep2(body, trip){
     preview.textContent = `${n} night${n === 1 ? '' : 's'} → your trip will run Day 1 through Day ${n + 1}.`;
   };
   updatePreview();
-  nightsSelect.addEventListener('change', e => {
-    setTripLength(trip, parseInt(e.target.value, 10) || 1);
+  nightsSelect.addEventListener('change', async e => {
+    await setTripLength(trip, parseInt(e.target.value, 10) || 1);
     updatePreview();
   });
 }
@@ -8949,8 +8952,8 @@ function renderTripDetails(trip){
         </select>
       </div>
     `;
-    row1b.querySelector('#tripLength').addEventListener('change', e => {
-      const ok = setTripLength(trip, parseInt(e.target.value, 10));
+    row1b.querySelector('#tripLength').addEventListener('change', async e => {
+      const ok = await setTripLength(trip, parseInt(e.target.value, 10));
       if(!ok) e.target.value = Math.max(1, trip.days.length - 1);
       render();
     });
