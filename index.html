@@ -1396,19 +1396,6 @@
     flex:1 1 auto;
     min-width:140px;
   }
-  .remove-day-btn{
-    margin-left:auto;
-    background:none;
-    border:none;
-    color:var(--slate);
-    font-size:12px;
-    cursor:pointer;
-    text-decoration:underline;
-  }
-  .remove-day-btn.danger{
-    color:var(--coral);
-    font-weight:700;
-  }
 
   .day-info-row{
     display:flex;
@@ -2912,7 +2899,7 @@
 
     /* App chrome not relevant on paper, in either print mode */
     .trip-switcher, .view-tabs-wrap, .view-tabs, .lists-sub-tabs, .view-controls-row, .monorail,
-    .remove-day-btn, .add-day-btn, .section-add-btn, .item-actions,
+    .add-day-btn, .section-add-btn, .item-actions, .item-kebab-btn,
     .accordion.accent, .add-form, .chevron,
     .print-packing-btn,
     .master-editor-overlay, .theme-switch-btn, .trip-title-chevron,
@@ -3210,6 +3197,23 @@
   </div>
 </div>
 
+<div class="master-editor-overlay" id="dayCopyOverlay">
+  <div class="master-editor">
+    <h2>Copy Day</h2>
+    <div class="item-context" id="dayCopyContext"></div>
+
+    <div class="form-row">
+      <label class="form-row-label">Copy to</label>
+      <select id="dayCopyDaySelect"></select>
+    </div>
+
+    <div class="summary-line" id="dayCopySummary"></div>
+
+    <button type="button" class="submit-btn" id="dayCopySubmitBtn"></button>
+    <button type="button" class="cancel-btn" id="dayCopyCancelBtn">Cancel</button>
+  </div>
+</div>
+
 <div class="master-editor-overlay" id="itemEditOverlay">
   <div class="master-editor">
     <h2>Edit Item</h2>
@@ -3281,7 +3285,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.94';
+const APP_VERSION = '1.95';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4712,10 +4716,10 @@ function computeMainPlanCarry(destDay, destSection, wasMainPlan, excludeItemId){
   return !existing;
 }
 
-async function executeCopyItem(sourceItem, destDay, newTime, trip){
+function buildCopiedItem(sourceItem, destDay, newTime){
   const newEndTime = computeShiftedEndTime(sourceItem.time, sourceItem.endTime, newTime);
   const destSection = newTime ? getItemSection({ time: newTime }) : getItemSection(sourceItem);
-  const newItem = {
+  return {
     id: cryptoId(),
     time: newTime || '',
     endTime: newEndTime || '',
@@ -4730,9 +4734,35 @@ async function executeCopyItem(sourceItem, destDay, newTime, trip){
     notes: sourceItem.notes || '',
     travelerIds: Array.isArray(sourceItem.travelerIds) ? sourceItem.travelerIds.slice() : []
   };
+}
+
+async function executeCopyItem(sourceItem, destDay, newTime, trip){
+  const newItem = buildCopiedItem(sourceItem, destDay, newTime);
   destDay.items.push(newItem);
   render();
   await syncNewItemToSupabase(newItem, destDay, trip);
+}
+
+async function executeCopyDay(sourceDay, destDay, trip){
+  const newItems = [];
+  sourceDay.items.forEach(sourceItem => {
+    const newItem = buildCopiedItem(sourceItem, destDay, sourceItem.time);
+    destDay.items.push(newItem);
+    newItems.push(newItem);
+  });
+  const hadNotesToMerge = !!(sourceDay.notes && sourceDay.notes.trim());
+  if(hadNotesToMerge){
+    destDay.notes = destDay.notes && destDay.notes.trim()
+      ? (destDay.notes + '\n\n' + sourceDay.notes)
+      : sourceDay.notes;
+  }
+  render();
+  for(const newItem of newItems){
+    await syncNewItemToSupabase(newItem, destDay, trip);
+  }
+  if(hadNotesToMerge){
+    await syncSingleDayUpdate(destDay);
+  }
 }
 
 async function executeMoveItem(item, sourceDay, destDay, newTime, trip){
@@ -4898,6 +4928,80 @@ function openItemKebabMenu(item, day, trip){
   };
   document.getElementById('itemKebabOverlay').classList.add('active');
 }
+
+function openDayKebabMenu(day, dayIndex, trip){
+  const canRemove = trip.days.length > 1 && (dayIndex === 0 || dayIndex === trip.days.length - 1);
+  const body = document.getElementById('itemKebabBody');
+  body.innerHTML = `
+    <button type="button" data-role="kb-copy-day">📋 Copy this day…</button>
+    ${canRemove ? '<div class="kebab-divider"></div><button type="button" data-role="kb-remove-day" class="danger">Remove day</button>' : ''}
+  `;
+  body.querySelector('[data-role="kb-copy-day"]').onclick = () => {
+    closeItemKebabMenu();
+    openDayCopyModal(day, trip);
+  };
+  if(canRemove){
+    body.querySelector('[data-role="kb-remove-day"]').onclick = () => {
+      closeItemKebabMenu();
+      removeDay(day.id);
+    };
+  }
+  document.getElementById('itemKebabOverlay').classList.add('active');
+}
+
+let dayCopyContext = null;
+function openDayCopyModal(sourceDay, trip){
+  dayCopyContext = { sourceDay, trip };
+  const sourceDayIndex = trip.days.findIndex(d => d.id === sourceDay.id);
+  const itemCount = sourceDay.items.length;
+
+  document.getElementById('dayCopyContext').innerHTML = `
+    <strong>${escapeHtml(getDayDisplayLabel(trip, sourceDayIndex, sourceDay, true))}</strong>
+    ${itemCount} item${itemCount === 1 ? '' : 's'}
+  `;
+
+  const daySelect = document.getElementById('dayCopyDaySelect');
+  daySelect.innerHTML = trip.days.map((d, i) => {
+    const label = getDayDisplayLabel(trip, i, d, true) + (d.id === sourceDay.id ? ' (current)' : '');
+    return `<option value="${d.id}" ${d.id === sourceDay.id ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+  }).join('');
+  daySelect.onchange = updateDayCopySummary;
+
+  updateDayCopySummary();
+  document.getElementById('dayCopyOverlay').classList.add('active');
+}
+
+function updateDayCopySummary(){
+  if(!dayCopyContext) return;
+  const { sourceDay, trip } = dayCopyContext;
+  const destDayId = document.getElementById('dayCopyDaySelect').value;
+  const destDayIndex = trip.days.findIndex(d => d.id === destDayId);
+  const destDay = trip.days[destDayIndex];
+  const dayLabel = getDayDisplayLabel(trip, destDayIndex, destDay, true);
+  const itemCount = sourceDay.items.length;
+
+  const summaryEl = document.getElementById('dayCopySummary');
+  const submitBtn = document.getElementById('dayCopySubmitBtn');
+  summaryEl.textContent = destDay.items.length
+    ? `This adds ${itemCount} item${itemCount === 1 ? '' : 's'} to ${dayLabel}, alongside what's already there. The original day stays exactly as it is.`
+    : `This copies ${itemCount} item${itemCount === 1 ? '' : 's'} onto ${dayLabel}. The original day stays exactly as it is.`;
+  submitBtn.textContent = `📋 Copy to ${dayLabel}`;
+}
+
+document.getElementById('dayCopyCancelBtn').onclick = () => {
+  document.getElementById('dayCopyOverlay').classList.remove('active');
+  dayCopyContext = null;
+};
+document.getElementById('dayCopySubmitBtn').onclick = async () => {
+  if(!dayCopyContext) return;
+  const { sourceDay, trip } = dayCopyContext;
+  const destDay = trip.days.find(d => d.id === document.getElementById('dayCopyDaySelect').value);
+
+  document.getElementById('dayCopyOverlay').classList.remove('active');
+  dayCopyContext = null;
+
+  await executeCopyDay(sourceDay, destDay, trip);
+};
 
 function renderCrowdLevelsManager(){
   const trip = crowdLevelsManagerTrip;
@@ -7004,19 +7108,19 @@ function renderDayPanels(){
     if(trip.startDate){
       row.innerHTML = `
         <div class="day-title-display">${escapeHtml(getDayDisplayLabel(trip, dayIndex, day, true))}</div>
-        ${canRemove ? '<button class="remove-day-btn danger">Remove day</button>' : ''}
+        <button type="button" class="item-kebab-btn" data-role="day-kebab" aria-label="Day actions">⋮</button>
       `;
     } else {
       row.innerHTML = `
         <input class="day-title-input" value="${escapeHtml(day.label)}" data-role="label" />
-        ${canRemove ? '<button class="remove-day-btn danger">Remove day</button>' : ''}
+        <button type="button" class="item-kebab-btn" data-role="day-kebab" aria-label="Day actions">⋮</button>
       `;
       row.querySelector('[data-role="label"]').oninput = e => { day.label = e.target.value; renderMonorail(); };
       row.querySelector('[data-role="label"]').onblur = () => handleDayFieldBlur(trip, day);
     }
-    if(canRemove){
-      row.querySelector('.remove-day-btn').onclick = () => removeDay(day.id);
-    }
+    row.querySelector('[data-role="day-kebab"]').onclick = () => {
+      openDayKebabMenu(day, dayIndex, trip);
+    };
     panel.appendChild(row);
 
     const nightStay = getStayForDayIndex(trip, dayIndex);
@@ -8048,7 +8152,8 @@ function closeTravelerColorModal(){
   ['crowdLevelsManagerOverlay', closeCrowdLevelsManager],
   ['travelerFilterOverlay', () => document.getElementById('travelerFilterOverlay').classList.remove('active')],
   ['itemKebabOverlay', closeItemKebabMenu],
-  ['copyMoveOverlay', () => { document.getElementById('copyMoveOverlay').classList.remove('active'); copyMoveContext = null; }]
+  ['copyMoveOverlay', () => { document.getElementById('copyMoveOverlay').classList.remove('active'); copyMoveContext = null; }],
+  ['dayCopyOverlay', () => { document.getElementById('dayCopyOverlay').classList.remove('active'); dayCopyContext = null; }]
 ].forEach(([overlayId, closeFn]) => {
   document.getElementById(overlayId).addEventListener('click', e => {
     if(e.target.id !== overlayId) return;
