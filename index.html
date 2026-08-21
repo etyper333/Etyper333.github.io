@@ -3199,11 +3199,22 @@
 
 <div class="master-editor-overlay" id="dayCopyOverlay">
   <div class="master-editor">
-    <h2>Copy Day</h2>
+    <h2 id="dayCopyMoveHeader">Copy Day</h2>
     <div class="item-context" id="dayCopyContext"></div>
 
+    <div class="mode-toggle" id="dayCopyMoveModeToggle">
+      <button type="button" class="mode-toggle-option day-cm-mode-btn" data-cm-mode="copy">
+        📋 Copy
+        <span class="sub">Keeps the original</span>
+      </button>
+      <button type="button" class="mode-toggle-option day-cm-mode-btn" data-cm-mode="move">
+        ➡️ Move
+        <span class="sub">Relocates it</span>
+      </button>
+    </div>
+
     <div class="form-row">
-      <label class="form-row-label">Copy to</label>
+      <label class="form-row-label" id="dayCopyDayLabel">Copy to</label>
       <select id="dayCopyDaySelect"></select>
     </div>
 
@@ -3285,7 +3296,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.96';
+const APP_VERSION = '1.97';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4765,7 +4776,7 @@ async function executeCopyDay(sourceDay, destDay, trip){
   }
 }
 
-async function executeMoveItem(item, sourceDay, destDay, newTime, trip){
+function applyItemRelocation(item, sourceDay, destDay, newTime){
   const sameDay = sourceDay.id === destDay.id;
   const newEndTime = computeShiftedEndTime(item.time, item.endTime, newTime);
   const destSection = newTime ? getItemSection({ time: newTime }) : getItemSection(item);
@@ -4781,9 +4792,36 @@ async function executeMoveItem(item, sourceDay, destDay, newTime, trip){
   if(!sameDay){
     destDay.items.push(item);
   }
+}
 
+async function executeMoveItem(item, sourceDay, destDay, newTime, trip){
+  applyItemRelocation(item, sourceDay, destDay, newTime);
   render();
   await syncItemMoveToSupabase(item, sourceDay, destDay, trip);
+}
+
+async function executeMoveDay(sourceDay, destDay, trip){
+  const itemsToMove = sourceDay.items.slice();
+  itemsToMove.forEach(item => {
+    applyItemRelocation(item, sourceDay, destDay, item.time);
+  });
+
+  const hadNotesToMove = !!(sourceDay.notes && sourceDay.notes.trim());
+  if(hadNotesToMove){
+    destDay.notes = destDay.notes && destDay.notes.trim()
+      ? (destDay.notes + '\n\n' + sourceDay.notes)
+      : sourceDay.notes;
+    sourceDay.notes = '';
+  }
+
+  render();
+  for(const item of itemsToMove){
+    await syncItemMoveToSupabase(item, sourceDay, destDay, trip);
+  }
+  if(hadNotesToMove){
+    await syncSingleDayUpdate(destDay);
+    await syncSingleDayUpdate(sourceDay);
+  }
 }
 
 let copyMoveContext = null;
@@ -4934,11 +4972,16 @@ function openDayKebabMenu(day, dayIndex, trip){
   const body = document.getElementById('itemKebabBody');
   body.innerHTML = `
     <button type="button" data-role="kb-copy-day">📋 Copy this day…</button>
+    <button type="button" data-role="kb-move-day">➡️ Move this day…</button>
     ${canRemove ? '<div class="kebab-divider"></div><button type="button" data-role="kb-remove-day" class="danger">Remove day</button>' : ''}
   `;
   body.querySelector('[data-role="kb-copy-day"]').onclick = () => {
     closeItemKebabMenu();
-    openDayCopyModal(day, trip);
+    openDayCopyModal(day, trip, 'copy');
+  };
+  body.querySelector('[data-role="kb-move-day"]').onclick = () => {
+    closeItemKebabMenu();
+    openDayCopyModal(day, trip, 'move');
   };
   if(canRemove){
     body.querySelector('[data-role="kb-remove-day"]').onclick = () => {
@@ -4950,7 +4993,9 @@ function openDayKebabMenu(day, dayIndex, trip){
 }
 
 let dayCopyContext = null;
-function openDayCopyModal(sourceDay, trip){
+let dayCopyMoveMode = 'copy';
+
+function openDayCopyModal(sourceDay, trip, initialMode){
   dayCopyContext = { sourceDay, trip };
   const sourceDayIndex = trip.days.findIndex(d => d.id === sourceDay.id);
   const itemCount = sourceDay.items.length;
@@ -4960,15 +5005,35 @@ function openDayCopyModal(sourceDay, trip){
     ${itemCount} item${itemCount === 1 ? '' : 's'}
   `;
 
-  const daySelect = document.getElementById('dayCopyDaySelect');
-  daySelect.innerHTML = trip.days.map((d, i) => {
-    const label = getDayDisplayLabel(trip, i, d, true) + (d.id === sourceDay.id ? ' (current)' : '');
-    return `<option value="${d.id}" ${d.id === sourceDay.id ? 'selected' : ''}>${escapeHtml(label)}</option>`;
-  }).join('');
-  daySelect.onchange = updateDayCopySummary;
-
-  updateDayCopySummary();
+  setDayCopyMoveMode(initialMode || 'copy');
   document.getElementById('dayCopyOverlay').classList.add('active');
+}
+
+function populateDayCopyDaySelect(){
+  const { sourceDay, trip } = dayCopyContext;
+  const daySelect = document.getElementById('dayCopyDaySelect');
+  const options = trip.days
+    .filter(d => dayCopyMoveMode === 'copy' || d.id !== sourceDay.id)
+    .map((d, i) => {
+      const realIndex = trip.days.indexOf(d);
+      const label = getDayDisplayLabel(trip, realIndex, d, true) + (d.id === sourceDay.id ? ' (current)' : '');
+      return `<option value="${d.id}">${escapeHtml(label)}</option>`;
+    });
+  daySelect.innerHTML = options.join('');
+  daySelect.onchange = updateDayCopySummary;
+}
+
+function setDayCopyMoveMode(mode){
+  dayCopyMoveMode = mode;
+  document.querySelectorAll('.day-cm-mode-btn').forEach(btn => {
+    const isActive = btn.dataset.cmMode === mode;
+    btn.classList.toggle('active', isActive);
+    btn.classList.toggle('move-active', isActive && mode === 'move');
+  });
+  document.getElementById('dayCopyMoveHeader').textContent = mode === 'copy' ? 'Copy Day' : 'Move Day';
+  document.getElementById('dayCopyDayLabel').textContent = mode === 'copy' ? 'Copy to' : 'Move to';
+  populateDayCopyDaySelect();
+  updateDayCopySummary();
 }
 
 function updateDayCopySummary(){
@@ -4977,17 +5042,34 @@ function updateDayCopySummary(){
   const destDayId = document.getElementById('dayCopyDaySelect').value;
   const destDayIndex = trip.days.findIndex(d => d.id === destDayId);
   const destDay = trip.days[destDayIndex];
+  if(!destDay) return;
   const dayLabel = getDayDisplayLabel(trip, destDayIndex, destDay, true);
   const itemCount = sourceDay.items.length;
 
   const summaryEl = document.getElementById('dayCopySummary');
   const submitBtn = document.getElementById('dayCopySubmitBtn');
-  summaryEl.textContent = destDay.items.length
-    ? `This adds ${itemCount} item${itemCount === 1 ? '' : 's'} to ${dayLabel}, alongside what's already there. The original day stays exactly as it is.`
-    : `This copies ${itemCount} item${itemCount === 1 ? '' : 's'} onto ${dayLabel}. The original day stays exactly as it is.`;
-  submitBtn.textContent = `📋 Copy to ${dayLabel}`;
+  summaryEl.classList.toggle('move-mode', dayCopyMoveMode === 'move');
+  submitBtn.classList.toggle('move-mode', dayCopyMoveMode === 'move');
+
+  const joinsExisting = destDay.items.length > 0;
+  if(dayCopyMoveMode === 'copy'){
+    summaryEl.textContent = joinsExisting
+      ? `This adds ${itemCount} item${itemCount === 1 ? '' : 's'} to ${dayLabel}, alongside what's already there. The original day stays exactly as it is.`
+      : `This copies ${itemCount} item${itemCount === 1 ? '' : 's'} onto ${dayLabel}. The original day stays exactly as it is.`;
+    submitBtn.textContent = `📋 Copy to ${dayLabel}`;
+  } else {
+    const sourceDayIndex = trip.days.findIndex(d => d.id === sourceDay.id);
+    const sourceLabel = getDayDisplayLabel(trip, sourceDayIndex, sourceDay, true);
+    summaryEl.textContent = joinsExisting
+      ? `This moves all ${itemCount} item${itemCount === 1 ? '' : 's'} to ${dayLabel}, joining what's already there. ${sourceLabel} will be empty afterward.`
+      : `This moves all ${itemCount} item${itemCount === 1 ? '' : 's'} to ${dayLabel}. ${sourceLabel} will be empty afterward.`;
+    submitBtn.textContent = `➡️ Move to ${dayLabel}`;
+  }
 }
 
+document.querySelectorAll('.day-cm-mode-btn').forEach(btn => {
+  btn.onclick = () => setDayCopyMoveMode(btn.dataset.cmMode);
+});
 document.getElementById('dayCopyCancelBtn').onclick = () => {
   document.getElementById('dayCopyOverlay').classList.remove('active');
   dayCopyContext = null;
@@ -4996,11 +5078,16 @@ document.getElementById('dayCopySubmitBtn').onclick = async () => {
   if(!dayCopyContext) return;
   const { sourceDay, trip } = dayCopyContext;
   const destDay = trip.days.find(d => d.id === document.getElementById('dayCopyDaySelect').value);
+  const mode = dayCopyMoveMode;
 
   document.getElementById('dayCopyOverlay').classList.remove('active');
   dayCopyContext = null;
 
-  await executeCopyDay(sourceDay, destDay, trip);
+  if(mode === 'copy'){
+    await executeCopyDay(sourceDay, destDay, trip);
+  } else {
+    await executeMoveDay(sourceDay, destDay, trip);
+  }
 };
 
 function renderCrowdLevelsManager(){
