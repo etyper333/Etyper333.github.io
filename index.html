@@ -980,80 +980,88 @@
     max-width:640px;
     margin:0 auto;
   }
-  .view-options-wrap{
+  .view-controls-row{
     max-width:640px;
     margin:0 auto;
     padding:0 16px 8px;
-  }
-  .view-options-trigger{
     display:flex;
     align-items:center;
     gap:8px;
-    width:100%;
+  }
+  .traveler-filter-trigger{
+    flex:1;
+    min-width:0;
     text-align:left;
     background:var(--paper);
     border:1.5px solid var(--line);
     border-radius:var(--radius-md);
-    padding:8px 12px;
+    padding:8px 10px;
     font-family:'Inter',sans-serif;
     font-size:12.5px;
-    font-weight:700;
+    font-weight:600;
     color:var(--ink);
     cursor:pointer;
-  }
-  .view-options-trigger .view-options-summary{
-    flex:1;
-    min-width:0;
-    font-weight:500;
-    color:var(--slate);
     overflow:hidden;
     text-overflow:ellipsis;
     white-space:nowrap;
   }
-  .view-options-trigger .view-options-chevron{
-    flex-shrink:0;
-    font-size:11px;
-    transition:transform .2s ease;
-  }
-  .view-options-trigger.open .view-options-chevron{
-    transform:rotate(180deg);
-  }
-  .view-options-body{
-    padding-top:8px;
-  }
-  .view-options-body .traveler-filter-row{
-    padding:0 0 8px;
-    max-width:none;
-    margin:0;
-  }
-  .view-options-body .compact-toggle-btn{
-    width:100%;
-  }
-  .traveler-filter-row{
+  .mode-toggle-group{
     display:flex;
-    gap:8px;
-    padding:10px 16px;
-    max-width:640px;
-    margin:0 auto;
-    overflow-x:auto;
-  }
-  .traveler-filter-chip{
     flex-shrink:0;
-    font-family:'Inter',sans-serif;
-    font-size:12.5px;
-    font-weight:600;
-    padding:7px 13px;
-    border-radius:var(--radius-xl);
     border:1.5px solid var(--line);
-    background:var(--paper);
-    color:var(--ink);
-    cursor:pointer;
-    white-space:nowrap;
+    border-radius:var(--radius-md);
+    overflow:hidden;
   }
-  .traveler-filter-chip.active{
-    background:var(--coral);
-    border-color:var(--coral);
+  .mode-toggle-btn{
+    background:var(--paper);
+    border:none;
+    padding:8px 11px;
+    font-size:15px;
+    cursor:pointer;
+    color:var(--slate);
+    line-height:1;
+  }
+  .mode-toggle-btn + .mode-toggle-btn{
+    border-left:1.5px solid var(--line);
+  }
+  .mode-toggle-btn.active{
+    background:var(--sky);
     color:white;
+  }
+  .compact-toggle-icon-btn{
+    flex-shrink:0;
+    background:var(--paper);
+    border:1.5px solid var(--line);
+    border-radius:var(--radius-md);
+    padding:8px 11px;
+    font-size:15px;
+    cursor:pointer;
+    color:var(--slate);
+    line-height:1;
+  }
+  .compact-toggle-icon-btn.active{
+    background:var(--sky);
+    border-color:var(--sky);
+    color:white;
+  }
+  .traveler-filter-check-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:12px 10px;
+    border-radius:var(--radius-md);
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .traveler-filter-check-row:active{
+    background:var(--cream);
+  }
+  .traveler-filter-check-row input{
+    width:18px;
+    height:18px;
+    accent-color:var(--coral);
+    flex-shrink:0;
   }
   .overview-day-card{
     display:block;
@@ -1337,6 +1345,21 @@
     color:var(--ink);
     flex:1;
     min-width:120px;
+  }
+  .stay-link-btn{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    width:100%;
+    background:var(--paper);
+    border:1.5px solid var(--sky);
+    border-radius:var(--radius-md);
+    padding:11px 12px;
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:13px;
+    color:var(--sky);
+    cursor:pointer;
   }
   .day-title-display{
     font-family:'Baloo 2',sans-serif;
@@ -1898,46 +1921,6 @@
   }
   body.compact-items .item-content-full{display:none;}
   body.compact-items .item-content-compact{display:block;}
-  .compact-toggle-btn{
-    flex-shrink:0;
-    font-family:'Inter',sans-serif;
-    font-size:12px;
-    font-weight:600;
-    padding:6px 12px;
-    border-radius:var(--radius-xl);
-    border:1.5px solid var(--line);
-    background:var(--paper);
-    color:var(--ink);
-    cursor:pointer;
-    white-space:nowrap;
-  }
-  .compact-toggle-btn.active{
-    background:var(--sky);
-    border-color:var(--sky);
-    color:white;
-  }
-  .display-mode-toggle{
-    display:flex;
-    gap:6px;
-    margin-bottom:8px;
-  }
-  .display-mode-btn{
-    flex:1;
-    font-family:'Inter',sans-serif;
-    font-size:12px;
-    font-weight:700;
-    padding:7px;
-    border-radius:var(--radius-md);
-    border:1.5px solid var(--line);
-    background:var(--paper);
-    color:var(--slate);
-    cursor:pointer;
-  }
-  .display-mode-btn.active{
-    background:var(--coral);
-    border-color:var(--coral);
-    color:white;
-  }
   .item-meal-badge{
     display:inline-flex;
     align-items:center;
@@ -1999,6 +1982,20 @@
 
   .day-notes-block{
     margin:0 0 28px;
+  }
+  .next-day-btn{
+    display:block;
+    width:100%;
+    background:var(--sky);
+    color:white;
+    border:none;
+    padding:13px;
+    border-radius:var(--radius-lg);
+    font-family:'Baloo 2',sans-serif;
+    font-weight:700;
+    font-size:15px;
+    cursor:pointer;
+    margin:0 0 40px;
   }
   .day-notes-block label{
     display:block;
@@ -2146,7 +2143,15 @@
     margin-bottom:4px;
     display:block;
   }
-  .name-row input{border-color:var(--sage);}
+  .name-row input{
+    font-family:'Inter',sans-serif;
+    font-size:13.5px;
+    padding:9px 10px;
+    border-radius:var(--radius-md);
+    border:1.5px solid var(--sage);
+    width:100%;
+    background:var(--paper);
+  }
   .when-row{
     display:flex;
     align-items:flex-end;
@@ -2755,14 +2760,14 @@
     body{background:#fff;padding-bottom:0;}
 
     /* App chrome not relevant on paper, in either print mode */
-    .trip-switcher, .view-tabs, .lists-sub-tabs, .view-options-wrap, .monorail,
+    .trip-switcher, .view-tabs, .lists-sub-tabs, .view-controls-row, .monorail,
     .remove-day-btn, .add-day-btn, .section-add-btn, .item-actions,
     .accordion.accent, .add-form, .chevron,
     .print-packing-btn,
     .master-editor-overlay, .theme-switch-btn, .trip-title-chevron,
     .packing-intro, .category-toggle-row, .packing-add-row,
     .who-toggle-link, .add-stay-btn, .stay-card-remove, .stay-warning,
-    .crowd-remove-btn, .traveler-chip button, .compact-toggle-btn,
+    .crowd-remove-btn, .traveler-chip button, .compact-toggle-icon-btn,
     .trip-subsection-overview, .trip-subsection-crowd, .trip-subsection-share,
     .trip-subsection-archive, .trip-notes-visibility-hint, .trip-notes-edit-row,
     .empty-state,
@@ -2939,6 +2944,15 @@
   </div>
 </div>
 
+<div class="master-editor-overlay" id="travelerFilterOverlay">
+  <div class="master-editor">
+    <h2>Viewing Plans For</h2>
+    <p class="sub">Choose one or more travelers to filter the itinerary.</p>
+    <div id="travelerFilterBody"></div>
+    <button class="master-editor-close" id="travelerFilterCloseBtn">Done</button>
+  </div>
+</div>
+
 <div class="view-tabs" id="viewTabs">
   <button class="view-tab view-tab-primary" data-view="itinerary">Itinerary</button>
   <button class="view-tab view-tab-secondary" data-view="packing">Packing Lists</button>
@@ -2949,20 +2963,13 @@
   <button type="button" class="lists-sub-tab" data-sub="groceries">🛒 Groceries</button>
 </div>
 
-<div class="view-options-wrap" id="viewOptionsWrap" style="display:none;">
-  <button type="button" class="view-options-trigger" id="viewOptionsTrigger">
-    <span class="view-options-label">⚙️ View Options</span>
-    <span class="view-options-summary" id="viewOptionsSummary"></span>
-    <span class="view-options-chevron">▾</span>
-  </button>
-  <div class="view-options-body" id="viewOptionsBody" style="display:none;">
-    <div class="traveler-filter-row" id="travelerFilterWrap"></div>
-    <div class="display-mode-toggle" id="displayModeToggle">
-      <button type="button" class="display-mode-btn" data-mode="cards">📋 Cards</button>
-      <button type="button" class="display-mode-btn" data-mode="timeline">📅 Timeline</button>
-    </div>
-    <button type="button" id="compactToggleBtn" class="compact-toggle-btn">🗜️ Compact View</button>
+<div class="view-controls-row" id="viewControlsWrap" style="display:none;">
+  <button type="button" class="traveler-filter-trigger" id="travelerFilterTrigger" style="display:none;"></button>
+  <div class="mode-toggle-group" id="modeToggleGroup">
+    <button type="button" class="mode-toggle-btn" data-mode="cards" title="Cards view">📋</button>
+    <button type="button" class="mode-toggle-btn" data-mode="timeline" title="Timeline view">📅</button>
   </div>
+  <button type="button" id="compactToggleBtn" class="compact-toggle-icon-btn" title="Compact view">🗜️</button>
 </div>
 
 <nav class="monorail" id="monorail"></nav>
@@ -3070,7 +3077,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.78';
+const APP_VERSION = '1.83';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4869,9 +4876,9 @@ function getEffectiveDurationMinutes(item){
   return Math.max(0, endMin - startMin);
 }
 const MEAL_SERVICES = [
-  {key:"qs", label:"QS"},
-  {key:"ts", label:"TS"},
-  {key:"2ts", label:"2TS"},
+  {key:"qs", label:"QS", fullLabel:"Quick Service"},
+  {key:"ts", label:"TS", fullLabel:"Table Service"},
+  {key:"2ts", label:"2TS", fullLabel:"Signature Dining"},
   {key:"snack", label:"Snack"},
   {key:"inroom", label:"In-Room", icon:"🍳"},
 ];
@@ -4879,6 +4886,7 @@ const MEAL_PERIODS = [
   {key:"breakfast", label:"B"},
   {key:"lunch", label:"L"},
   {key:"dinner", label:"D"},
+  {key:"snack", label:"Snack"},
 ];
 const ROOM_TYPES = [
   "Studio","One-Bedroom","Two-Bedroom","Grand Villa","Treehouse Villa","Cabin","Standard Room","Other"
@@ -5185,6 +5193,7 @@ let currentView = 'itinerary';
 let showArchivedTrips = false;
 let lastListsSubView = 'packing';
 let expandedDetails = new Set();
+let initializedDayDetailsDefaults = new Set();
 let expandedAddForm = new Set();
 let editingItems = new Set();
 let pendingMainPlanEdit = new Set();
@@ -5192,7 +5201,6 @@ let expandedSectionAddForm = new Set();
 let expandedTripDetails = new Set();
 let expandedTripSubsections = new Set();
 let activeTravelerFilter = [];
-let expandedViewOptions = false;
 let itineraryDisplayMode = 'cards';
 
 function itemMatchesFilter(item){
@@ -5436,7 +5444,7 @@ function render(){
   const isDayMode = currentView === 'itinerary';
   const isListsMode = currentView === 'packing' || currentView === 'groceries';
   document.getElementById('monorail').style.display = isDayMode ? '' : 'none';
-  document.getElementById('viewOptionsWrap').style.display = currentView === 'itinerary' ? '' : 'none';
+  document.getElementById('viewControlsWrap').style.display = currentView === 'itinerary' ? '' : 'none';
   document.getElementById('dayPanels').style.display = isDayMode ? '' : 'none';
   document.getElementById('itinerarySidebar').style.display = isDayMode ? '' : 'none';
   renderTravelerFilterRow(trip);
@@ -5595,6 +5603,58 @@ function addTrip(){
   activeDayId = trip.days[0].id;
   activeTravelerFilter = [];
   render();
+}
+
+async function duplicateTrip(sourceTrip){
+  const clone = JSON.parse(JSON.stringify(sourceTrip));
+
+  clone.id = cryptoId();
+  delete clone.supabaseId;
+  clone.title = (clone.title || 'Untitled trip') + ' (Copy)';
+  clone.archivedAt = null;
+  clone.supabaseTravelerMap = {};
+  clone.supabaseCrowdMap = {};
+  clone.supabasePackingMap = {};
+  clone.supabaseGroceryMap = {};
+
+  const dayIdMap = {};
+  (clone.days || []).forEach(day => {
+    const oldId = day.id;
+    day.id = cryptoId();
+    dayIdMap[oldId] = day.id;
+    delete day.supabaseId;
+    (day.items || []).forEach(item => {
+      item.id = cryptoId();
+      delete item.supabaseId;
+    });
+  });
+
+  (clone.stays || []).forEach(stay => {
+    stay.id = cryptoId();
+    delete stay.supabaseId;
+  });
+
+  Object.keys(clone.crowdLevels || {}).forEach(key => {
+    const sepIdx = key.indexOf(':');
+    const oldDayId = key.slice(0, sepIdx);
+    const park = key.slice(sepIdx + 1);
+    const newDayId = dayIdMap[oldDayId];
+    if(newDayId){
+      clone.crowdLevels[newDayId + ':' + park] = clone.crowdLevels[key];
+    }
+    delete clone.crowdLevels[key];
+  });
+
+  (clone.packingItems || []).forEach(pi => { pi.id = cryptoId(); });
+  (clone.groceryItems || []).forEach(gi => { gi.id = cryptoId(); });
+
+  appData.trips.push(clone);
+  appData.activeTripId = clone.id;
+  activeDayId = clone.days[0] ? clone.days[0].id : null;
+  activeTravelerFilter = [];
+  render();
+
+  await syncAndRefreshActiveTrip();
 }
 
 function removeTrip(tripId){
@@ -5945,67 +6005,62 @@ document.getElementById('wizardBackBtn').onclick = wizardGoBack;
 document.getElementById('wizardCloseBtn').onclick = () => closeTripWizard();
 
 function renderTravelerFilterRow(trip){
-  const wrap = document.getElementById('travelerFilterWrap');
+  const trigger = document.getElementById('travelerFilterTrigger');
   const travelers = (Array.isArray(trip.travelerIds) ? trip.travelerIds : [])
     .map(id => ({ id, name: getTravelerName(id) }))
     .filter(t => t.name);
 
   if(currentView !== 'itinerary' || travelers.length === 0){
-    wrap.style.display = 'none';
-    wrap.innerHTML = '';
+    trigger.style.display = 'none';
     return;
   }
 
-  wrap.style.display = '';
-  wrap.innerHTML = '';
-
-  const allChip = document.createElement('button');
-  allChip.type = 'button';
-  allChip.className = 'traveler-filter-chip' + (activeTravelerFilter.length === 0 ? ' active' : '');
-  allChip.textContent = 'All Plans';
-  allChip.onclick = () => {
-    activeTravelerFilter = [];
-    render();
-  };
-  wrap.appendChild(allChip);
-
-  travelers.forEach(t => {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'traveler-filter-chip' + (activeTravelerFilter.includes(t.id) ? ' active' : '');
-    chip.textContent = t.name;
-    chip.onclick = () => {
-      if(activeTravelerFilter.includes(t.id)){
-        activeTravelerFilter = activeTravelerFilter.filter(id => id !== t.id);
-      } else {
-        activeTravelerFilter.push(t.id);
-      }
-      render();
-    };
-    wrap.appendChild(chip);
-  });
-}
-
-function renderViewOptionsTrigger(){
-  const btn = document.getElementById('viewOptionsTrigger');
-  const summaryEl = document.getElementById('viewOptionsSummary');
-  const bodyEl = document.getElementById('viewOptionsBody');
-
-  const filterSummary = activeTravelerFilter.length === 0
+  trigger.style.display = '';
+  const summary = activeTravelerFilter.length === 0
     ? 'All Plans'
     : activeTravelerFilter.map(id => getTravelerName(id)).filter(Boolean).join(', ');
-  const isCompact = document.body.classList.contains('compact-items');
-  const modeLabel = itineraryDisplayMode === 'timeline' ? 'Timeline' : 'Cards';
-  summaryEl.textContent = `${filterSummary} · ${modeLabel} · ${isCompact ? 'Compact View' : 'Full View'}`;
+  trigger.textContent = `👤 ${summary}`;
+  trigger.onclick = () => openTravelerFilterModal(trip, travelers);
+}
 
-  btn.classList.toggle('open', expandedViewOptions);
-  bodyEl.style.display = expandedViewOptions ? '' : 'none';
-  btn.onclick = () => {
-    expandedViewOptions = !expandedViewOptions;
-    renderViewOptionsTrigger();
+function openTravelerFilterModal(trip, travelers){
+  const body = document.getElementById('travelerFilterBody');
+  body.innerHTML = '';
+
+  const allRow = document.createElement('label');
+  allRow.className = 'traveler-filter-check-row';
+  allRow.innerHTML = `<input type="checkbox" ${activeTravelerFilter.length === 0 ? 'checked' : ''} /><span>All Plans</span>`;
+  allRow.querySelector('input').onchange = () => {
+    activeTravelerFilter = [];
+    render();
+    openTravelerFilterModal(trip, travelers);
   };
+  body.appendChild(allRow);
 
-  document.querySelectorAll('.display-mode-btn').forEach(modeBtn => {
+  travelers.forEach(t => {
+    const row = document.createElement('label');
+    row.className = 'traveler-filter-check-row';
+    row.innerHTML = `<input type="checkbox" ${activeTravelerFilter.includes(t.id) ? 'checked' : ''} /><span>${escapeHtml(t.name)}</span>`;
+    row.querySelector('input').onchange = e => {
+      if(e.target.checked){
+        if(!activeTravelerFilter.includes(t.id)) activeTravelerFilter.push(t.id);
+      } else {
+        activeTravelerFilter = activeTravelerFilter.filter(id => id !== t.id);
+      }
+      render();
+      openTravelerFilterModal(trip, travelers);
+    };
+    body.appendChild(row);
+  });
+
+  document.getElementById('travelerFilterOverlay').classList.add('active');
+}
+document.getElementById('travelerFilterCloseBtn').onclick = () => {
+  document.getElementById('travelerFilterOverlay').classList.remove('active');
+};
+
+function renderViewOptionsTrigger(){
+  document.querySelectorAll('.mode-toggle-btn').forEach(modeBtn => {
     modeBtn.classList.toggle('active', modeBtn.dataset.mode === itineraryDisplayMode);
     modeBtn.onclick = () => {
       itineraryDisplayMode = modeBtn.dataset.mode;
@@ -6022,7 +6077,6 @@ function renderItinerarySidebar(trip){
   if(dayIndex === -1) return;
   const day = trip.days[dayIndex];
 
-  const stay = getStayForDayIndex(trip, dayIndex);
   const diningItems = day.items
     .filter(i => i.type === 'dining' && i.confirmationNumber && itemMatchesFilter(i))
     .sort((a,b) => (a.time||'').localeCompare(b.time||''));
@@ -6044,16 +6098,6 @@ function renderItinerarySidebar(trip){
   title.textContent = 'At a glance';
   block.appendChild(title);
 
-  const hotelFact = document.createElement('div');
-  hotelFact.className = 'sidebar-fact';
-  hotelFact.innerHTML = `<span class="label">Tonight's Hotel</span>${stay ? escapeHtml(stay.hotel) : '<span class="sidebar-empty">Not set</span>'}`;
-  block.appendChild(hotelFact);
-
-  const ropeFact = document.createElement('div');
-  ropeFact.className = 'sidebar-fact';
-  ropeFact.innerHTML = `<span class="label">Rope Drop Target</span>${day.ropeDrop ? formatTime(day.ropeDrop) : '<span class="sidebar-empty">Not set</span>'}`;
-  block.appendChild(ropeFact);
-
   if(crowdFacts.length){
     const crowdFact = document.createElement('div');
     crowdFact.className = 'sidebar-fact';
@@ -6073,6 +6117,8 @@ function renderItinerarySidebar(trip){
     });
     block.appendChild(diningFact);
   }
+
+  if(!crowdFacts.length && !diningItems.length) return;
 
   wrap.appendChild(block);
 }
@@ -6470,10 +6516,16 @@ function renderDayPanels(){
     }
     panel.appendChild(row);
 
+    const nightStay = getStayForDayIndex(trip, dayIndex);
+
+    if(!initializedDayDetailsDefaults.has(day.id)){
+      initializedDayDetailsDefaults.add(day.id);
+      if(!nightStay || !day.ropeDrop) expandedDetails.add(day.id);
+    }
+
     const detailsAccordion = document.createElement('div');
     detailsAccordion.className = 'accordion' + (expandedDetails.has(day.id) ? ' open' : '');
 
-    const nightStay = getStayForDayIndex(trip, dayIndex);
     const detailsSummaryParts = [];
     if(nightStay) detailsSummaryParts.push(nightStay.hotel);
     if(day.ropeDrop) detailsSummaryParts.push('Rope drop ' + formatTime(day.ropeDrop));
@@ -6502,9 +6554,20 @@ function renderDayPanels(){
     infoRow1.innerHTML = `
       <div class="day-info-field" style="flex:1 1 100%;">
         <label>Tonight's hotel</label>
-        <div class="day-title-display" style="padding:8px 10px;background:var(--cream);border-radius:var(--radius-md);font-size:14px;">${nightStay ? escapeHtml(nightStay.hotel) : 'No stay set — manage in Trip Details'}</div>
+        ${nightStay
+          ? `<div class="day-title-display" style="padding:8px 10px;background:var(--cream);border-radius:var(--radius-md);font-size:14px;">${escapeHtml(nightStay.hotel)}</div>`
+          : `<button type="button" class="stay-link-btn" data-role="stay-link">Set up your stay in Trip Details <span>→</span></button>`
+        }
       </div>
     `;
+    if(!nightStay){
+      infoRow1.querySelector('[data-role="stay-link"]').onclick = () => {
+        expandedTripDetails.add(trip.id);
+        expandedTripSubsections.add(trip.id + ':lodging');
+        render();
+        window.scrollTo({top:0, behavior:'smooth'});
+      };
+    }
     detailsBody.appendChild(infoRow1);
 
     const infoRow3 = document.createElement('div');
@@ -6637,6 +6700,19 @@ function renderDayPanels(){
     notesBlock.querySelector('textarea').oninput = e => { day.notes = e.target.value; };
     notesBlock.querySelector('textarea').onblur = () => handleDayFieldBlur(trip, day);
     panel.appendChild(notesBlock);
+
+    if(dayIndex < trip.days.length - 1){
+      const nextDayBtn = document.createElement('button');
+      nextDayBtn.type = 'button';
+      nextDayBtn.className = 'next-day-btn';
+      nextDayBtn.textContent = `Next Day: ${getDayDisplayLabel(trip, dayIndex + 1, trip.days[dayIndex + 1], true)} →`;
+      nextDayBtn.onclick = () => {
+        activeDayId = trip.days[dayIndex + 1].id;
+        render();
+        window.scrollTo({top:0, behavior:'smooth'});
+      };
+      panel.appendChild(nextDayBtn);
+    }
 
     container.appendChild(panel);
   });
@@ -6805,9 +6881,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
       </div>
       <div class="name-row">
         <label>Name — required</label>
-        <div class="suggestion-input-wrap">
-          <input type="text" data-f="name" placeholder="e.g. Hollywood Studios, Be Our Guest lunch" value="${escapeHtml(initial.name || '')}" autocomplete="off" />
-        </div>
+        <input type="text" data-f="name" placeholder="e.g. Hollywood Studios, Be Our Guest lunch" value="${escapeHtml(initial.name || '')}" autocomplete="off" />
       </div>
     </div>
 
@@ -6836,18 +6910,21 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
           <span>📍 No duration — just a moment in time</span>
         </label>
       </div>
-      <button type="button" class="who-toggle-link" data-role="end-time-toggle"></button>
-      <div class="form-row" data-role="end-time-row" style="display:none;">
+      <label class="form-row-label" data-role="end-time-label">Ends at</label>
+      <div class="form-row" data-role="end-time-row">
         <input type="time" data-f="endTime" />
       </div>
       <div class="form-row" data-role="meal-row">
         <select data-f="mealService">
           <option value="">Service type...</option>
-          ${MEAL_SERVICES.map(m=>`<option value="${m.key}" ${m.key===initial.mealService?'selected':''}>${m.icon ? m.icon+' ' : ''}${m.label}</option>`).join('')}
+          ${MEAL_SERVICES.map(m=>`<option value="${m.key}" ${m.key===initial.mealService?'selected':''}>${m.icon ? m.icon+' ' : ''}${m.fullLabel ? `${m.fullLabel} (${m.label})` : m.label}</option>`).join('')}
         </select>
         <select data-f="mealPeriod" data-role="meal-period-select">
           <option value="">Meal...</option>
-          ${MEAL_PERIODS.map(p=>`<option value="${p.key}" ${p.key===initial.mealPeriod?'selected':''}>${p.label === 'B' ? 'Breakfast' : p.label === 'L' ? 'Lunch' : 'Dinner'}</option>`).join('')}
+          ${MEAL_PERIODS.map(p=>{
+            const displayLabel = p.key === 'breakfast' ? 'Breakfast' : p.key === 'lunch' ? 'Lunch' : p.key === 'dinner' ? 'Dinner' : p.label;
+            return `<option value="${p.key}" ${p.key===initial.mealPeriod?'selected':''}>${displayLabel}</option>`;
+          }).join('')}
         </select>
       </div>
     </div>
@@ -6911,7 +6988,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
     return sectionSelect.value;
   };
 
-  const endTimeToggle = wrap.querySelector('[data-role="end-time-toggle"]');
+  const endTimeLabel = wrap.querySelector('[data-role="end-time-label"]');
   const endTimeRow = wrap.querySelector('[data-role="end-time-row"]');
   const endTimeInput = wrap.querySelector('[data-f="endTime"]');
   const typeSelectForDuration = wrap.querySelector('[data-f="type"]');
@@ -6920,7 +6997,6 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   const landmarkRow = wrap.querySelector('.landmark-row');
   const isInitiallyLandmark = !!(initial.time && initial.endTime && initial.endTime === initial.time);
   landmarkCheckbox.checked = isInitiallyLandmark;
-  let endTimeExpanded = !!initial.endTime && !isInitiallyLandmark;
 
   const getComputedDefaultEnd = () => {
     const t = timeInput.value;
@@ -6937,24 +7013,16 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   const syncEndTimeUI = () => {
     landmarkRow.style.display = timeInput.value ? '' : 'none';
     if(!timeInput.value || landmarkCheckbox.checked){
-      endTimeToggle.style.display = 'none';
+      endTimeLabel.style.display = 'none';
       endTimeRow.style.display = 'none';
       return;
     }
-    endTimeToggle.style.display = '';
-    const displayValue = getDisplayEndTimeValue();
-    if(!endTimeExpanded){
-      endTimeRow.style.display = 'none';
-      endTimeToggle.textContent = `⏱️ Ends at ${formatTime(displayValue)} (adjust)`;
-    } else {
-      endTimeRow.style.display = '';
-      endTimeToggle.textContent = '⏱️ Ends at (hide)';
-      if(!endTimeInput.dataset.userTouched){
-        endTimeInput.value = displayValue;
-      }
+    endTimeLabel.style.display = '';
+    endTimeRow.style.display = '';
+    if(!endTimeInput.dataset.userTouched){
+      endTimeInput.value = getDisplayEndTimeValue();
     }
   };
-  endTimeToggle.onclick = () => { endTimeExpanded = !endTimeExpanded; syncEndTimeUI(); };
   endTimeInput.addEventListener('input', () => { endTimeInput.dataset.userTouched = '1'; });
   landmarkCheckbox.addEventListener('change', syncEndTimeUI);
   syncEndTimeUI();
@@ -6991,7 +7059,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   const syncMealVisibility = () => {
     const isDining = typeSelect.value === 'dining';
     mealRow.style.display = isDining ? '' : 'none';
-    mealPeriodSelect.style.display = (isDining && mealServiceSelect.value !== 'snack') ? '' : 'none';
+    mealPeriodSelect.style.display = isDining ? '' : 'none';
   };
   syncMealVisibility();
   typeSelect.addEventListener('change', syncMealVisibility);
@@ -7079,7 +7147,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
     let finalEndTime = '';
     if(landmarkCheckbox.checked && time){
       finalEndTime = time;
-    } else if(endTimeExpanded && time){
+    } else if(time){
       const freshDefault = minutesToTime(timeToMinutes(time) + getDefaultDurationMinutes({ type, time, mealService }));
       if(endTimeInput.value && endTimeInput.value !== freshDefault){
         finalEndTime = endTimeInput.value;
@@ -7493,7 +7561,8 @@ function closeTravelerColorModal(){
   ['toolsMenuOverlay', closeToolsMenu],
   ['travelerColorOverlay', closeTravelerColorModal],
   ['buildPackingListOverlay', closeBuildPackingListModal],
-  ['crowdLevelsManagerOverlay', closeCrowdLevelsManager]
+  ['crowdLevelsManagerOverlay', closeCrowdLevelsManager],
+  ['travelerFilterOverlay', () => document.getElementById('travelerFilterOverlay').classList.remove('active')]
 ].forEach(([overlayId, closeFn]) => {
   document.getElementById(overlayId).addEventListener('click', e => {
     if(e.target.id !== overlayId) return;
@@ -7783,6 +7852,24 @@ function renderToolsMenu(){
     }
   };
   body.appendChild(downloadBtn);
+
+  const duplicateBtn = document.createElement('button');
+  duplicateBtn.type = 'button';
+  duplicateBtn.className = 'print-packing-btn';
+  duplicateBtn.textContent = '📄 Duplicate this trip';
+  duplicateBtn.title = 'Creates a full, independent copy — every day, item, and stay';
+  duplicateBtn.onclick = async () => {
+    duplicateBtn.disabled = true;
+    duplicateBtn.textContent = '📄 Duplicating…';
+    closeToolsMenu();
+    try{
+      await duplicateTrip(trip);
+    }catch(err){
+      console.error('Duplicate trip failed:', err);
+      alert("Something went wrong duplicating this trip. Please try again.");
+    }
+  };
+  body.appendChild(duplicateBtn);
 
   const archiveStatusNote = document.createElement('p');
   archiveStatusNote.className = 'section-empty-note';
@@ -8669,11 +8756,8 @@ function printSelected(includeItinerary, includePacking, includeGrocery){
 function updateCompactToggleBtn(){
   const btn = document.getElementById('compactToggleBtn');
   const isCompact = document.body.classList.contains('compact-items');
-  btn.textContent = isCompact ? '📄 Full View' : '🗜️ Compact View';
   btn.classList.toggle('active', isCompact);
-  if(typeof renderViewOptionsTrigger === 'function' && document.getElementById('viewOptionsTrigger')){
-    renderViewOptionsTrigger();
-  }
+  btn.title = isCompact ? 'Switch to full view' : 'Switch to compact view';
 }
 document.getElementById('compactToggleBtn').onclick = () => {
   document.body.classList.toggle('compact-items');
