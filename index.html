@@ -981,13 +981,6 @@
   .trip-summary-trigger.open .trip-summary-chevron{
     transform:rotate(180deg);
   }
-  .view-tabs{
-    display:flex;
-    gap:6px;
-    padding:10px 16px 0;
-    max-width:640px;
-    margin:0 auto;
-  }
   .view-controls-row{
     max-width:640px;
     margin:0 auto;
@@ -1133,6 +1126,17 @@
     flex-wrap:wrap;
     gap:4px 10px;
   }
+  .view-tabs-wrap{
+    max-width:640px;
+    margin:0 auto;
+    padding:10px 16px 0;
+  }
+  .view-tabs{
+    display:flex;
+    border:1.5px solid var(--line);
+    border-radius:var(--radius-md);
+    overflow:hidden;
+  }
   .view-tab{
     font-family:'Inter',sans-serif;
     font-size:13px;
@@ -1140,15 +1144,17 @@
     padding:9px 4px;
     text-align:center;
     flex:1;
-    background:transparent;
+    background:var(--paper);
     border:none;
-    border-bottom:3px solid var(--line);
     color:var(--slate);
     cursor:pointer;
   }
+  .view-tab + .view-tab{
+    border-left:1.5px solid var(--line);
+  }
   .view-tab.active{
-    color:var(--coral);
-    border-bottom-color:var(--coral);
+    background:var(--sky);
+    color:white;
   }
   .view-tab-primary{
     flex:1.7;
@@ -2902,7 +2908,7 @@
     body{background:#fff;padding-bottom:0;}
 
     /* App chrome not relevant on paper, in either print mode */
-    .trip-switcher, .view-tabs, .lists-sub-tabs, .view-controls-row, .monorail,
+    .trip-switcher, .view-tabs-wrap, .view-tabs, .lists-sub-tabs, .view-controls-row, .monorail,
     .remove-day-btn, .add-day-btn, .section-add-btn, .item-actions,
     .accordion.accent, .add-form, .chevron,
     .print-packing-btn,
@@ -3095,9 +3101,11 @@
   </div>
 </div>
 
-<div class="view-tabs" id="viewTabs">
-  <button class="view-tab view-tab-primary" data-view="itinerary">Itinerary</button>
-  <button class="view-tab view-tab-secondary" data-view="packing">Packing Lists</button>
+<div class="view-tabs-wrap">
+  <div class="view-tabs" id="viewTabs">
+    <button class="view-tab view-tab-primary" data-view="itinerary">Itinerary</button>
+    <button class="view-tab view-tab-secondary" data-view="packing">Packing Lists</button>
+  </div>
 </div>
 
 <div class="lists-sub-tabs" id="listsSubTabs" style="display:none;">
@@ -3259,7 +3267,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.90';
+const APP_VERSION = '1.91';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
