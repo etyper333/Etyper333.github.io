@@ -1972,6 +1972,108 @@
     font-weight:700;
     margin-left:auto;
   }
+  .item-kebab-btn{
+    margin-left:auto;
+    text-decoration:none !important;
+    font-size:18px !important;
+    line-height:1;
+    color:var(--slate);
+    padding:0 4px !important;
+  }
+  .item-kebab-menu{
+    max-width:400px;
+  }
+  #itemKebabBody button{
+    display:block;
+    width:100%;
+    text-align:left;
+    background:none;
+    border:none;
+    font-family:'Inter',sans-serif;
+    font-size:14.5px;
+    font-weight:600;
+    color:var(--ink);
+    padding:14px 12px;
+    border-radius:var(--radius-md);
+    cursor:pointer;
+  }
+  #itemKebabBody button.danger{
+    color:var(--coral);
+  }
+  .kebab-divider{
+    height:1px;
+    background:var(--line);
+    margin:6px 4px;
+  }
+  .item-context{
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:var(--radius-md);
+    padding:10px 12px;
+    margin:0 0 18px;
+    font-size:12.5px;
+    color:var(--slate);
+  }
+  .item-context strong{
+    color:var(--ink);
+    font-size:14px;
+    display:block;
+    margin-bottom:2px;
+  }
+  .mode-toggle{
+    display:flex;
+    gap:8px;
+    margin-bottom:18px;
+  }
+  .mode-toggle-option{
+    flex:1;
+    padding:14px 10px;
+    border-radius:var(--radius-lg);
+    border:2px solid var(--line);
+    background:var(--paper);
+    font-family:'Baloo 2',sans-serif;
+    font-size:15px;
+    font-weight:700;
+    color:var(--slate);
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:4px;
+  }
+  .mode-toggle-option .sub{
+    font-family:'Inter',sans-serif;
+    font-size:10.5px;
+    font-weight:500;
+    color:var(--slate);
+  }
+  .mode-toggle-option.active{
+    border-color:var(--sky);
+    background:rgba(31,77,58,.08);
+    color:var(--sky);
+  }
+  .mode-toggle-option.active.move-active{
+    border-color:var(--marigold);
+    background:rgba(143,163,60,.1);
+    color:#5C6B26;
+  }
+  .summary-line{
+    background:var(--paper);
+    border:1.5px dashed var(--line);
+    border-radius:var(--radius-md);
+    padding:12px;
+    font-size:13px;
+    font-weight:600;
+    margin:6px 0 18px;
+    line-height:1.4;
+  }
+  .summary-line.move-mode{
+    border-color:var(--marigold);
+    background:rgba(143,163,60,.08);
+  }
+  .submit-btn.move-mode{
+    background:#5C6B26;
+  }
   .item-actions button:disabled{
     opacity:.6;
     cursor:default;
@@ -3036,6 +3138,45 @@
   </div>
 </div>
 
+<div class="master-editor-overlay" id="itemKebabOverlay">
+  <div class="master-editor item-kebab-menu">
+    <div id="itemKebabBody"></div>
+  </div>
+</div>
+
+<div class="master-editor-overlay" id="copyMoveOverlay">
+  <div class="master-editor">
+    <h2 id="copyMoveHeader">Copy Item</h2>
+    <div class="item-context" id="copyMoveContext"></div>
+
+    <div class="mode-toggle" id="copyMoveModeToggle">
+      <button type="button" class="mode-toggle-option" data-cm-mode="copy">
+        📋 Copy
+        <span class="sub">Keeps the original</span>
+      </button>
+      <button type="button" class="mode-toggle-option" data-cm-mode="move">
+        ➡️ Move
+        <span class="sub">Relocates it</span>
+      </button>
+    </div>
+
+    <div class="form-row">
+      <label class="form-row-label">Day</label>
+      <select id="copyMoveDaySelect"></select>
+    </div>
+    <div class="form-row" id="copyMoveTimeRow">
+      <label class="form-row-label">Time</label>
+      <input type="time" id="copyMoveTimeInput" />
+    </div>
+    <p class="section-empty-note" id="copyMoveNoTimeNote" style="display:none;">This item has no specific time — it'll keep its current part of the day, unchanged.</p>
+
+    <div class="summary-line" id="copyMoveSummary"></div>
+
+    <button type="button" class="submit-btn" id="copyMoveSubmitBtn"></button>
+    <button type="button" class="cancel-btn" id="copyMoveCancelBtn">Cancel</button>
+  </div>
+</div>
+
 <div class="master-editor-overlay" id="itemEditOverlay">
   <div class="master-editor">
     <h2>Edit Item</h2>
@@ -3098,7 +3239,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.85';
+const APP_VERSION = '1.86';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -3782,6 +3923,36 @@ async function syncSingleItemUpdate(item, trip){
     return { ok: true };
   }catch(err){
     console.warn('Could not sync item update:', err);
+    return { ok: true };
+  }
+}
+
+// Moving an item changes which day it belongs to, which regular item syncing was never
+// built to handle - it only ever updates an item's own fields, never its day_id. If the
+// item was never synced in the first place, this creates it fresh on the destination day
+// instead, same as any other brand-new item.
+async function syncItemMoveToSupabase(item, sourceDay, destDay, trip){
+  if(!destDay.supabaseId) return { ok: true };
+  if(!item.supabaseId){
+    await syncNewItemToSupabase(item, destDay, trip);
+    return { ok: true };
+  }
+  try{
+    const itemPayload = {
+      day_id: destDay.supabaseId,
+      time: item.time || null, end_time: item.endTime || null, section: item.section || '',
+      type: item.type || '', name: item.name || '', is_main_plan: !!item.isMainPlan,
+      status: item.status || 'confirmed', confirmation_number: item.confirmationNumber || '',
+      meal_service: item.mealService || '', meal_period: item.mealPeriod || '', notes: item.notes || ''
+    };
+    const { data: updateResult } = await supabaseClient.from('items').update(itemPayload).eq('id', item.supabaseId).select();
+    if(!updateResult || updateResult.length === 0){
+      return { ok: false, type: 'item', name: item.name || 'this item' };
+    }
+    markRecordSynced('item:' + item.id, getItemSnapshot(item));
+    return { ok: true };
+  }catch(err){
+    console.warn('Could not sync moved item:', err);
     return { ok: true };
   }
 }
@@ -4479,6 +4650,214 @@ function closeCrowdLevelsManager(){
   render();
 }
 document.getElementById('crowdLevelsManagerCloseBtn').onclick = closeCrowdLevelsManager;
+
+function closeItemKebabMenu(){
+  document.getElementById('itemKebabOverlay').classList.remove('active');
+}
+// If the item had an explicit end time and the start time is changing, shift the end
+// time by the same amount so the item's duration is preserved rather than lost.
+function computeShiftedEndTime(originalTime, originalEndTime, newTime){
+  if(!originalEndTime || !originalTime || !newTime || newTime === originalTime) return originalEndTime || '';
+  const durationMinutes = timeToMinutes(originalEndTime) - timeToMinutes(originalTime);
+  if(durationMinutes <= 0) return originalEndTime;
+  return minutesToTime(timeToMinutes(newTime) + durationMinutes);
+}
+
+// Main Plan only ever carries quietly if the destination section is open - it never
+// replaces an existing Main Plan, and never prompts. excludeItemId keeps a same-day
+// move from seeing the item's own current position as "already taken."
+function computeMainPlanCarry(destDay, destSection, wasMainPlan, excludeItemId){
+  if(!wasMainPlan) return false;
+  const existing = destDay.items.find(i => i.id !== excludeItemId && i.isMainPlan && getItemSection(i) === destSection);
+  return !existing;
+}
+
+async function executeCopyItem(sourceItem, destDay, newTime, trip){
+  const newEndTime = computeShiftedEndTime(sourceItem.time, sourceItem.endTime, newTime);
+  const destSection = newTime ? getItemSection({ time: newTime }) : getItemSection(sourceItem);
+  const newItem = {
+    id: cryptoId(),
+    time: newTime || '',
+    endTime: newEndTime || '',
+    section: newTime ? '' : (sourceItem.section || ''),
+    type: sourceItem.type || '',
+    name: sourceItem.name || '',
+    isMainPlan: computeMainPlanCarry(destDay, destSection, sourceItem.isMainPlan, null),
+    status: sourceItem.status || 'confirmed',
+    confirmationNumber: sourceItem.confirmationNumber || '',
+    mealService: sourceItem.mealService || '',
+    mealPeriod: sourceItem.mealPeriod || '',
+    notes: sourceItem.notes || '',
+    travelerIds: Array.isArray(sourceItem.travelerIds) ? sourceItem.travelerIds.slice() : []
+  };
+  destDay.items.push(newItem);
+  render();
+  await syncNewItemToSupabase(newItem, destDay, trip);
+}
+
+async function executeMoveItem(item, sourceDay, destDay, newTime, trip){
+  const sameDay = sourceDay.id === destDay.id;
+  const newEndTime = computeShiftedEndTime(item.time, item.endTime, newTime);
+  const destSection = newTime ? getItemSection({ time: newTime }) : getItemSection(item);
+  const willBeMainPlan = computeMainPlanCarry(destDay, destSection, item.isMainPlan, item.id);
+
+  if(!sameDay){
+    sourceDay.items = sourceDay.items.filter(i => i.id !== item.id);
+  }
+  item.time = newTime || '';
+  item.endTime = newEndTime || '';
+  if(newTime) item.section = '';
+  item.isMainPlan = willBeMainPlan;
+  if(!sameDay){
+    destDay.items.push(item);
+  }
+
+  render();
+  await syncItemMoveToSupabase(item, sourceDay, destDay, trip);
+}
+
+let copyMoveContext = null;
+let copyMoveMode = 'copy';
+
+function openCopyMoveModal(item, sourceDay, trip, initialMode){
+  copyMoveContext = { item, sourceDay, trip };
+
+  const daySelect = document.getElementById('copyMoveDaySelect');
+  daySelect.innerHTML = trip.days.map((d, i) => {
+    const label = getDayDisplayLabel(trip, i, d, true) + (d.id === sourceDay.id ? ' (current)' : '');
+    return `<option value="${d.id}" ${d.id === sourceDay.id ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+  }).join('');
+  daySelect.onchange = updateCopyMoveSummary;
+
+  const timeRow = document.getElementById('copyMoveTimeRow');
+  const timeInput = document.getElementById('copyMoveTimeInput');
+  const noTimeNote = document.getElementById('copyMoveNoTimeNote');
+  if(item.time){
+    timeRow.style.display = '';
+    noTimeNote.style.display = 'none';
+    timeInput.value = item.time;
+  } else {
+    timeRow.style.display = 'none';
+    noTimeNote.style.display = '';
+  }
+  timeInput.onchange = updateCopyMoveSummary;
+
+  const sourceDayIndex = trip.days.findIndex(d => d.id === sourceDay.id);
+  document.getElementById('copyMoveContext').innerHTML = `
+    <strong>${escapeHtml(item.name)}</strong>
+    Currently: ${escapeHtml(getDayDisplayLabel(trip, sourceDayIndex, sourceDay, true))}${item.time ? ' · ' + escapeHtml(formatTime(item.time)) : ''}
+  `;
+
+  setCopyMoveMode(initialMode || 'copy');
+  document.getElementById('copyMoveOverlay').classList.add('active');
+}
+
+function setCopyMoveMode(mode){
+  copyMoveMode = mode;
+  document.querySelectorAll('.mode-toggle-option').forEach(btn => {
+    const isActive = btn.dataset.cmMode === mode;
+    btn.classList.toggle('active', isActive);
+    btn.classList.toggle('move-active', isActive && mode === 'move');
+  });
+  document.getElementById('copyMoveHeader').textContent = mode === 'copy' ? 'Copy Item' : 'Move Item';
+  updateCopyMoveSummary();
+}
+
+function updateCopyMoveSummary(){
+  if(!copyMoveContext) return;
+  const { item, sourceDay, trip } = copyMoveContext;
+  const daySelect = document.getElementById('copyMoveDaySelect');
+  const destDayId = daySelect.value;
+  const destDayIndex = trip.days.findIndex(d => d.id === destDayId);
+  const destDay = trip.days[destDayIndex];
+  const dayLabel = getDayDisplayLabel(trip, destDayIndex, destDay, true);
+  const timeInput = document.getElementById('copyMoveTimeInput');
+  const newTime = item.time ? timeInput.value : '';
+  const whereText = newTime ? `${dayLabel} at ${formatTime(newTime)}` : dayLabel;
+
+  const summaryEl = document.getElementById('copyMoveSummary');
+  const submitBtn = document.getElementById('copyMoveSubmitBtn');
+  summaryEl.classList.toggle('move-mode', copyMoveMode === 'move');
+  submitBtn.classList.toggle('move-mode', copyMoveMode === 'move');
+
+  if(copyMoveMode === 'copy'){
+    summaryEl.innerHTML = `This creates a new copy of "${escapeHtml(item.name)}" on <strong>${escapeHtml(whereText)}</strong>. The original stays exactly as it is.`;
+    submitBtn.textContent = `📋 Copy to ${dayLabel}`;
+  } else {
+    const sourceDayIndex = trip.days.findIndex(d => d.id === sourceDay.id);
+    const sourceLabel = getDayDisplayLabel(trip, sourceDayIndex, sourceDay, true);
+    const sameDay = destDayId === sourceDay.id;
+    summaryEl.innerHTML = sameDay
+      ? `This moves "${escapeHtml(item.name)}" to <strong>${escapeHtml(whereText)}</strong>.`
+      : `This moves "${escapeHtml(item.name)}" to <strong>${escapeHtml(whereText)}</strong>. It will no longer appear on ${escapeHtml(sourceLabel)}.`;
+    submitBtn.textContent = `➡️ Move to ${dayLabel}`;
+  }
+}
+
+document.querySelectorAll('.mode-toggle-option').forEach(btn => {
+  btn.onclick = () => setCopyMoveMode(btn.dataset.cmMode);
+});
+document.getElementById('copyMoveCancelBtn').onclick = () => {
+  document.getElementById('copyMoveOverlay').classList.remove('active');
+  copyMoveContext = null;
+};
+document.getElementById('copyMoveSubmitBtn').onclick = async () => {
+  if(!copyMoveContext) return;
+  const { item, sourceDay, trip } = copyMoveContext;
+  const destDay = trip.days.find(d => d.id === document.getElementById('copyMoveDaySelect').value);
+  const timeInput = document.getElementById('copyMoveTimeInput');
+  const newTime = item.time ? timeInput.value : '';
+  const mode = copyMoveMode;
+
+  document.getElementById('copyMoveOverlay').classList.remove('active');
+  copyMoveContext = null;
+
+  if(mode === 'copy'){
+    await executeCopyItem(item, destDay, newTime, trip);
+  } else {
+    await executeMoveItem(item, sourceDay, destDay, newTime, trip);
+  }
+};
+
+function openItemKebabMenu(item, day, trip){
+  const body = document.getElementById('itemKebabBody');
+  body.innerHTML = `
+    <button type="button" data-role="kb-calendar">📅 Add to Calendar</button>
+    <button type="button" data-role="kb-copy">📋 Copy…</button>
+    <button type="button" data-role="kb-move">➡️ Move…</button>
+    <div class="kebab-divider"></div>
+    <button type="button" data-role="kb-delete" class="danger">Delete</button>
+  `;
+  body.querySelector('[data-role="kb-calendar"]').onclick = () => {
+    closeItemKebabMenu();
+    const ics = generateSingleItemICS(trip, day, item);
+    if(!ics) return;
+    const safeName = (item.name || 'event').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+    const blob = new Blob([ics], {type:'text/calendar'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${safeName}.ics`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  body.querySelector('[data-role="kb-copy"]').onclick = () => {
+    closeItemKebabMenu();
+    openCopyMoveModal(item, day, trip, 'copy');
+  };
+  body.querySelector('[data-role="kb-move"]').onclick = () => {
+    closeItemKebabMenu();
+    openCopyMoveModal(item, day, trip, 'move');
+  };
+  body.querySelector('[data-role="kb-delete"]').onclick = async () => {
+    if(!confirm(`Delete "${item.name}"?`)) return;
+    closeItemKebabMenu();
+    await deleteItemFromSupabaseNow(item);
+    day.items = day.items.filter(i => i.id !== item.id);
+    render();
+  };
+  document.getElementById('itemKebabOverlay').classList.add('active');
+}
 
 function renderCrowdLevelsManager(){
   const trip = crowdLevelsManagerTrip;
@@ -6852,20 +7231,10 @@ function renderItemCard(day, item){
         <button data-role="toggle-status">${status === 'confirmed' ? 'Pencil this in' : 'Confirm this'}</button>
         <button data-role="edit">Edit</button>
         <button data-role="main-plan">${item.isMainPlan ? 'Unset Main Plan' : '📌 Set as Main Plan'}</button>
-        <button data-role="calendar" title="Add this item to your calendar">📅 Calendar</button>
-        <button data-role="del" class="danger">Delete</button>
+        <button data-role="kebab" class="item-kebab-btn" aria-label="More actions">⋮</button>
       </div>
     </div>
   `;
-  card.querySelector('[data-role="del"]').onclick = async () => {
-    if(!confirm(`Delete "${item.name}"?`)) return;
-    const delBtn = card.querySelector('[data-role="del"]');
-    delBtn.disabled = true;
-    delBtn.textContent = 'Deleting…';
-    await deleteItemFromSupabaseNow(item);
-    day.items = day.items.filter(i => i.id !== item.id);
-    render();
-  };
   card.querySelector('[data-role="toggle-status"]').onclick = () => {
     item.status = status === 'confirmed' ? 'tentative' : 'confirmed';
     render();
@@ -6892,18 +7261,8 @@ function renderItemCard(day, item){
       }, 0);
     }
   };
-  card.querySelector('[data-role="calendar"]').onclick = () => {
-    const trip = getActiveTrip();
-    const ics = generateSingleItemICS(trip, day, item);
-    if(!ics) return;
-    const safeName = (item.name || 'event').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
-    const blob = new Blob([ics], {type:'text/calendar'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${safeName}.ics`;
-    a.click();
-    URL.revokeObjectURL(url);
+  card.querySelector('[data-role="kebab"]').onclick = () => {
+    openItemKebabMenu(item, day, getActiveTrip());
   };
   return card;
 }
@@ -7610,7 +7969,9 @@ function closeTravelerColorModal(){
   ['travelerColorOverlay', closeTravelerColorModal],
   ['buildPackingListOverlay', closeBuildPackingListModal],
   ['crowdLevelsManagerOverlay', closeCrowdLevelsManager],
-  ['travelerFilterOverlay', () => document.getElementById('travelerFilterOverlay').classList.remove('active')]
+  ['travelerFilterOverlay', () => document.getElementById('travelerFilterOverlay').classList.remove('active')],
+  ['itemKebabOverlay', closeItemKebabMenu],
+  ['copyMoveOverlay', () => { document.getElementById('copyMoveOverlay').classList.remove('active'); copyMoveContext = null; }]
 ].forEach(([overlayId, closeFn]) => {
   document.getElementById(overlayId).addEventListener('click', e => {
     if(e.target.id !== overlayId) return;
