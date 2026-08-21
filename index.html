@@ -418,13 +418,21 @@
     margin-top:18px;
     padding:10px 14px;
     border-radius:var(--radius-md);
-    border:1.5px solid var(--accent-high-text);
-    background:var(--accent-high-bg);
-    color:var(--accent-high-text);
+    border:1.5px solid var(--coral);
+    background:rgba(47,143,90,.12);
+    color:var(--coral);
     font-family:'Inter',sans-serif;
     font-size:13.5px;
     font-weight:700;
     cursor:pointer;
+  }
+  .tools-menu-ghost-close{
+    background:none;
+    border:none;
+    color:var(--slate);
+    text-decoration:underline;
+    box-shadow:none;
+    font-weight:700;
   }
   .theme-card{
     display:flex;
@@ -2491,6 +2499,19 @@
     cursor:pointer;
     margin:0 0 16px;
   }
+  .print-packing-btn-secondary{
+    display:block;
+    width:100%;
+    background:var(--paper);
+    color:var(--sky);
+    border:1.5px solid var(--line);
+    padding:10px;
+    border-radius:var(--radius-md);
+    font-weight:600;
+    font-size:13px;
+    cursor:pointer;
+    margin:0 0 16px;
+  }
   .packing-btn-row{
     display:flex;
     flex-wrap:wrap;
@@ -3067,7 +3088,7 @@
     <h2>Tools</h2>
     <p class="sub">Actions for this trip.</p>
     <div id="toolsMenuBody"></div>
-    <button class="master-editor-close" id="toolsMenuCloseBtn">Done</button>
+    <button class="master-editor-close tools-menu-ghost-close" id="toolsMenuCloseBtn">Done</button>
   </div>
 </div>
 
@@ -3077,7 +3098,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.83';
+const APP_VERSION = '1.84';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -7746,7 +7767,7 @@ function renderToolsMenu(){
 
   const copyTextBtn = document.createElement('button');
   copyTextBtn.type = 'button';
-  copyTextBtn.className = 'print-packing-btn';
+  copyTextBtn.className = 'print-packing-btn-secondary';
   copyTextBtn.textContent = '📋 Copy Packing List as Text';
   copyTextBtn.onclick = async () => {
     const text = generatePackingListText(trip);
@@ -7820,7 +7841,7 @@ function renderToolsMenu(){
 
   const downloadBtn = document.createElement('button');
   downloadBtn.type = 'button';
-  downloadBtn.className = 'print-packing-btn';
+  downloadBtn.className = 'print-packing-btn-secondary';
   downloadBtn.textContent = '💾 Download Backup';
   downloadBtn.title = 'Syncs first, then downloads a full backup file of every trip';
   downloadBtn.onclick = async () => {
@@ -7855,7 +7876,7 @@ function renderToolsMenu(){
 
   const duplicateBtn = document.createElement('button');
   duplicateBtn.type = 'button';
-  duplicateBtn.className = 'print-packing-btn';
+  duplicateBtn.className = 'print-packing-btn-secondary';
   duplicateBtn.textContent = '📄 Duplicate this trip';
   duplicateBtn.title = 'Creates a full, independent copy — every day, item, and stay';
   duplicateBtn.onclick = async () => {
@@ -7880,7 +7901,7 @@ function renderToolsMenu(){
   body.appendChild(archiveStatusNote);
   const archiveBtn = document.createElement('button');
   archiveBtn.type = 'button';
-  archiveBtn.className = 'print-packing-btn';
+  archiveBtn.className = 'print-packing-btn-secondary';
   archiveBtn.textContent = trip.archivedAt ? '📤 Unarchive this trip' : '📦 Archive this trip';
   archiveBtn.onclick = () => {
     trip.archivedAt = trip.archivedAt ? null : new Date().toISOString();
@@ -7919,13 +7940,13 @@ function renderToolsMenu(){
 
   const loadLabel = document.createElement('label');
   loadLabel.setAttribute('for', 'loadInput');
-  loadLabel.className = 'print-packing-btn tools-menu-load-label';
+  loadLabel.className = 'print-packing-btn-secondary tools-menu-load-label';
   loadLabel.textContent = '📂 Load Trips from a Backup File';
   body.appendChild(loadLabel);
 
   const viewArchivedBtn = document.createElement('button');
   viewArchivedBtn.type = 'button';
-  viewArchivedBtn.className = 'print-packing-btn';
+  viewArchivedBtn.className = 'print-packing-btn-secondary';
   viewArchivedBtn.textContent = '🗄️ View Archived Trips';
   viewArchivedBtn.onclick = () => {
     showArchivedTrips = true;
