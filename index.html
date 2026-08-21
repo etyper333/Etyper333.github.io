@@ -3098,7 +3098,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.84';
+const APP_VERSION = '1.85';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -3922,14 +3922,25 @@ async function fetchRemoteTripData(supabaseTripId){
 // travelers by their supabaseId so local ids (and things like which day is active) stay
 // stable across repeat visits. Local-only fields (stays, crowdLevels, packing, groceries)
 // are never touched here.
+//
+// Trip-level fields (title, dates, startDate, notes, etc.) are only overwritten if local
+// has no pending, unsynced edit to them -- otherwise a refresh that lands while an edit is
+// still mid-flight could silently clobber it with the older, pre-edit server state. A brand
+// new trip (no baseline recorded yet at all) is never considered "pending" here, so it still
+// correctly receives its initial data.
 function mergeRemoteIntoLocalTrip(localTrip, remoteData, allTravelers){
-  localTrip.title = remoteData.title;
-  localTrip.dates = remoteData.dates;
-  localTrip.startDate = remoteData.startDate;
-  localTrip.archivedAt = remoteData.archivedAt;
-  localTrip.notes = remoteData.notes;
-  localTrip.packingNotes = remoteData.packingNotes;
-  localTrip.groceryNotes = remoteData.groceryNotes;
+  const tripBaselineKey = 'trip:' + localTrip.id;
+  const tripBaseline = recordBaselines[tripBaselineKey];
+  const hasPendingTripEdit = tripBaseline !== undefined && tripBaseline !== getTripSnapshot(localTrip);
+  if(!hasPendingTripEdit){
+    localTrip.title = remoteData.title;
+    localTrip.dates = remoteData.dates;
+    localTrip.startDate = remoteData.startDate;
+    localTrip.archivedAt = remoteData.archivedAt;
+    localTrip.notes = remoteData.notes;
+    localTrip.packingNotes = remoteData.packingNotes;
+    localTrip.groceryNotes = remoteData.groceryNotes;
+  }
 
   if(!localTrip.supabaseTravelerMap) localTrip.supabaseTravelerMap = {};
   const existingSupaToLocal = {};
@@ -5669,13 +5680,29 @@ async function duplicateTrip(sourceTrip){
   (clone.packingItems || []).forEach(pi => { pi.id = cryptoId(); });
   (clone.groceryItems || []).forEach(gi => { gi.id = cryptoId(); });
 
+  // Add to the trips list so the sync call below can find and fully create it in
+  // Supabase, but deliberately don't activate or render it as the current trip yet.
+  // Fully syncing FIRST closes the window where an edit made right after duplicating
+  // could silently be lost -- saves for anything without a supabaseId yet quietly
+  // no-op today, and this trip has none of its supabaseIds until this call finishes.
   appData.trips.push(clone);
+  await syncTripToSupabase(clone, appData.travelers);
+
+  // Register this device as knowing about the new trip -- without this, the trip
+  // exists correctly in Supabase but would vanish from this device on next reload,
+  // since nothing else would ever tell the app to look for it again.
+  const sharedMap = getSharedTripMap();
+  sharedMap[clone.supabaseId] = {
+    localTripId: clone.id, title: clone.title, dates: clone.dates,
+    lastOpenedAt: new Date().toISOString(), archivedAt: clone.archivedAt || null
+  };
+  saveSharedTripMap(sharedMap);
+  establishAllBaselines();
+
   appData.activeTripId = clone.id;
   activeDayId = clone.days[0] ? clone.days[0].id : null;
   activeTravelerFilter = [];
   render();
-
-  await syncAndRefreshActiveTrip();
 }
 
 function removeTrip(tripId){
@@ -7882,11 +7909,13 @@ function renderToolsMenu(){
   duplicateBtn.onclick = async () => {
     duplicateBtn.disabled = true;
     duplicateBtn.textContent = '📄 Duplicating…';
-    closeToolsMenu();
     try{
       await duplicateTrip(trip);
+      closeToolsMenu();
     }catch(err){
       console.error('Duplicate trip failed:', err);
+      duplicateBtn.disabled = false;
+      duplicateBtn.textContent = '📄 Duplicate this trip';
       alert("Something went wrong duplicating this trip. Please try again.");
     }
   };
