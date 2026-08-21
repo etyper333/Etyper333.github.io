@@ -3239,7 +3239,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.86';
+const APP_VERSION = '1.87';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -6947,7 +6947,7 @@ function renderDayPanels(){
 
     if(!initializedDayDetailsDefaults.has(day.id)){
       initializedDayDetailsDefaults.add(day.id);
-      if(!nightStay || !day.ropeDrop) expandedDetails.add(day.id);
+      if(!nightStay) expandedDetails.add(day.id);
     }
 
     const detailsAccordion = document.createElement('div');
