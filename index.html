@@ -3248,12 +3248,21 @@
   </div>
 </div>
 
-<div class="master-editor-overlay" id="themePickerOverlay">
+<div class="master-editor-overlay" id="settingsOverlay">
   <div class="master-editor">
     <h2>Settings</h2>
     <p class="sub">Device-level preferences — not something saved or shared with others.</p>
-    <div id="themePickerBody"></div>
-    <button class="master-editor-close" id="themePickerCloseBtn">Done</button>
+    <div id="settingsBody"></div>
+    <button class="master-editor-close" id="settingsCloseBtn">Done</button>
+  </div>
+</div>
+
+<div class="master-editor-overlay" id="themesOverlay">
+  <div class="master-editor">
+    <h2>Themes</h2>
+    <p class="sub">Pick the look and feel for this device. Purely for fun — nothing here is saved or shared with others.</p>
+    <div id="themesBody"></div>
+    <button class="master-editor-close" id="themesCloseBtn">Done</button>
   </div>
 </div>
 
@@ -3272,7 +3281,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.93';
+const APP_VERSION = '1.94';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5954,12 +5963,18 @@ document.getElementById('listsSubTabs').addEventListener('click', e => {
 function renderTripSwitcher(){
   const bar = document.getElementById('tripSwitcher');
   bar.innerHTML = '';
-  const themeBtn = document.createElement('button');
-  themeBtn.className = 'theme-switch-btn';
-  themeBtn.textContent = '⚙️ Settings';
-  themeBtn.title = 'Theme and other device preferences';
-  themeBtn.onclick = openThemePicker;
-  bar.appendChild(themeBtn);
+  const themesBtn = document.createElement('button');
+  themesBtn.className = 'theme-switch-btn';
+  themesBtn.textContent = '🎨 Themes';
+  themesBtn.title = 'Pick a look for this device';
+  themesBtn.onclick = openThemes;
+  bar.appendChild(themesBtn);
+  const settingsBtn = document.createElement('button');
+  settingsBtn.className = 'theme-switch-btn';
+  settingsBtn.textContent = '⚙️ Settings';
+  settingsBtn.title = 'Default view and other device preferences';
+  settingsBtn.onclick = openSettings;
+  bar.appendChild(settingsBtn);
 }
 
 function openTripSwitchModal(){
@@ -8025,7 +8040,8 @@ function closeTravelerColorModal(){
 // either pure navigation, or everything they contain already commits immediately.
 [
   ['tripSwitchOverlay', closeTripSwitchModal],
-  ['themePickerOverlay', closeThemePicker],
+  ['settingsOverlay', closeSettings],
+  ['themesOverlay', closeThemes],
   ['toolsMenuOverlay', closeToolsMenu],
   ['travelerColorOverlay', closeTravelerColorModal],
   ['buildPackingListOverlay', closeBuildPackingListModal],
@@ -8407,15 +8423,26 @@ function renderToolsMenu(){
   body.appendChild(viewArchivedBtn);
 }
 
-function openThemePicker(){
-  renderThemePicker();
-  document.getElementById('themePickerOverlay').classList.add('active');
+function openSettings(){
+  renderSettings();
+  document.getElementById('settingsOverlay').classList.add('active');
 }
-function closeThemePicker(){
-  document.getElementById('themePickerOverlay').classList.remove('active');
+function closeSettings(){
+  document.getElementById('settingsOverlay').classList.remove('active');
   render();
 }
-document.getElementById('themePickerCloseBtn').onclick = closeThemePicker;
+document.getElementById('settingsCloseBtn').onclick = closeSettings;
+
+function openThemes(){
+  renderThemes();
+  document.getElementById('themesOverlay').classList.add('active');
+}
+function closeThemes(){
+  document.getElementById('themesOverlay').classList.remove('active');
+  render();
+}
+document.getElementById('themesCloseBtn').onclick = closeThemes;
+
 document.getElementById('toolsMenuTrigger').onclick = openToolsMenu;
 document.getElementById('syncBtn').onclick = async () => {
   const btn = document.getElementById('syncBtn');
@@ -8427,8 +8454,8 @@ document.getElementById('syncBtn').onclick = async () => {
   updateUnsavedIndicator();
 };
 
-function renderThemePicker(){
-  const body = document.getElementById('themePickerBody');
+function renderSettings(){
+  const body = document.getElementById('settingsBody');
   body.innerHTML = '';
 
   const viewLabel = document.createElement('div');
@@ -8441,7 +8468,6 @@ function renderThemePicker(){
   body.appendChild(viewSub);
   const viewToggleRow = document.createElement('div');
   viewToggleRow.className = 'status-toggle-row';
-  viewToggleRow.style.marginBottom = '18px';
   const storedView = getStoredDefaultView() === 'timeline' ? 'timeline' : 'cards';
   [{ key: 'cards', label: 'Cards' }, { key: 'timeline', label: 'Timeline' }].forEach(opt => {
     const optBtn = document.createElement('button');
@@ -8450,11 +8476,16 @@ function renderThemePicker(){
     optBtn.className = storedView === opt.key ? 'on-confirmed' : '';
     optBtn.onclick = () => {
       saveDefaultViewPreference(opt.key);
-      renderThemePicker();
+      renderSettings();
     };
     viewToggleRow.appendChild(optBtn);
   });
   body.appendChild(viewToggleRow);
+}
+
+function renderThemes(){
+  const body = document.getElementById('themesBody');
+  body.innerHTML = '';
 
   const grid = document.createElement('div');
   grid.className = 'theme-card-grid';
@@ -8473,7 +8504,7 @@ function renderThemePicker(){
     card.onclick = () => {
       appData.theme = theme.key;
       saveThemePreference(theme.key);
-      renderThemePicker();
+      renderThemes();
       document.documentElement.setAttribute('data-theme', appData.theme);
     };
     grid.appendChild(card);
