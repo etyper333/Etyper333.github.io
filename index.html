@@ -1329,8 +1329,11 @@
       margin:0 auto;
       padding:0 16px;
     }
-    .itinerary-layout main#dayPanels{
+    .itinerary-main-column{
       flex:1;
+      min-width:0;
+    }
+    .itinerary-layout main#dayPanels{
       min-width:0;
       max-width:none;
       margin:0;
@@ -3101,32 +3104,34 @@
   </div>
 </div>
 
-<div class="view-tabs-wrap">
-  <div class="view-tabs" id="viewTabs">
-    <button class="view-tab view-tab-primary" data-view="itinerary">Itinerary</button>
-    <button class="view-tab view-tab-secondary" data-view="packing">Packing Lists</button>
-  </div>
-</div>
-
-<div class="lists-sub-tabs" id="listsSubTabs" style="display:none;">
-  <button type="button" class="lists-sub-tab" data-sub="packing">🎒 Packing</button>
-  <button type="button" class="lists-sub-tab" data-sub="groceries">🛒 Groceries</button>
-</div>
-
-<div class="view-controls-row" id="viewControlsWrap" style="display:none;">
-  <button type="button" class="traveler-filter-trigger" id="travelerFilterTrigger" style="display:none;"></button>
-  <div class="mode-toggle-group" id="modeToggleGroup">
-    <button type="button" class="mode-toggle-btn" data-mode="cards" title="Cards view">📋</button>
-    <button type="button" class="mode-toggle-btn" data-mode="timeline" title="Timeline view">📅</button>
-  </div>
-  <button type="button" id="compactToggleBtn" class="compact-toggle-icon-btn" title="Compact view">🗜️</button>
-</div>
-
-<nav class="monorail" id="monorail"></nav>
-<button type="button" class="current-day-sticky" id="currentDaySticky" title="Tap to jump to the day switcher"></button>
-
 <div class="itinerary-layout" id="itineraryLayout">
-  <main id="dayPanels"></main>
+  <div class="itinerary-main-column">
+    <div class="view-tabs-wrap">
+      <div class="view-tabs" id="viewTabs">
+        <button class="view-tab view-tab-primary" data-view="itinerary">Itinerary</button>
+        <button class="view-tab view-tab-secondary" data-view="packing">Packing Lists</button>
+      </div>
+    </div>
+
+    <div class="lists-sub-tabs" id="listsSubTabs" style="display:none;">
+      <button type="button" class="lists-sub-tab" data-sub="packing">🎒 Packing</button>
+      <button type="button" class="lists-sub-tab" data-sub="groceries">🛒 Groceries</button>
+    </div>
+
+    <div class="view-controls-row" id="viewControlsWrap" style="display:none;">
+      <button type="button" class="traveler-filter-trigger" id="travelerFilterTrigger" style="display:none;"></button>
+      <div class="mode-toggle-group" id="modeToggleGroup">
+        <button type="button" class="mode-toggle-btn" data-mode="cards" title="Cards view">📋</button>
+        <button type="button" class="mode-toggle-btn" data-mode="timeline" title="Timeline view">📅</button>
+      </div>
+      <button type="button" id="compactToggleBtn" class="compact-toggle-icon-btn" title="Compact view">🗜️</button>
+    </div>
+
+    <nav class="monorail" id="monorail"></nav>
+    <button type="button" class="current-day-sticky" id="currentDaySticky" title="Tap to jump to the day switcher"></button>
+
+    <main id="dayPanels"></main>
+  </div>
   <aside class="itinerary-sidebar" id="itinerarySidebar"></aside>
 </div>
 
@@ -3267,7 +3272,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.91';
+const APP_VERSION = '1.93';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5880,6 +5885,7 @@ function render(){
   const isDayMode = currentView === 'itinerary';
   const isListsMode = currentView === 'packing' || currentView === 'groceries';
   document.getElementById('monorail').style.display = isDayMode ? '' : 'none';
+  document.getElementById('currentDaySticky').style.display = isDayMode ? '' : 'none';
   document.getElementById('viewControlsWrap').style.display = currentView === 'itinerary' ? '' : 'none';
   document.getElementById('dayPanels').style.display = isDayMode ? '' : 'none';
   document.getElementById('itinerarySidebar').style.display = isDayMode ? '' : 'none';
