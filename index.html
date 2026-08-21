@@ -1192,9 +1192,23 @@
     overflow-x:auto;
     background:var(--paper);
     border-bottom:1px solid var(--line);
+  }
+  .current-day-sticky{
+    display:block;
+    width:100%;
+    text-align:left;
     position:sticky;
-    top:0;
-    z-index:5;
+    top:var(--trip-meta-height, 60px);
+    z-index:10;
+    background:var(--paper);
+    border:none;
+    border-bottom:1px solid var(--line);
+    padding:6px 16px;
+    font-family:'Baloo 2',sans-serif;
+    font-size:13px;
+    font-weight:700;
+    color:var(--sky);
+    cursor:pointer;
   }
   .rail-stop{
     display:flex;
@@ -1320,7 +1334,7 @@
       display:block;
       flex:0 0 240px;
       position:sticky;
-      top:calc(var(--monorail-height, 60px) + 18px);
+      top:calc(var(--sticky-stack-height, 100px) + 18px);
       padding-top:18px;
     }
   }
@@ -1452,7 +1466,7 @@
     padding:8px 0;
     flex-wrap:wrap;
     position:sticky;
-    top:var(--monorail-height, 60px);
+    top:var(--sticky-stack-height, 100px);
     z-index:4;
     background:var(--cream);
   }
@@ -1471,7 +1485,7 @@
   }
   .section-inline-add-form{
     margin:-4px 0 14px;
-    scroll-margin-top:calc(var(--monorail-height, 60px) + 56px);
+    scroll-margin-top:calc(var(--sticky-stack-height, 100px) + 56px);
   }
   .section-header .dot{
     width:8px;height:8px;
@@ -3052,7 +3066,7 @@
   </button>
 </header>
 
-<div class="trip-meta">
+<div class="trip-meta" id="tripMeta">
   <button type="button" id="tripSummaryTrigger" class="trip-summary-trigger">
     <span class="trip-summary-label">🏨 Trip Details</span>
     <span class="trip-summary-text"></span>
@@ -3101,6 +3115,7 @@
 </div>
 
 <nav class="monorail" id="monorail"></nav>
+<button type="button" class="current-day-sticky" id="currentDaySticky" title="Tap to jump to the day switcher"></button>
 
 <div class="itinerary-layout" id="itineraryLayout">
   <main id="dayPanels"></main>
@@ -3244,7 +3259,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.89';
+const APP_VERSION = '1.90';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5873,8 +5888,19 @@ function render(){
     renderMonorail();
     renderDayPanels();
     renderItinerarySidebar(trip);
-    const monorailEl = document.getElementById('monorail');
-    document.documentElement.style.setProperty('--monorail-height', monorailEl.offsetHeight + 'px');
+
+    const currentDayIndex = trip.days.findIndex(d => d.id === activeDayId);
+    const currentDayStickyEl = document.getElementById('currentDaySticky');
+    if(currentDayIndex !== -1){
+      currentDayStickyEl.textContent = getDayDisplayLabel(trip, currentDayIndex, trip.days[currentDayIndex], false);
+      currentDayStickyEl.onclick = () => {
+        document.getElementById('monorail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+    }
+
+    const tripMetaEl = document.getElementById('tripMeta');
+    document.documentElement.style.setProperty('--trip-meta-height', tripMetaEl.offsetHeight + 'px');
+    document.documentElement.style.setProperty('--sticky-stack-height', (tripMetaEl.offsetHeight + currentDayStickyEl.offsetHeight) + 'px');
   } else if(currentView === 'packing'){
     renderPackingPanel();
   } else if(currentView === 'groceries'){
