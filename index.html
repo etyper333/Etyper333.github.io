@@ -1096,11 +1096,6 @@
     font-weight:700;
     color:var(--ink);
   }
-  .overview-day-tag{
-    font-size:11px;
-    font-weight:600;
-    color:var(--slate);
-  }
   .overview-day-hotel{
     font-size:12.5px;
     color:var(--slate);
@@ -1378,18 +1373,6 @@
     flex:1 1 auto;
     min-width:140px;
   }
-  .day-tag-input{
-    font-family:'Inter',sans-serif;
-    font-size:13px;
-    font-weight:600;
-    padding:8px 10px;
-    border-radius:var(--radius-md);
-    border:1.5px solid var(--line);
-    background:var(--paper);
-    color:var(--ink);
-    flex:0 1 130px;
-    min-width:110px;
-  }
   .remove-day-btn{
     margin-left:auto;
     background:none;
@@ -1653,6 +1636,28 @@
   .tab-rest{background:var(--sage);}
   .tab-travel{background:var(--slate);}
 
+  .timeline-legend{
+    margin:10px 16px 2px;
+    padding:6px 12px;
+    font-size:11px;
+    color:var(--slate);
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:4px;
+  }
+  .timeline-legend-item{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+  }
+  .timeline-legend-dot{
+    display:inline-block;
+    width:8px;
+    height:8px;
+    border-radius:var(--radius-round);
+    flex-shrink:0;
+  }
   .timeline-untimed-shelf{
     margin:10px 16px 4px;
     padding:10px 12px;
@@ -3239,7 +3244,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.87';
+const APP_VERSION = '1.89';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -3279,7 +3284,7 @@ async function syncNewDayToSupabase(day, trip){
   if(!trip.supabaseId || day.supabaseId) return;
   try{
     const { data, error } = await supabaseClient.from('days').insert([{
-      trip_id: trip.supabaseId, label: day.label || '', day_tag: day.dayTag || '', rope_drop: day.ropeDrop || null, notes: day.notes || ''
+      trip_id: trip.supabaseId, label: day.label || '', rope_drop: day.ropeDrop || null, notes: day.notes || ''
     }]).select().single();
     if(error) throw error;
     day.supabaseId = data.id;
@@ -3535,7 +3540,7 @@ async function syncTripToSupabase(trip, allTravelers){
   for(const day of trip.days){
     if(day.supabaseId){
       const { data: updateResult } = await supabaseClient.from('days').update({
-        label: day.label || '', day_tag: day.dayTag || '', rope_drop: day.ropeDrop || null, notes: day.notes || ''
+        label: day.label || '', rope_drop: day.ropeDrop || null, notes: day.notes || ''
       }).eq('id', day.supabaseId).select();
       if(!updateResult || updateResult.length === 0){
         deletedByOthers.push({ type: 'day', name: day.label || 'a day' });
@@ -3544,7 +3549,7 @@ async function syncTripToSupabase(trip, allTravelers){
       }
     } else {
       const { data, error } = await supabaseClient.from('days').insert([{
-        trip_id: trip.supabaseId, label: day.label || '', day_tag: day.dayTag || '', rope_drop: day.ropeDrop || null, notes: day.notes || ''
+        trip_id: trip.supabaseId, label: day.label || '', rope_drop: day.ropeDrop || null, notes: day.notes || ''
       }]).select().single();
       if(error) throw error;
       day.supabaseId = data.id;
@@ -3885,7 +3890,7 @@ async function syncSingleDayUpdate(day){
   if(!day.supabaseId) return { ok: true };
   try{
     const { data: updateResult } = await supabaseClient.from('days').update({
-      label: day.label || '', day_tag: day.dayTag || '', rope_drop: day.ropeDrop || null, notes: day.notes || ''
+      label: day.label || '', rope_drop: day.ropeDrop || null, notes: day.notes || ''
     }).eq('id', day.supabaseId).select();
     if(!updateResult || updateResult.length === 0){
       return { ok: false, type: 'day', name: day.label || 'this day' };
@@ -4075,8 +4080,7 @@ async function fetchRemoteTripData(supabaseTripId){
       supabaseId: row.id, daySupaId: row.day_id, park: row.park || '', level: row.level || ''
     })),
     days: dayRows.map(dayRow => ({
-      supabaseId: dayRow.id, label: dayRow.label || '', dayTag: dayRow.day_tag || '',
-      ropeDrop: dayRow.rope_drop || '', notes: dayRow.notes || '',
+      supabaseId: dayRow.id, label: dayRow.label || '',       ropeDrop: dayRow.rope_drop || '', notes: dayRow.notes || '',
       items: itemRows.filter(i => i.day_id === dayRow.id).map(itemRow => ({
         supabaseId: itemRow.id, time: itemRow.time || '', endTime: itemRow.end_time || '',
         section: itemRow.section || '', type: itemRow.type || '', name: itemRow.name || '',
@@ -4147,7 +4151,6 @@ function mergeRemoteIntoLocalTrip(localTrip, remoteData, allTravelers){
       localDay = { id: cryptoId(), supabaseId: remoteDay.supabaseId, items: [] };
     }
     localDay.label = remoteDay.label;
-    localDay.dayTag = remoteDay.dayTag;
     localDay.ropeDrop = remoteDay.ropeDrop;
     localDay.notes = remoteDay.notes;
 
@@ -5556,7 +5559,6 @@ function defaultDay(n){
   return {
     id: cryptoId(),
     label: "Day " + n,
-    dayTag: "",
     hotel: "",
     hotelConfirmation: "",
     roomType: "",
@@ -5641,7 +5643,7 @@ function getTripSnapshot(trip){
 }
 function getDaySnapshot(day){
   return JSON.stringify({
-    label: day.label || '', dayTag: day.dayTag || '', ropeDrop: day.ropeDrop || null, notes: day.notes || ''
+    label: day.label || '', ropeDrop: day.ropeDrop || null, notes: day.notes || ''
   });
 }
 function getItemSnapshot(item){
@@ -6567,7 +6569,6 @@ function renderOverview(trip, wrap){
     header.className = 'overview-day-header';
     header.innerHTML = `
       <span class="overview-day-date">${escapeHtml(getDayDisplayLabel(trip, dayIndex, day, true))}</span>
-      ${day.dayTag ? `<span class="overview-day-tag">${escapeHtml(day.dayTag)}</span>` : ''}
     `;
     card.appendChild(header);
 
@@ -6702,6 +6703,29 @@ function renderDayTimelineGrid(panel, day, trip){
   const PIXELS_PER_HOUR = 60;
   const WINDOW_START_DEFAULT = 6 * 60;
   const WINDOW_END_DEFAULT = 24 * 60;
+
+  const visibleItemsToday = day.items.filter(itemMatchesFilter);
+  const dayHasCrowdBadge = visibleItemsToday.some(i => CROWD_LEVEL_PARKS.includes(i.name) && getCrowdLevel(trip, day.id, i.name));
+  const dayHasTravelerDots = visibleItemsToday.some(i => Array.isArray(i.travelerIds) && i.travelerIds.length > 0);
+  if(dayHasCrowdBadge || dayHasTravelerDots){
+    const legend = document.createElement('div');
+    legend.className = 'timeline-legend';
+    const parts = [];
+    if(dayHasCrowdBadge){
+      parts.push(`<span class="timeline-legend-item">🎢 Number = crowd level (1–10)</span>`);
+    }
+    if(dayHasTravelerDots){
+      const relevantIds = new Set();
+      visibleItemsToday.forEach(i => { (i.travelerIds || []).forEach(id => relevantIds.add(id)); });
+      const dotsHtml = (trip.travelerIds || [])
+        .filter(id => relevantIds.has(id))
+        .map(id => `<span class="timeline-legend-dot" style="background:${getTravelerColor(id)};"></span>${escapeHtml(getTravelerName(id) || '')}`)
+        .join(' &nbsp; ');
+      if(dotsHtml) parts.push(`<span class="timeline-legend-item">${dotsHtml}</span>`);
+    }
+    legend.innerHTML = parts.join(' &nbsp;·&nbsp; ');
+    panel.appendChild(legend);
+  }
 
   const untimedItems = day.items.filter(i => !i.time && itemMatchesFilter(i));
   if(untimedItems.length){
@@ -6925,11 +6949,8 @@ function renderDayPanels(){
     if(trip.startDate){
       row.innerHTML = `
         <div class="day-title-display">${escapeHtml(getDayDisplayLabel(trip, dayIndex, day, true))}</div>
-        <input class="day-tag-input${day.dayTag ? '' : ' print-hide-if-empty'}" value="${escapeHtml(day.dayTag || '')}" placeholder="Tag (optional)" data-role="tag" />
         ${canRemove ? '<button class="remove-day-btn danger">Remove day</button>' : ''}
       `;
-      row.querySelector('[data-role="tag"]').oninput = e => { day.dayTag = e.target.value; };
-      row.querySelector('[data-role="tag"]').onblur = () => handleDayFieldBlur(trip, day);
     } else {
       row.innerHTML = `
         <input class="day-title-input" value="${escapeHtml(day.label)}" data-role="label" />
@@ -9085,7 +9106,6 @@ document.getElementById('loadInput').addEventListener('change', e => {
         });
         trip.days.forEach(day => {
           if(!day.id) day.id = cryptoId();
-          if(day.dayTag === undefined) day.dayTag = '';
           if(!day.parks){
             const legacyPark = day.park || '';
             day.parks = { morning: legacyPark, afternoon: legacyPark, evening: legacyPark };
