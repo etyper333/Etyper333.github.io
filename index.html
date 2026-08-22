@@ -2293,6 +2293,17 @@
     display:flex;
     flex-direction:column;
   }
+  .when-field input[type="time"],
+  [data-role="end-time-row"] input[type="time"]{
+    font-family:'Inter',sans-serif;
+    font-size:15px;
+    padding:9px 10px;
+    border-radius:var(--radius-md);
+    border:1.5px solid var(--sage);
+    width:100%;
+    background:var(--paper);
+    color:var(--ink);
+  }
   .when-or{
     font-size:11px;
     font-weight:700;
@@ -3300,7 +3311,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.99';
+const APP_VERSION = '2.1';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -7158,11 +7169,7 @@ function renderDayTimelineGrid(panel, day, trip){
   });
 
   landmarkEntries.forEach(entry => {
-    let top = (entry.startMin - windowStart) / 60 * PIXELS_PER_HOUR;
-    const collidingEntry = entries.find(e => e !== entry && e.endMin > e.startMin && entry.startMin >= e.startMin && entry.startMin <= e.endMin);
-    if(collidingEntry){
-      top = (collidingEntry.endMin - windowStart) / 60 * PIXELS_PER_HOUR - 10;
-    }
+    const top = (entry.startMin - windowStart) / 60 * PIXELS_PER_HOUR;
     const marker = document.createElement('div');
     marker.className = `timeline-landmark tab-${entry.item.type}`;
     marker.style.top = top + 'px';
