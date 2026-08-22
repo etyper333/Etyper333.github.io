@@ -1829,34 +1829,13 @@
     white-space:nowrap;
     box-shadow:0 1px 4px rgba(0,0,0,.25);
   }
-  .timeline-landmark{
-    position:absolute;
-    left:0;
-    display:flex;
-    align-items:center;
-    gap:5px;
-    transform:translateY(-50%);
-    cursor:pointer;
-    max-width:calc(100% - 10px);
-  }
-  .timeline-landmark-dot{
-    flex-shrink:0;
-    width:9px;height:9px;
-    border-radius:var(--radius-round);
-    background:var(--ink);
-    border:2px solid var(--cream);
-    margin-left:-6px;
-  }
-  .timeline-landmark-name{
-    font-size:11px;
-    font-weight:600;
+  .timeline-block.landmark{
+    background:var(--paper);
     color:var(--ink);
-    background:var(--cream);
-    padding:1px 6px;
-    border-radius:var(--radius-sm);
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
+    border:1.5px solid var(--ink);
+  }
+  .timeline-block.landmark.status-tentative{
+    border-style:dashed;
   }
   .timeline-now-line{
     position:absolute;
@@ -2281,35 +2260,42 @@
     width:100%;
     background:var(--paper);
   }
-  .when-row{
-    display:flex;
-    align-items:flex-end;
-    gap:10px;
-    margin-bottom:8px;
+  .time-field-block{
+    margin-bottom:10px;
   }
-  .when-field{
-    flex:1;
-    min-width:0;
-    display:flex;
-    flex-direction:column;
-  }
-  .when-field input[type="time"],
-  [data-role="end-time-row"] input[type="time"]{
-    font-family:'Inter',sans-serif;
-    font-size:15px;
-    padding:9px 10px;
-    border-radius:var(--radius-md);
+  .time-input-wrap{
+    display:inline-flex;
+    align-items:center;
     border:1.5px solid var(--sage);
-    width:100%;
+    border-radius:var(--radius-md);
     background:var(--paper);
-    color:var(--ink);
+    padding:9px 12px;
   }
-  .when-or{
+  .time-input-wrap input[type="time"]{
+    font-family:'Inter',sans-serif;
+    font-size:16px;
+    color:var(--ink);
+    background:transparent;
+    border:none;
+    outline:none;
+    padding:0;
+    margin:0;
+    width:132px;
+  }
+  .or-divider{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:8px 0;
+    color:var(--slate);
     font-size:11px;
     font-weight:700;
-    color:var(--slate);
-    padding-bottom:11px;
-    flex-shrink:0;
+  }
+  .or-divider::before, .or-divider::after{
+    content:'';
+    flex:1;
+    height:1px;
+    background:var(--line);
   }
   .add-form select{
     appearance:none;
@@ -3199,9 +3185,9 @@
       <label class="form-row-label">Day</label>
       <select id="copyMoveDaySelect"></select>
     </div>
-    <div class="form-row" id="copyMoveTimeRow">
+    <div class="time-field-block" id="copyMoveTimeRow">
       <label class="form-row-label">Time</label>
-      <input type="time" id="copyMoveTimeInput" />
+      <div class="time-input-wrap"><input type="time" id="copyMoveTimeInput" /></div>
     </div>
     <p class="section-empty-note" id="copyMoveNoTimeNote" style="display:none;">This item has no specific time — it'll keep its current part of the day, unchanged.</p>
 
@@ -3311,7 +3297,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '2.1';
+const APP_VERSION = '2.3';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -7064,8 +7050,7 @@ function renderDayTimelineGrid(panel, day, trip){
     container.appendChild(line);
   }
 
-  const blockEntries = entries.filter(e => e.endMin > e.startMin);
-  const landmarkEntries = entries.filter(e => e.endMin === e.startMin);
+  const blockEntries = entries;
 
   const clusters = clusterTimelineItems(blockEntries);
   clusters.forEach(cluster => {
@@ -7076,7 +7061,8 @@ function renderDayTimelineGrid(panel, day, trip){
     cluster.slice(0, visibleCount).forEach((entry, i) => {
       const block = document.createElement('div');
       const status = entry.item.status === 'tentative' ? 'tentative' : 'confirmed';
-      block.className = `timeline-block tab-${entry.item.type} status-${status}` + (entry.item.isMainPlan ? ' main-plan' : '');
+      const isLandmark = entry.endMin === entry.startMin;
+      block.className = `timeline-block ${isLandmark ? 'landmark' : 'tab-' + entry.item.type} status-${status}` + (entry.item.isMainPlan ? ' main-plan' : '');
       const top = (entry.startMin - windowStart) / 60 * PIXELS_PER_HOUR;
       const height = Math.max(20, (entry.endMin - entry.startMin) / 60 * PIXELS_PER_HOUR);
       block.style.top = top + 'px';
@@ -7134,7 +7120,7 @@ function renderDayTimelineGrid(panel, day, trip){
       block.innerHTML = `
         ${showExtras ? `<div class="timeline-block-top-row">${travelersHtml}${leftIndicatorsHtml}${crowdHtml}</div>` : (travelersHtml || '')}
         ${entry.item.isMainPlan ? '<span class="timeline-block-badge">📌</span>' : ''}
-        <span class="timeline-block-name">${escapeHtml(getItemDisplayName(entry.item))}</span>
+        <span class="timeline-block-name">${isLandmark ? '📍 ' : ''}${escapeHtml(getItemDisplayName(entry.item))}</span>
         ${mealHtml}
         ${spaciousHtml}
       `;
@@ -7166,16 +7152,6 @@ function renderDayTimelineGrid(panel, day, trip){
       };
       container.appendChild(lessBtn);
     }
-  });
-
-  landmarkEntries.forEach(entry => {
-    const top = (entry.startMin - windowStart) / 60 * PIXELS_PER_HOUR;
-    const marker = document.createElement('div');
-    marker.className = `timeline-landmark tab-${entry.item.type}`;
-    marker.style.top = top + 'px';
-    marker.innerHTML = `<span class="timeline-landmark-dot"></span><span class="timeline-landmark-name">${escapeHtml(getItemDisplayName(entry.item))}</span>`;
-    marker.onclick = () => openItemEditModal(day, entry.item);
-    container.appendChild(marker);
   });
 
   const dayIndex = trip.days.findIndex(d => d.id === day.id);
@@ -7597,19 +7573,17 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
 
     <div class="section-group">
       <div class="section-heading">When</div>
-      <div class="when-row">
-        <div class="when-field">
-          <label class="form-row-label">Time</label>
-          <input type="time" data-f="time" value="${initial.time || ''}" />
-        </div>
-        <div class="when-or" data-role="when-or">or</div>
-        <div class="when-field" data-role="section-row">
-          <label class="form-row-label">Part of Day</label>
-          <select data-f="section">
-            <option value="">Morning / Afternoon / Evening</option>
-            ${SECTIONS.map(s=>`<option value="${s.key}" ${s.key===initial.section?'selected':''}>${s.label}</option>`).join('')}
-          </select>
-        </div>
+      <div class="time-field-block">
+        <label class="form-row-label">Time</label>
+        <div class="time-input-wrap"><input type="time" data-f="time" value="${initial.time || ''}" /></div>
+      </div>
+      <div class="or-divider" data-role="when-or">or</div>
+      <div class="time-field-block" data-role="section-row">
+        <label class="form-row-label">Part of Day</label>
+        <select data-f="section">
+          <option value="">Morning / Afternoon / Evening</option>
+          ${SECTIONS.map(s=>`<option value="${s.key}" ${s.key===initial.section?'selected':''}>${s.label}</option>`).join('')}
+        </select>
       </div>
       <div class="form-row">
         <button type="button" class="clear-time-btn" data-role="clear-time" style="display:none;">✕ Clear time</button>
@@ -7621,8 +7595,8 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
         </label>
       </div>
       <label class="form-row-label" data-role="end-time-label">Ends at</label>
-      <div class="form-row" data-role="end-time-row">
-        <input type="time" data-f="endTime" />
+      <div class="time-field-block" data-role="end-time-row">
+        <div class="time-input-wrap"><input type="time" data-f="endTime" /></div>
       </div>
       <div class="form-row" data-role="meal-row">
         <select data-f="mealService">
