@@ -1479,10 +1479,6 @@
     cursor:pointer;
     padding:0;
   }
-  .section-inline-add-form{
-    margin:-4px 0 14px;
-    scroll-margin-top:calc(var(--sticky-stack-height, 100px) + 56px);
-  }
   .section-header .dot{
     width:8px;height:8px;
     border-radius:var(--radius-round);
@@ -2147,6 +2143,12 @@
     text-align:left;
     font-family:'Inter',sans-serif;
   }
+  .add-item-btn{
+    border:1.5px solid var(--line) !important;
+    border-radius:var(--radius-lg) !important;
+    background:var(--paper) !important;
+    margin-bottom:18px;
+  }
   .accordion-header .accordion-title{
     font-family:'Baloo 2',sans-serif;
     font-size:14.5px;
@@ -2296,6 +2298,30 @@
     flex:1;
     height:1px;
     background:var(--line);
+  }
+  .adjacent-hint{
+    font-size:12px;
+    color:var(--sky);
+    background:var(--cream);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:8px 10px;
+    margin-top:8px;
+    line-height:1.4;
+    display:none;
+  }
+  .adjacent-hint.active{
+    display:block;
+  }
+  .adjacent-hint.blank-slate{
+    color:var(--slate);
+    font-style:italic;
+  }
+  .adjacent-hint .landmark-note{
+    display:block;
+    margin-top:4px;
+    color:var(--slate);
+    font-style:italic;
   }
   .add-form select{
     appearance:none;
@@ -2763,6 +2789,10 @@
     margin-top:20px;
     padding-top:14px;
     border-top:1px solid var(--line);
+    position:sticky;
+    bottom:0;
+    background:var(--cream);
+    box-shadow:0 -4px 10px rgba(0,0,0,.08);
   }
   .wizard-back-btn{
     flex:0 0 auto;
@@ -2847,6 +2877,22 @@
     bottom:0;
     border-top:1px solid rgba(255,255,255,.25);
     box-shadow:0 -4px 10px rgba(0,0,0,.08);
+  }
+  .tools-menu-ghost-close.master-editor-close-sticky{
+    background:var(--cream);
+    border-top:1px solid var(--line);
+  }
+  .sticky-footer-group{
+    position:sticky;
+    bottom:0;
+    background:var(--cream);
+    border-top:1px solid var(--line);
+    box-shadow:0 -4px 10px rgba(0,0,0,.08);
+    padding-top:10px;
+    margin-top:10px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
   }
   .timeline-modal-delete-btn{
     display:block;
@@ -3079,7 +3125,7 @@
     <h2>Switch Trip</h2>
     <p class="sub">Tap a trip to switch to it.</p>
     <div id="tripSwitchBody"></div>
-    <button class="master-editor-close" id="tripSwitchCloseBtn">Done</button>
+    <button class="master-editor-close master-editor-close-sticky" id="tripSwitchCloseBtn">Done</button>
   </div>
 </div>
 
@@ -3088,7 +3134,7 @@
     <h2>Viewing Plans For</h2>
     <p class="sub">Choose one or more travelers to filter the itinerary.</p>
     <div id="travelerFilterBody"></div>
-    <button class="master-editor-close" id="travelerFilterCloseBtn">Done</button>
+    <button class="master-editor-close master-editor-close-sticky" id="travelerFilterCloseBtn">Done</button>
   </div>
 </div>
 
@@ -3193,8 +3239,10 @@
 
     <div class="summary-line" id="copyMoveSummary"></div>
 
-    <button type="button" class="submit-btn" id="copyMoveSubmitBtn"></button>
-    <button type="button" class="cancel-btn" id="copyMoveCancelBtn">Cancel</button>
+    <div class="sticky-footer-group">
+      <button type="button" class="submit-btn" id="copyMoveSubmitBtn"></button>
+      <button type="button" class="cancel-btn" id="copyMoveCancelBtn">Cancel</button>
+    </div>
   </div>
 </div>
 
@@ -3221,14 +3269,16 @@
 
     <div class="summary-line" id="dayCopySummary"></div>
 
-    <button type="button" class="submit-btn" id="dayCopySubmitBtn"></button>
-    <button type="button" class="cancel-btn" id="dayCopyCancelBtn">Cancel</button>
+    <div class="sticky-footer-group">
+      <button type="button" class="submit-btn" id="dayCopySubmitBtn"></button>
+      <button type="button" class="cancel-btn" id="dayCopyCancelBtn">Cancel</button>
+    </div>
   </div>
 </div>
 
 <div class="master-editor-overlay" id="itemEditOverlay">
   <div class="master-editor">
-    <h2>Edit Item</h2>
+    <h2 id="itemFormTitle">Edit Item</h2>
     <div id="itemEditModalBody"></div>
   </div>
 </div>
@@ -3238,7 +3288,7 @@
     <h2>🤝 Same Item, Two Ideas</h2>
     <p class="sub">Looks like you and someone else were both thinking about this at the same time. Here's what's different — pick which version should stick for each one.</p>
     <div id="conflictResolutionBody"></div>
-    <button class="master-editor-close" id="conflictResolutionSaveBtn">Save My Choices</button>
+    <button class="master-editor-close master-editor-close-sticky" id="conflictResolutionSaveBtn">Save My Choices</button>
   </div>
 </div>
 
@@ -3260,7 +3310,7 @@
   <div class="master-editor">
     <h2>Choose a Color</h2>
     <div id="travelerColorBody" class="traveler-color-grid"></div>
-    <button class="master-editor-close" id="travelerColorCloseBtn">Done</button>
+    <button class="master-editor-close master-editor-close-sticky" id="travelerColorCloseBtn">Done</button>
   </div>
 </div>
 
@@ -3269,7 +3319,7 @@
     <h2>Settings</h2>
     <p class="sub">Device-level preferences — not something saved or shared with others.</p>
     <div id="settingsBody"></div>
-    <button class="master-editor-close" id="settingsCloseBtn">Done</button>
+    <button class="master-editor-close master-editor-close-sticky" id="settingsCloseBtn">Done</button>
   </div>
 </div>
 
@@ -3278,7 +3328,7 @@
     <h2>Themes</h2>
     <p class="sub">Pick the look and feel for this device. Purely for fun — nothing here is saved or shared with others.</p>
     <div id="themesBody"></div>
-    <button class="master-editor-close" id="themesCloseBtn">Done</button>
+    <button class="master-editor-close master-editor-close-sticky" id="themesCloseBtn">Done</button>
   </div>
 </div>
 
@@ -3287,7 +3337,7 @@
     <h2>Tools</h2>
     <p class="sub">Actions for this trip.</p>
     <div id="toolsMenuBody"></div>
-    <button class="master-editor-close tools-menu-ghost-close" id="toolsMenuCloseBtn">Done</button>
+    <button class="master-editor-close tools-menu-ghost-close master-editor-close-sticky" id="toolsMenuCloseBtn">Done</button>
   </div>
 </div>
 
@@ -3297,7 +3347,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '2.3';
+const APP_VERSION = '2.5';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5570,6 +5620,75 @@ function getMainPlanForSection(day, sectionKey){
   return day.items.find(i => i.isMainPlan && getItemSection(i) === sectionKey) || null;
 }
 
+function getDayBoundaryBlocks(day, excludeItemId){
+  return day.items
+    .filter(i => i.id !== excludeItemId && i.time && i.endTime && timeToMinutes(i.endTime) > timeToMinutes(i.time))
+    .map(i => ({ item: i, startMin: timeToMinutes(i.time), endMin: timeToMinutes(i.endTime) }))
+    .sort((a,b) => a.startMin - b.startMin);
+}
+
+function nameWithTentativeLabel(item){
+  return item.status === 'tentative' ? `${getItemDisplayName(item)}, penciled in` : getItemDisplayName(item);
+}
+
+function findNearbyLandmark(day, excludeItemId, gapStartMin, gapEndMin){
+  return day.items.find(i =>
+    i.id !== excludeItemId && i.time && i.endTime && i.time === i.endTime &&
+    timeToMinutes(i.time) >= gapStartMin && timeToMinutes(i.time) <= gapEndMin
+  ) || null;
+}
+
+function computeAdjacentTimeHint(day, candidateTime, excludeItemId){
+  const blocks = getDayBoundaryBlocks(day, excludeItemId);
+
+  if(!candidateTime){
+    if(blocks.length === 0){
+      return { text: "Wide open so far — drop this in wherever makes sense.", blank: true };
+    }
+    const merged = [];
+    blocks.forEach(b => {
+      if(merged.length && b.startMin <= merged[merged.length - 1].endMin){
+        merged[merged.length - 1].endMin = Math.max(merged[merged.length - 1].endMin, b.endMin);
+      } else {
+        merged.push({ startMin: b.startMin, endMin: b.endMin });
+      }
+    });
+    const gaps = [];
+    if(merged[0].startMin > 0) gaps.push(`before ${formatTime(minutesToTime(merged[0].startMin))}`);
+    for(let i = 0; i < merged.length - 1; i++){
+      gaps.push(`${formatTime(minutesToTime(merged[i].endMin))}–${formatTime(minutesToTime(merged[i+1].startMin))}`);
+    }
+    gaps.push(`after ${formatTime(minutesToTime(merged[merged.length - 1].endMin))}`);
+    return { text: `Free: ${gaps.join(' · ')}.` };
+  }
+
+  const candidateMin = timeToMinutes(candidateTime);
+  const previousCandidates = blocks.filter(b => b.endMin <= candidateMin);
+  const previous = previousCandidates.length ? previousCandidates.reduce((best,b) => b.endMin > best.endMin ? b : best) : null;
+  const nextCandidates = blocks.filter(b => b.startMin >= candidateMin);
+  const next = nextCandidates.length ? nextCandidates.reduce((best,b) => b.startMin < best.startMin ? b : best) : null;
+
+  let text;
+  if(!previous && !next){
+    text = "Wide open so far — drop this in wherever makes sense.";
+  } else if(!previous){
+    text = `Free: before ${formatTime(next.item.time)} (${nameWithTentativeLabel(next.item)}).`;
+  } else if(!next){
+    text = `Free: after ${formatTime(previous.item.endTime)} (${nameWithTentativeLabel(previous.item)}).`;
+  } else {
+    text = `Between ${nameWithTentativeLabel(previous.item)} (ends ${formatTime(previous.item.endTime)}) and ${nameWithTentativeLabel(next.item)} (starts ${formatTime(next.item.time)}).`;
+  }
+
+  const gapStart = previous ? previous.endMin : 0;
+  const gapEnd = next ? next.startMin : 24 * 60;
+  const landmark = findNearbyLandmark(day, excludeItemId, gapStart, gapEnd);
+  if(landmark){
+    text += ` Also on your list around then: 📍 ${getItemDisplayName(landmark)} at ${formatTime(landmark.time)}.`;
+  }
+
+  return { text };
+}
+
 function getItemDisplayName(item){
   if(item.name === 'Other' && item.nameOther) return item.nameOther;
   return item.name;
@@ -5839,10 +5958,8 @@ let showArchivedTrips = false;
 let lastListsSubView = 'packing';
 let expandedDetails = new Set();
 let initializedDayDetailsDefaults = new Set();
-let expandedAddForm = new Set();
 let editingItems = new Set();
 let pendingMainPlanEdit = new Set();
-let expandedSectionAddForm = new Set();
 let expandedTripDetails = new Set();
 let expandedTripSubsections = new Set();
 let activeTravelerFilter = [];
@@ -7300,42 +7417,10 @@ function renderDayPanels(){
         <span class="rule"></span>
         <button type="button" class="section-add-btn" title="Add item to ${sec.label}">+</button>
       `;
-      const sectionFormKey = day.id + ':' + sec.key;
       header.querySelector('.section-add-btn').onclick = () => {
-        const wasOpen = expandedSectionAddForm.has(sectionFormKey);
-        if(wasOpen) expandedSectionAddForm.delete(sectionFormKey);
-        else expandedSectionAddForm.add(sectionFormKey);
-        render();
-        if(!wasOpen){
-          requestAnimationFrame(() => {
-            const formEl = document.querySelector(`[data-section-form-key="${sectionFormKey}"]`);
-            if(formEl) formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          });
-        }
+        openItemAddModal(day, { section: sec.key }, 'Add to ' + sec.label);
       };
       panel.appendChild(header);
-
-      if(expandedSectionAddForm.has(sectionFormKey)){
-        const inlineForm = buildItemFieldsForm(
-          day,
-          { status: 'confirmed', section: sec.key },
-          'Add to ' + sec.label,
-          (values) => {
-            const newItem = Object.assign({ id: cryptoId() }, values);
-            day.items.push(newItem);
-            expandedSectionAddForm.delete(sectionFormKey);
-            render();
-            syncNewItemToSupabase(newItem, day, getActiveTrip());
-          },
-          () => {
-            expandedSectionAddForm.delete(sectionFormKey);
-            render();
-          }
-        );
-        inlineForm.classList.add('nested', 'section-inline-add-form');
-        inlineForm.setAttribute('data-section-form-key', sectionFormKey);
-        panel.appendChild(inlineForm);
-      }
 
       items.forEach(item => panel.appendChild(renderItemCard(day, item)));
     });
@@ -7353,32 +7438,14 @@ function renderDayPanels(){
       panel.appendChild(emptyFiltered);
     }
 
-    const addAccordion = document.createElement('div');
-    addAccordion.className = 'accordion accent' + (expandedAddForm.has(day.id) ? ' open' : '');
-
-    const addHeader = document.createElement('button');
-    addHeader.type = 'button';
-    addHeader.className = 'accordion-header';
-    addHeader.innerHTML = `
-      <span class="accordion-title">+ Add item</span>
-      <span class="accordion-summary"></span>
-      <span class="chevron">▾</span>
-    `;
-    addHeader.onclick = () => {
-      if(expandedAddForm.has(day.id)) expandedAddForm.delete(day.id);
-      else expandedAddForm.add(day.id);
-      render();
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'accordion-header add-item-btn';
+    addBtn.innerHTML = `<span class="accordion-title">+ Add item</span>`;
+    addBtn.onclick = () => {
+      openItemAddModal(day, {}, 'Add to Day');
     };
-    addAccordion.appendChild(addHeader);
-
-    const addBody = document.createElement('div');
-    addBody.className = 'accordion-body';
-    const addForm = renderAddForm(day);
-    addForm.classList.add('nested');
-    addBody.appendChild(addForm);
-    addAccordion.appendChild(addBody);
-
-    panel.appendChild(addAccordion);
+    panel.appendChild(addBtn);
 
     const notesBlock = document.createElement('div');
     notesBlock.className = 'day-notes-block' + (day.notes ? '' : ' print-hide-if-empty');
@@ -7576,6 +7643,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
       <div class="time-field-block">
         <label class="form-row-label">Time</label>
         <div class="time-input-wrap"><input type="time" data-f="time" value="${initial.time || ''}" /></div>
+        <div class="adjacent-hint" data-role="adjacent-hint"></div>
       </div>
       <div class="or-divider" data-role="when-or">or</div>
       <div class="time-field-block" data-role="section-row">
@@ -7638,7 +7706,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
       </div>
     </div>
 
-    <div class="form-row">
+    <div class="form-row${onCancel ? ' sticky-footer-group' : ''}">
       <button type="button" class="submit-btn" data-role="submit">${submitLabel}</button>
       ${onCancel ? '<button type="button" class="cancel-btn" data-role="cancel">Cancel</button>' : ''}
     </div>
@@ -7648,6 +7716,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   const sectionRow = wrap.querySelector('[data-role="section-row"]');
   const whenOr = wrap.querySelector('[data-role="when-or"]');
   const sectionSelect = wrap.querySelector('[data-f="section"]');
+  const adjacentHintEl = wrap.querySelector('[data-role="adjacent-hint"]');
   const syncSectionVisibility = () => {
     sectionRow.style.display = timeInput.value ? 'none' : '';
     whenOr.style.display = timeInput.value ? 'none' : '';
@@ -7656,12 +7725,24 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
       sectionSelect.value = initial.section;
     }
   };
+  const syncAdjacentHint = () => {
+    if(sectionSelect.value){
+      adjacentHintEl.classList.remove('active');
+      return;
+    }
+    const result = computeAdjacentTimeHint(day, timeInput.value, initial.id);
+    adjacentHintEl.textContent = result.text;
+    adjacentHintEl.classList.toggle('blank-slate', !!result.blank);
+    adjacentHintEl.classList.add('active');
+  };
   syncSectionVisibility();
+  syncAdjacentHint();
   clearTimeBtn.onclick = () => {
     timeInput.value = '';
     syncSectionVisibility();
     syncMainPlanUI();
     syncEndTimeUI();
+    syncAdjacentHint();
   };
 
   const getCurrentFormSection = () => {
@@ -7733,8 +7814,8 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
     }
   };
   syncMainPlanUI();
-  timeInput.addEventListener('input', () => { syncSectionVisibility(); syncMainPlanUI(); syncEndTimeUI(); });
-  sectionSelect.addEventListener('change', syncMainPlanUI);
+  timeInput.addEventListener('input', () => { syncSectionVisibility(); syncMainPlanUI(); syncEndTimeUI(); syncAdjacentHint(); });
+  sectionSelect.addEventListener('change', () => { syncMainPlanUI(); syncAdjacentHint(); });
 
   const typeSelect = wrap.querySelector('[data-f="type"]');
   const mealRow = wrap.querySelector('[data-role="meal-row"]');
@@ -7857,21 +7938,6 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
     wrap.querySelector('[data-role="cancel"]').onclick = onCancel;
   }
   return wrap;
-}
-
-function renderAddForm(day){
-  return buildItemFieldsForm(
-    day,
-    { status: 'confirmed' },
-    'Add to Day',
-    (values) => {
-      const newItem = Object.assign({ id: cryptoId() }, values);
-      day.items.push(newItem);
-      expandedAddForm.delete(day.id);
-      render();
-      syncNewItemToSupabase(newItem, day, getActiveTrip());
-    }
-  );
 }
 
 function formatTime(t){
@@ -8262,6 +8328,7 @@ let currentItemEditForm = null;
 function openItemEditModal(day, item){
   const body = document.getElementById('itemEditModalBody');
   body.innerHTML = '';
+  document.getElementById('itemFormTitle').textContent = 'Edit Item';
   const editBaseline = snapshotItemFields(item);
   const form = buildItemFieldsForm(day, item, 'Save changes', (values) => {
     closeItemEditModal();
@@ -8283,6 +8350,23 @@ function openItemEditModal(day, item){
     closeItemEditModal();
   };
   form.appendChild(deleteBtn);
+  body.appendChild(form);
+  document.getElementById('itemEditOverlay').classList.add('active');
+}
+function openItemAddModal(day, presetFields, submitLabel){
+  const body = document.getElementById('itemEditModalBody');
+  body.innerHTML = '';
+  document.getElementById('itemFormTitle').textContent = 'Add Item';
+  const initial = Object.assign({ status: 'confirmed' }, presetFields || {});
+  const form = buildItemFieldsForm(day, initial, submitLabel || 'Add to Day', (values) => {
+    const newItem = Object.assign({ id: cryptoId() }, values);
+    day.items.push(newItem);
+    closeItemEditModal();
+    syncNewItemToSupabase(newItem, day, getActiveTrip());
+  }, () => {
+    closeItemEditModal();
+  });
+  currentItemEditForm = form;
   body.appendChild(form);
   document.getElementById('itemEditOverlay').classList.add('active');
 }
