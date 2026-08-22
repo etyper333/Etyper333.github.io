@@ -3296,7 +3296,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.97';
+const APP_VERSION = '1.98';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -6215,6 +6215,7 @@ function renderTripSwitchList(){
           const remoteData = await fetchRemoteTripData(trip.supabaseId);
           mergeRemoteIntoLocalTrip(trip, remoteData, appData.travelers);
           delete trip._isPlaceholder;
+          establishBaselinesForTrip(trip);
           const sharedMap = getSharedTripMap();
           sharedMap[trip.supabaseId] = { localTripId: trip.id, title: trip.title, dates: trip.dates, lastOpenedAt: new Date().toISOString(), archivedAt: trip.archivedAt || null };
           saveSharedTripMap(sharedMap);
