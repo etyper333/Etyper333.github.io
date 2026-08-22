@@ -2108,9 +2108,14 @@
   .day-notes-block{
     margin:0 0 28px;
   }
+  .day-nav-row{
+    display:flex;
+    gap:8px;
+    margin:0 0 40px;
+  }
   .next-day-btn{
     display:block;
-    width:100%;
+    flex:1;
     background:var(--sky);
     color:white;
     border:none;
@@ -2120,7 +2125,6 @@
     font-weight:700;
     font-size:15px;
     cursor:pointer;
-    margin:0 0 40px;
   }
   .day-notes-block label{
     display:block;
@@ -3296,7 +3300,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '1.98';
+const APP_VERSION = '1.99';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -7154,7 +7158,11 @@ function renderDayTimelineGrid(panel, day, trip){
   });
 
   landmarkEntries.forEach(entry => {
-    const top = (entry.startMin - windowStart) / 60 * PIXELS_PER_HOUR;
+    let top = (entry.startMin - windowStart) / 60 * PIXELS_PER_HOUR;
+    const collidingEntry = entries.find(e => e !== entry && e.endMin > e.startMin && entry.startMin >= e.startMin && entry.startMin <= e.endMin);
+    if(collidingEntry){
+      top = (collidingEntry.endMin - windowStart) / 60 * PIXELS_PER_HOUR - 10;
+    }
     const marker = document.createElement('div');
     marker.className = `timeline-landmark tab-${entry.item.type}`;
     marker.style.top = top + 'px';
@@ -7399,17 +7407,34 @@ function renderDayPanels(){
     notesBlock.querySelector('textarea').onblur = () => handleDayFieldBlur(trip, day);
     panel.appendChild(notesBlock);
 
-    if(dayIndex < trip.days.length - 1){
-      const nextDayBtn = document.createElement('button');
-      nextDayBtn.type = 'button';
-      nextDayBtn.className = 'next-day-btn';
-      nextDayBtn.textContent = `Next Day: ${getDayDisplayLabel(trip, dayIndex + 1, trip.days[dayIndex + 1], true)} →`;
-      nextDayBtn.onclick = () => {
-        activeDayId = trip.days[dayIndex + 1].id;
-        render();
-        window.scrollTo({top:0, behavior:'smooth'});
-      };
-      panel.appendChild(nextDayBtn);
+    if(dayIndex > 0 || dayIndex < trip.days.length - 1){
+      const navRow = document.createElement('div');
+      navRow.className = 'day-nav-row';
+      if(dayIndex > 0){
+        const prevDayBtn = document.createElement('button');
+        prevDayBtn.type = 'button';
+        prevDayBtn.className = 'next-day-btn';
+        prevDayBtn.textContent = `← Previous Day: ${getDayDisplayLabel(trip, dayIndex - 1, trip.days[dayIndex - 1], true)}`;
+        prevDayBtn.onclick = () => {
+          activeDayId = trip.days[dayIndex - 1].id;
+          render();
+          window.scrollTo({top:0, behavior:'smooth'});
+        };
+        navRow.appendChild(prevDayBtn);
+      }
+      if(dayIndex < trip.days.length - 1){
+        const nextDayBtn = document.createElement('button');
+        nextDayBtn.type = 'button';
+        nextDayBtn.className = 'next-day-btn';
+        nextDayBtn.textContent = `Next Day: ${getDayDisplayLabel(trip, dayIndex + 1, trip.days[dayIndex + 1], true)} →`;
+        nextDayBtn.onclick = () => {
+          activeDayId = trip.days[dayIndex + 1].id;
+          render();
+          window.scrollTo({top:0, behavior:'smooth'});
+        };
+        navRow.appendChild(nextDayBtn);
+      }
+      panel.appendChild(navRow);
     }
 
     container.appendChild(panel);
