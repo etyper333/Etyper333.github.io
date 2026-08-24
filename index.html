@@ -3325,7 +3325,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.0';
+const APP_VERSION = '3.01';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -8255,15 +8255,24 @@ function renderPackingPanel(){
 
   const addRow = document.createElement('div');
   addRow.className = 'packing-add-row packing-sticky-addrow';
-  addRow.innerHTML = `<input type="text" placeholder="Add a trip-only item (e.g. conference badge)" /><button type="button">Add</button>`;
+  addRow.innerHTML = `
+    <input type="text" placeholder="Add a trip-only item (e.g. conference badge)" />
+    <select>
+      <option value="">No category</option>
+      ${categories.map(cat => `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`).join('')}
+    </select>
+    <button type="button">Add</button>
+  `;
   const input = addRow.querySelector('input');
+  const categorySelect = addRow.querySelector('select');
   const addBtn = addRow.querySelector('button');
   addBtn.onclick = () => {
     const name = input.value.trim();
     if(!name) return;
-    const newItem = { id: cryptoId(), custom:true, name, checked:false };
+    const newItem = { id: cryptoId(), custom:true, name, category: categorySelect.value, checked:false };
     trip.packingItems.push(newItem);
     input.value = '';
+    categorySelect.value = '';
     render();
     syncNewPackingItemToSupabase(newItem, trip);
   };
@@ -8854,7 +8863,7 @@ function getGroceryItemName(gi){
   return master ? master.name : '(removed item)';
 }
 function getGroceryItemCategory(gi){
-  if(gi.custom) return 'Custom';
+  if(gi.custom) return gi.category || 'Custom';
   const master = appData.groceryMaster.find(m => m.id === gi.itemId);
   return master ? master.category : 'Other';
 }
@@ -8945,21 +8954,28 @@ function renderGroceryPanel(){
   addRow.className = 'packing-add-row';
   addRow.innerHTML = `
     <input type="text" placeholder="Add a trip-only grocery item" />
-    <select>
+    <select data-role="channel">
       <option value="pack">Pack</option>
       <option value="delivery">Deliver</option>
+    </select>
+    <select data-role="category">
+      <option value="">No category</option>
+      ${catalogCategories.map(cat => `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`).join('')}
     </select>
     <button type="button">Add</button>
   `;
   const nameInput = addRow.querySelector('input');
-  const channelSelect = addRow.querySelector('select');
+  const channelSelect = addRow.querySelector('[data-role="channel"]');
+  const categorySelect = addRow.querySelector('[data-role="category"]');
   const addBtn = addRow.querySelector('button');
   addBtn.onclick = () => {
     const name = nameInput.value.trim();
     if(!name) return;
-    const newItem = { id: cryptoId(), custom:true, name, channel: channelSelect.value, checked:false };
+    const newItem = { id: cryptoId(), custom:true, name, channel: channelSelect.value, category: categorySelect.value, checked:false };
     trip.groceryItems.push(newItem);
     syncGroceryToPacking(trip, newItem);
+    nameInput.value = '';
+    categorySelect.value = '';
     render();
     syncNewGroceryItemToSupabase(newItem, trip);
   };
