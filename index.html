@@ -1630,16 +1630,11 @@
     background:var(--coral) !important;
   }
   .now-next-badge{
-    position:absolute;
-    top:0;
-    right:0;
-    background:var(--coral);
-    color:white;
-    font-size:12px;
+    font-size:11px;
     font-weight:800;
-    padding:5px 11px;
-    border-radius:0 0 0 9px;
+    color:var(--coral);
     letter-spacing:.03em;
+    text-transform:uppercase;
   }
   .item-tab{
     width:8px;
@@ -3330,7 +3325,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '2.9';
+const APP_VERSION = '3.0';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5313,8 +5308,19 @@ function getTodayDayId(trip){
   return trip.days[diffDays].id;
 }
 
+function isDayGenuinelyToday(trip, day){
+  if(!trip.startDate) return false;
+  const dayIndex = trip.days.findIndex(d => d.id === day.id);
+  if(dayIndex === -1) return false;
+  const start = new Date(trip.startDate + 'T00:00:00');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((today - start) / (1000 * 60 * 60 * 24));
+  return diffDays === dayIndex;
+}
+
 function getCurrentOrNextItem(trip, day){
-  if(getTodayDayId(trip) !== day.id) return null;
+  if(!isDayGenuinelyToday(trip, day)) return null;
   const now = new Date();
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const timedItems = day.items.filter(i => i.time && i.endTime);
@@ -6263,7 +6269,8 @@ function render(){
     const stackHeight = tripMetaEl.offsetHeight + currentDayStickyEl.offsetHeight;
     document.documentElement.style.setProperty('--sticky-stack-height', stackHeight + 'px');
 
-    if(activeDayId === getTodayDayId(trip) && !autoScrolledToCurrentForDay.has(activeDayId)){
+    const activeDay = trip.days.find(d => d.id === activeDayId);
+    if(activeDay && isDayGenuinelyToday(trip, activeDay) && !autoScrolledToCurrentForDay.has(activeDayId)){
       autoScrolledToCurrentForDay.add(activeDayId);
       const highlightedEl = document.querySelector('.item-card.is-current, .item-card.is-next');
       if(highlightedEl){
@@ -7592,12 +7599,13 @@ function renderItemCard(day, item, currentOrNext){
 
   card.innerHTML = `
     <div class="item-tab tab-${item.type}"></div>
-    ${isHighlighted ? `<span class="now-next-badge">${currentOrNext.status === 'current' ? 'NOW' : 'NEXT'}</span>` : ''}
     <div class="item-body">
       <div class="item-content-full">
         <div class="item-top-row">
           <span class="item-time">${item.time ? formatTime(item.time) : 'No time set'}</span>
-          <span class="item-type-badge">${typeInfo.icon} ${typeInfo.label}</span>
+          ${isHighlighted
+            ? `<span class="now-next-badge">${currentOrNext.status === 'current' ? 'NOW' : 'NEXT'}</span>`
+            : `<span class="item-type-badge">${typeInfo.icon} ${typeInfo.label}</span>`}
         </div>
         <div class="item-name">${escapeHtml(getItemDisplayName(item))}</div>
         <div class="item-badges-row">
