@@ -1620,6 +1620,26 @@
     box-shadow:0 1px 3px rgba(27,42,46,.08);
     overflow:hidden;
     border:1px solid var(--line);
+    position:relative;
+  }
+  .item-card.is-current, .item-card.is-next{
+    border-color:var(--coral);
+  }
+  .item-card.is-current .item-tab, .item-card.is-next .item-tab{
+    width:9px;
+    background:var(--coral) !important;
+  }
+  .now-next-badge{
+    position:absolute;
+    top:0;
+    right:0;
+    background:var(--coral);
+    color:white;
+    font-size:12px;
+    font-weight:800;
+    padding:5px 11px;
+    border-radius:0 0 0 9px;
+    letter-spacing:.03em;
   }
   .item-tab{
     width:8px;
@@ -3310,7 +3330,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '2.8';
+const APP_VERSION = '2.9';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5293,6 +5313,27 @@ function getTodayDayId(trip){
   return trip.days[diffDays].id;
 }
 
+function getCurrentOrNextItem(trip, day){
+  if(getTodayDayId(trip) !== day.id) return null;
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const timedItems = day.items.filter(i => i.time && i.endTime);
+
+  const inProgress = timedItems.find(i => {
+    const startMin = timeToMinutes(i.time);
+    const endMin = timeToMinutes(i.endTime);
+    return endMin > startMin && startMin <= nowMin && nowMin < endMin;
+  });
+  if(inProgress) return { item: inProgress, status: 'current' };
+
+  const upcoming = timedItems
+    .filter(i => timeToMinutes(i.time) > nowMin)
+    .reduce((best, i) => (!best || timeToMinutes(i.time) < timeToMinutes(best.time)) ? i : best, null);
+  if(upcoming) return { item: upcoming, status: 'next' };
+
+  return null;
+}
+
 function getDayDisplayLabel(trip, index, day, full){
   if(trip.startDate){
     const date = computeDayDate(trip, index);
@@ -5940,6 +5981,7 @@ let currentView = 'itinerary';
 let showArchivedTrips = false;
 let lastListsSubView = 'packing';
 let expandedDetails = new Set();
+let autoScrolledToCurrentForDay = new Set();
 let initializedDayDetailsDefaults = new Set();
 let editingItems = new Set();
 let pendingMainPlanEdit = new Set();
@@ -6218,7 +6260,19 @@ function render(){
 
     const tripMetaEl = document.getElementById('tripMeta');
     document.documentElement.style.setProperty('--trip-meta-height', tripMetaEl.offsetHeight + 'px');
-    document.documentElement.style.setProperty('--sticky-stack-height', (tripMetaEl.offsetHeight + currentDayStickyEl.offsetHeight) + 'px');
+    const stackHeight = tripMetaEl.offsetHeight + currentDayStickyEl.offsetHeight;
+    document.documentElement.style.setProperty('--sticky-stack-height', stackHeight + 'px');
+
+    if(activeDayId === getTodayDayId(trip) && !autoScrolledToCurrentForDay.has(activeDayId)){
+      autoScrolledToCurrentForDay.add(activeDayId);
+      const highlightedEl = document.querySelector('.item-card.is-current, .item-card.is-next');
+      if(highlightedEl){
+        requestAnimationFrame(() => {
+          const targetY = highlightedEl.getBoundingClientRect().top + window.scrollY - stackHeight - 12;
+          window.scrollTo({ top: targetY, behavior: 'smooth' });
+        });
+      }
+    }
   } else if(currentView === 'packing'){
     renderPackingPanel();
   } else if(currentView === 'groceries'){
@@ -7281,6 +7335,7 @@ function renderDayPanels(){
   trip.days.forEach((day, dayIndex) => {
     const panel = document.createElement('div');
     panel.className = 'day-panel' + (day.id===activeDayId ? ' active' : '');
+    const currentOrNext = getCurrentOrNextItem(trip, day);
 
     const row = document.createElement('div');
     row.className = 'park-select-row';
@@ -7405,7 +7460,7 @@ function renderDayPanels(){
       };
       panel.appendChild(header);
 
-      items.forEach(item => panel.appendChild(renderItemCard(day, item)));
+      items.forEach(item => panel.appendChild(renderItemCard(day, item, currentOrNext)));
     });
     }
 
@@ -7474,7 +7529,7 @@ function renderDayPanels(){
   });
 }
 
-function renderItemCard(day, item){
+function renderItemCard(day, item, currentOrNext){
   if(editingItems.has(item.id)){
     const editWrap = document.createElement('div');
     editWrap.className = 'item-card item-card-editing';
@@ -7508,7 +7563,8 @@ function renderItemCard(day, item){
   }
 
   const card = document.createElement('div');
-  card.className = 'item-card';
+  const isHighlighted = currentOrNext && currentOrNext.item.id === item.id;
+  card.className = 'item-card' + (isHighlighted ? ' is-' + currentOrNext.status : '');
   const typeInfo = TYPES.find(t=>t.key===item.type) || TYPES[0];
   const status = item.status === 'tentative' ? 'tentative' : 'confirmed';
   const isPencilledIn = status === 'tentative';
@@ -7536,6 +7592,7 @@ function renderItemCard(day, item){
 
   card.innerHTML = `
     <div class="item-tab tab-${item.type}"></div>
+    ${isHighlighted ? `<span class="now-next-badge">${currentOrNext.status === 'current' ? 'NOW' : 'NEXT'}</span>` : ''}
     <div class="item-body">
       <div class="item-content-full">
         <div class="item-top-row">
