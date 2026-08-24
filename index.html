@@ -2317,6 +2317,12 @@
     color:var(--slate);
     font-style:italic;
   }
+  .adjacent-hint.overlap{
+    color:var(--coral);
+    background:#FCEEEA;
+    border-color:var(--coral);
+    font-weight:600;
+  }
   .adjacent-hint .landmark-note{
     display:block;
     margin-top:4px;
@@ -3347,7 +3353,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '2.5';
+const APP_VERSION = '2.6';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5663,6 +5669,15 @@ function computeAdjacentTimeHint(day, candidateTime, excludeItemId){
   }
 
   const candidateMin = timeToMinutes(candidateTime);
+
+  const overlapping = blocks.find(b => b.startMin < candidateMin && b.endMin > candidateMin);
+  if(overlapping){
+    return {
+      text: `Heads up — this overlaps with ${nameWithTentativeLabel(overlapping.item)} (${formatTime(overlapping.item.time)}–${formatTime(overlapping.item.endTime)}).`,
+      overlap: true
+    };
+  }
+
   const previousCandidates = blocks.filter(b => b.endMin <= candidateMin);
   const previous = previousCandidates.length ? previousCandidates.reduce((best,b) => b.endMin > best.endMin ? b : best) : null;
   const nextCandidates = blocks.filter(b => b.startMin >= candidateMin);
@@ -7733,6 +7748,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
     const result = computeAdjacentTimeHint(day, timeInput.value, initial.id);
     adjacentHintEl.textContent = result.text;
     adjacentHintEl.classList.toggle('blank-slate', !!result.blank);
+    adjacentHintEl.classList.toggle('overlap', !!result.overlap);
     adjacentHintEl.classList.add('active');
   };
   syncSectionVisibility();
