@@ -505,11 +505,6 @@
     color:rgba(255,255,255,.5);
     padding:4px 0 2px;
   }
-  .share-link-wrap{
-    margin-top:14px;
-    padding-top:14px;
-    border-top:1px solid var(--line);
-  }
   .share-link-label{
     display:block;
     font-size:12px;
@@ -1314,12 +1309,6 @@
     margin-bottom:4px;
   }
   .sidebar-dining-item:last-child{margin-bottom:0;}
-  .sidebar-empty{
-    font-size:12px;
-    color:var(--slate);
-    font-style:italic;
-  }
-
   @media (min-width: 900px){
     .itinerary-layout{
       display:flex;
@@ -2183,9 +2172,6 @@
   .accordion.open .accordion-body{
     display:block;
   }
-  .accordion.accent .accordion-header .accordion-title{
-    color:var(--coral);
-  }
 
   .add-form{
     background:var(--paper);
@@ -2452,34 +2438,6 @@
     color:var(--ink);
     min-height:60px;
     resize:vertical;
-  }
-  .category-toggle-row{
-    display:flex;
-    flex-wrap:wrap;
-    gap:8px;
-    margin-bottom:20px;
-  }
-  .category-chip{
-    font-family:'Inter',sans-serif;
-    font-size:12.5px;
-    font-weight:600;
-    padding:7px 13px;
-    border-radius:var(--radius-xl);
-    border:1.5px solid var(--line);
-    background:var(--paper);
-    color:var(--ink);
-    cursor:pointer;
-  }
-  .category-chip.on{
-    background:var(--sky);
-    border-color:var(--sky);
-    color:white;
-  }
-  .category-chip.locked{
-    background:var(--accent-positive-bg);
-    border-color:var(--sage);
-    color:var(--accent-positive-text);
-    cursor:default;
   }
   .packing-category-block{
     margin-bottom:18px;
@@ -2953,14 +2911,13 @@
     /* App chrome not relevant on paper, in either print mode */
     .trip-switcher, .view-tabs-wrap, .view-tabs, .lists-sub-tabs, .view-controls-row, .monorail,
     .add-day-btn, .section-add-btn, .item-actions, .item-kebab-btn,
-    .accordion.accent, .add-form, .chevron,
+    .add-form, .chevron,
     .print-packing-btn,
     .master-editor-overlay, .theme-switch-btn, .trip-title-chevron,
-    .packing-intro, .category-toggle-row, .packing-add-row,
+    .packing-intro, .packing-add-row,
     .who-toggle-link, .add-stay-btn, .stay-card-remove, .stay-warning,
     .crowd-remove-btn, .traveler-chip button, .compact-toggle-icon-btn,
-    .trip-subsection-overview, .trip-subsection-crowd, .trip-subsection-share,
-    .trip-subsection-archive, .trip-notes-visibility-hint, .trip-notes-edit-row,
+    .trip-notes-visibility-hint, .trip-notes-edit-row,
     .empty-state,
     .dining-reservations-block,
     #tripTitle[contenteditable]::after{
@@ -3353,7 +3310,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '2.6';
+const APP_VERSION = '2.8';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4488,7 +4445,7 @@ async function loadSharedTripFromUrlIfPresent(){
     saveSharedTripMap(sharedMap);
 
     appData.activeTripId = localTrip.id;
-    activeDayId = localTrip.days.length ? localTrip.days[0].id : null;
+    activeDayId = getTodayDayId(localTrip);
     return true;
   }catch(err){
     console.warn('Could not load shared trip from link:', err);
@@ -4582,7 +4539,7 @@ async function loadRememberedTripsIfNoLinkPresent(){
     mergeRemoteIntoLocalTrip(localTrip, remoteData, appData.travelers);
     appData.trips.push(localTrip);
     appData.activeTripId = localTrip.id;
-    activeDayId = localTrip.days.length ? localTrip.days[0].id : null;
+    activeDayId = getTodayDayId(localTrip);
     sharedMap[mostRecent.supaId] = { localTripId: localTrip.id, title: localTrip.title, dates: localTrip.dates, lastOpenedAt: new Date().toISOString(), archivedAt: localTrip.archivedAt || null };
   }catch(err){
     console.warn('Could not load most recently used trip, falling back to a blank trip:', err);
@@ -5325,6 +5282,17 @@ function generateSingleItemICS(trip, day, item){
   return lines.join('\r\n');
 }
 
+function getTodayDayId(trip){
+  if(!trip.days.length) return null;
+  if(!trip.startDate) return trip.days[0].id;
+  const start = new Date(trip.startDate + 'T00:00:00');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((today - start) / (1000 * 60 * 60 * 24));
+  if(diffDays < 0 || diffDays >= trip.days.length) return trip.days[0].id;
+  return trip.days[diffDays].id;
+}
+
 function getDayDisplayLabel(trip, index, day, full){
   if(trip.startDate){
     const date = computeDayDate(trip, index);
@@ -5697,11 +5665,11 @@ function computeAdjacentTimeHint(day, candidateTime, excludeItemId){
   const gapStart = previous ? previous.endMin : 0;
   const gapEnd = next ? next.startMin : 24 * 60;
   const landmark = findNearbyLandmark(day, excludeItemId, gapStart, gapEnd);
-  if(landmark){
-    text += ` Also on your list around then: 📍 ${getItemDisplayName(landmark)} at ${formatTime(landmark.time)}.`;
-  }
+  const landmarkNote = landmark
+    ? `Also on your list around then: 📍 ${getItemDisplayName(landmark)} at ${formatTime(landmark.time)}.`
+    : null;
 
-  return { text };
+  return { text, landmarkNote };
 }
 
 function getItemDisplayName(item){
@@ -6360,7 +6328,7 @@ function renderTripSwitchList(){
         }
       }
       appData.activeTripId = trip.id;
-      activeDayId = trip.days[0].id;
+      activeDayId = getTodayDayId(trip);
       activeTravelerFilter = [];
       closeTripSwitchModal();
       render();
@@ -7746,7 +7714,8 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
       return;
     }
     const result = computeAdjacentTimeHint(day, timeInput.value, initial.id);
-    adjacentHintEl.textContent = result.text;
+    adjacentHintEl.innerHTML = escapeHtml(result.text) +
+      (result.landmarkNote ? `<span class="landmark-note">${escapeHtml(result.landmarkNote)}</span>` : '');
     adjacentHintEl.classList.toggle('blank-slate', !!result.blank);
     adjacentHintEl.classList.toggle('overlap', !!result.overlap);
     adjacentHintEl.classList.add('active');
@@ -9522,7 +9491,7 @@ document.getElementById('loadInput').addEventListener('change', e => {
       });
       appData = normalized;
       appData.activeTripId = appData.trips[0].id;
-      activeDayId = appData.trips[0].days[0].id;
+      activeDayId = getTodayDayId(appData.trips[0]);
       render();
       establishAllBaselines();
     }catch(err){
