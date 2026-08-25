@@ -15,11 +15,35 @@
 <body>
 
 <h2>Park Hours API — Live Test</h2>
-<p>This tests whether the browser can call the ThemeParks.wiki API directly, and shows exactly what Magic Kingdom's schedule data actually looks like. Tap the button, then send back whatever appears below.</p>
+<p>This tests whether the browser can call the ThemeParks.wiki API directly. Tap either button and send back whatever appears.</p>
 
-<button onclick="runTest()">Test Now</button>
+<button onclick="runTest()">Test Magic Kingdom Schedule</button>
+<button onclick="runDestinationTest()">Find All 4 Parks' IDs</button>
 
 <div id="output"></div>
+
+<script>
+async function runDestinationTest(){
+  const output = document.getElementById('output');
+  output.innerHTML = '<p>Looking up Walt Disney World...</p>';
+  try {
+    const res = await fetch('https://api.themeparks.wiki/v1/destinations');
+    const data = await res.json();
+    const wdw = data.destinations.find(d => d.name.toLowerCase().includes('walt disney world'));
+    if(!wdw){
+      output.innerHTML = '<div class="result fail">Could not find Walt Disney World in the destinations list.</div>';
+      return;
+    }
+    const parkList = (wdw.parks || []).map(p => `${p.name}: ${p.id}`).join('\n');
+    output.innerHTML = `
+      <div class="result success"><strong>✅ Found it</strong></div>
+      <pre>${parkList || JSON.stringify(wdw, null, 2).slice(0, 2000)}</pre>
+    `;
+  } catch(err) {
+    output.innerHTML = `<div class="result fail"><strong>❌ Failed</strong><br>${err.message}</div>`;
+  }
+}
+</script>
 
 <script>
 async function runTest(){
