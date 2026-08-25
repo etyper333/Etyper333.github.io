@@ -5,64 +5,62 @@
 <title>Park Hours API — Live Test</title>
 <style>
   body{font-family:-apple-system,sans-serif; max-width:700px; margin:30px auto; padding:0 16px; line-height:1.5;}
-  button{font-size:16px; padding:12px 20px; border-radius:8px; border:none; background:#1F4D3A; color:white; cursor:pointer;}
+  button{font-size:15px; padding:12px 18px; border-radius:8px; border:none; background:#1F4D3A; color:white; cursor:pointer; margin-bottom:8px;}
   pre{background:#f5f5f5; padding:14px; border-radius:8px; overflow-x:auto; font-size:12px; white-space:pre-wrap;}
   .result{margin-top:20px; padding:14px; border-radius:8px;}
   .success{background:#eaf7ee; border:1.5px solid #2F8F5A;}
   .fail{background:#fceeea; border:1.5px solid #c0392b;}
+  .park-block{margin-bottom:16px;}
+  .park-block h3{margin-bottom:6px; font-size:15px;}
 </style>
 </head>
 <body>
 
 <h2>Park Hours API — Live Test</h2>
-<p>This tests whether the browser can call the ThemeParks.wiki API directly. Tap either button and send back whatever appears.</p>
+<p>Tap the button below, wait a few seconds while it checks all four parks, then send back whatever appears — that's exactly the data I need to see.</p>
 
-<button onclick="runTest()">Test Magic Kingdom Schedule</button>
-<button onclick="runDestinationTest()">Find All 4 Parks' IDs</button>
+<button onclick="findSpecialEvents()">Find Special Events (Early Entry, Extended Evening, etc.)</button>
 
 <div id="output"></div>
 
 <script>
-async function runDestinationTest(){
-  const output = document.getElementById('output');
-  output.innerHTML = '<p>Looking up Walt Disney World...</p>';
-  try {
-    const res = await fetch('https://api.themeparks.wiki/v1/destinations');
-    const data = await res.json();
-    const wdw = data.destinations.find(d => d.name.toLowerCase().includes('walt disney world'));
-    if(!wdw){
-      output.innerHTML = '<div class="result fail">Could not find Walt Disney World in the destinations list.</div>';
-      return;
-    }
-    const parkList = (wdw.parks || []).map(p => `${p.name}: ${p.id}`).join('\n');
-    output.innerHTML = `
-      <div class="result success"><strong>✅ Found it</strong></div>
-      <pre>${parkList || JSON.stringify(wdw, null, 2).slice(0, 2000)}</pre>
-    `;
-  } catch(err) {
-    output.innerHTML = `<div class="result fail"><strong>❌ Failed</strong><br>${err.message}</div>`;
-  }
-}
-</script>
+const PARKS = {
+  "Magic Kingdom": "75ea578a-adc8-4116-a54d-dccb60765ef9",
+  "EPCOT": "47f90d2c-e191-4239-a466-5892ef59a88b",
+  "Hollywood Studios": "288747d1-8b4f-4a64-867e-ea7c9b27bad8",
+  "Animal Kingdom": "1c84a229-8862-4648-9c71-378ddd2c7693"
+};
 
-<script>
-async function runTest(){
+async function findSpecialEvents(){
   const output = document.getElementById('output');
-  output.innerHTML = '<p>Testing...</p>';
-  try {
-    const res = await fetch('https://api.themeparks.wiki/v1/entity/75ea578a-adc8-4116-a54d-dccb60765ef9/schedule');
-    if(!res.ok){
-      output.innerHTML = `<div class="result fail"><strong>Request failed — HTTP ${res.status}</strong></div>`;
-      return;
+  output.innerHTML = '<p>Checking all four parks...</p>';
+  let html = '';
+  let anyFound = false;
+
+  for(const [name, id] of Object.entries(PARKS)){
+    try {
+      const res = await fetch(`https://api.themeparks.wiki/v1/entity/${id}/schedule`);
+      const data = await res.json();
+      const specialEvents = (data.schedule || []).filter(e => e.type === 'TICKETED_EVENT');
+      html += `<div class="park-block"><h3>${name}</h3>`;
+      if(specialEvents.length === 0){
+        html += `<p>No special events found in this park's published window.</p>`;
+      } else {
+        anyFound = true;
+        html += `<pre>${JSON.stringify(specialEvents, null, 2)}</pre>`;
+      }
+      html += `</div>`;
+    } catch(err) {
+      html += `<div class="park-block"><h3>${name}</h3><p>❌ Failed: ${err.message}</p></div>`;
     }
-    const data = await res.json();
-    output.innerHTML = `
-      <div class="result success"><strong>✅ Success — CORS works, and here's the real data shape.</strong></div>
-      <pre>${JSON.stringify(data, null, 2).slice(0, 3000)}</pre>
-    `;
-  } catch(err) {
-    output.innerHTML = `<div class="result fail"><strong>❌ Request blocked or failed</strong><br>${err.message}<br><br>This likely means CORS isn't supported for direct browser calls — worth knowing before building further.</div>`;
   }
+
+  output.innerHTML = `
+    <div class="result ${anyFound ? 'success' : 'fail'}">
+      <strong>${anyFound ? '✅ Found special events — see below' : 'No special events found for any park right now'}</strong>
+    </div>
+    ${html}
+  `;
 }
 </script>
 
