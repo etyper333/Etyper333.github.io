@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Park Hours API — Live Test</title>
+<style>
+  body{font-family:-apple-system,sans-serif; max-width:700px; margin:30px auto; padding:0 16px; line-height:1.5;}
+  button{font-size:16px; padding:12px 20px; border-radius:8px; border:none; background:#1F4D3A; color:white; cursor:pointer;}
+  pre{background:#f5f5f5; padding:14px; border-radius:8px; overflow-x:auto; font-size:12px; white-space:pre-wrap;}
+  .result{margin-top:20px; padding:14px; border-radius:8px;}
+  .success{background:#eaf7ee; border:1.5px solid #2F8F5A;}
+  .fail{background:#fceeea; border:1.5px solid #c0392b;}
+</style>
+</head>
+<body>
+
+<h2>Park Hours API — Live Test</h2>
+<p>This tests whether the browser can call the ThemeParks.wiki API directly, and shows exactly what Magic Kingdom's schedule data actually looks like. Tap the button, then send back whatever appears below.</p>
+
+<button onclick="runTest()">Test Now</button>
+
+<div id="output"></div>
+
+<script>
+async function runTest(){
+  const output = document.getElementById('output');
+  output.innerHTML = '<p>Testing...</p>';
+  try {
+    const res = await fetch('https://api.themeparks.wiki/v1/entity/75ea578a-adc8-4116-a54d-dccb60765ef9/schedule');
+    if(!res.ok){
+      output.innerHTML = `<div class="result fail"><strong>Request failed — HTTP ${res.status}</strong></div>`;
+      return;
+    }
+    const data = await res.json();
+    output.innerHTML = `
+      <div class="result success"><strong>✅ Success — CORS works, and here's the real data shape.</strong></div>
+      <pre>${JSON.stringify(data, null, 2).slice(0, 3000)}</pre>
+    `;
+  } catch(err) {
+    output.innerHTML = `<div class="result fail"><strong>❌ Request blocked or failed</strong><br>${err.message}<br><br>This likely means CORS isn't supported for direct browser calls — worth knowing before building further.</div>`;
+  }
+}
+</script>
+
+</body>
+</html>
