@@ -3348,6 +3348,7 @@
   <div class="master-editor">
     <h2>Park Hours</h2>
     <p class="sub" id="parkHoursSub"></p>
+    <button type="button" class="park-hours-link" id="parkHoursRefreshLink">↻ Refresh hours</button>
     <div class="park-hours-date-row">
       <button type="button" class="date-nav-btn" id="parkHoursPrevBtn">‹</button>
       <div class="park-hours-date-display" id="parkHoursDateDisplay"></div>
@@ -3429,7 +3430,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.05';
+const APP_VERSION = '3.06';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5231,6 +5232,16 @@ document.getElementById('parkHoursPrevBtn').onclick = () => {
 document.getElementById('parkHoursNextBtn').onclick = () => {
   parkHoursCurrentDate.setDate(parkHoursCurrentDate.getDate() + 1);
   renderParkHoursModal();
+};
+document.getElementById('parkHoursRefreshLink').onclick = async () => {
+  const link = document.getElementById('parkHoursRefreshLink');
+  link.disabled = true;
+  link.textContent = '↻ Refreshing…';
+  await refreshAllParkSchedules();
+  await renderParkHoursModal();
+  link.disabled = false;
+  link.textContent = '✓ Refreshed';
+  setTimeout(() => { link.textContent = '↻ Refresh hours'; }, 2000);
 };
 
 function renderCrowdLevelsManager(){
@@ -8974,6 +8985,21 @@ function renderToolsMenu(){
     openCrowdLevelsManager(trip);
   };
   body.appendChild(crowdBtn);
+
+  const refreshHoursBtn = document.createElement('button');
+  refreshHoursBtn.type = 'button';
+  refreshHoursBtn.className = 'print-packing-btn-secondary';
+  refreshHoursBtn.textContent = '🕐 Refresh Park Hours';
+  refreshHoursBtn.onclick = async () => {
+    refreshHoursBtn.disabled = true;
+    refreshHoursBtn.textContent = '🕐 Refreshing…';
+    await refreshAllParkSchedules();
+    render();
+    refreshHoursBtn.disabled = false;
+    refreshHoursBtn.textContent = '✓ Refreshed';
+    setTimeout(() => { refreshHoursBtn.textContent = '🕐 Refresh Park Hours'; }, 2000);
+  };
+  body.appendChild(refreshHoursBtn);
 
   const manageTripLabel = document.createElement('div');
   manageTripLabel.className = 'packing-category-title';
