@@ -1528,6 +1528,13 @@
     border-color:var(--sky);
     color:var(--accent-high-text);
   }
+  .section-hours-line{
+    width:100%;
+    font-size:11.5px;
+    color:var(--sky);
+    font-weight:600;
+    padding:2px 0 0 16px;
+  }
   .crowd-entry-row{
     display:flex;
     align-items:center;
@@ -3422,7 +3429,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.03';
+const APP_VERSION = '3.04';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5657,6 +5664,7 @@ const PARK_HOURS_ENTITY_IDS = {
 };
 
 let parkScheduleCache = {};
+let parkScheduleFetchInProgress = new Set();
 
 async function fetchParkScheduleData(parkName){
   const entityId = PARK_HOURS_ENTITY_IDS[parkName];
@@ -5675,7 +5683,11 @@ async function fetchParkScheduleData(parkName){
 
 async function ensureParkScheduleLoaded(parkName){
   if(parkScheduleCache[parkName]) return parkScheduleCache[parkName];
-  return await fetchParkScheduleData(parkName);
+  if(parkScheduleFetchInProgress.has(parkName)) return null;
+  parkScheduleFetchInProgress.add(parkName);
+  const result = await fetchParkScheduleData(parkName);
+  parkScheduleFetchInProgress.delete(parkName);
+  return result;
 }
 
 async function refreshAllParkSchedules(){
@@ -5720,6 +5732,26 @@ function dateToApiString(date){
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
+}
+
+function getSectionHoursLine(trip, dayIndex, currentPark){
+  if(!CROWD_LEVEL_PARKS.includes(currentPark) || !trip.startDate) return '';
+  const date = computeDayDate(trip, dayIndex);
+  if(!date) return '';
+  const dateStr = dateToApiString(date);
+
+  if(!parkScheduleCache[currentPark]){
+    ensureParkScheduleLoaded(currentPark).then(result => { if(result) render(); });
+    return '';
+  }
+
+  const hours = getParkHoursForDate(currentPark, dateStr);
+  if(hours.status !== 'available') return '';
+
+  let line = `${hours.openingTime}–${hours.closingTime}`;
+  if(hours.earlyEntryTime) line += ` · Early Entry ${hours.earlyEntryTime}`;
+  if(hours.extendedEveningTime) line += ` · Extended Evening Hours (Deluxe &amp; DVC Resorts) until ${hours.extendedEveningTime}`;
+  return line;
 }
 
 function getDayIdForDateString(trip, dateStr){
@@ -7700,6 +7732,7 @@ function renderDayPanels(){
       const showCrowd = CROWD_LEVEL_PARKS.includes(currentPark);
       const currentCrowd = showCrowd ? getCrowdLevel(trip, day.id, currentPark) : '';
       const crowdClass = getCrowdClass(currentCrowd);
+      const hoursLine = getSectionHoursLine(trip, dayIndex, currentPark);
       header.innerHTML = `
         <span class="dot"></span>
         <span class="label">${sec.label}</span>
@@ -7707,6 +7740,7 @@ function renderDayPanels(){
         ${currentCrowd ? `<span class="section-crowd-badge ${crowdClass}" title="Crowd level — set in Trip Details">Crowd: ${currentCrowd}</span>` : ''}
         <span class="rule"></span>
         <button type="button" class="section-add-btn" title="Add item to ${sec.label}">+</button>
+        ${hoursLine ? `<div class="section-hours-line">${hoursLine}</div>` : ''}
       `;
       header.querySelector('.section-add-btn').onclick = () => {
         openItemAddModal(day, { section: sec.key }, 'Add to ' + sec.label);
