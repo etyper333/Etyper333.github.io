@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Trip Days — Trip Planner</title>
+<title>Mel's Park Planner</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -3199,7 +3199,7 @@
 <nav class="trip-switcher" id="tripSwitcher"></nav>
 
 <header class="hero">
-  <div class="eyebrow">Trip Days</div>
+  <div class="eyebrow">Mel's Park Planner</div>
   <button type="button" id="tripTitleTrigger" class="trip-title-trigger">
     <h1 id="tripTitle">Our Disney World Trip</h1>
     <span class="trip-title-chevron">▾</span>
@@ -3459,7 +3459,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.07';
+const APP_VERSION = '3.08';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4812,7 +4812,7 @@ function generateICS(trip, selectedItemIds){
   const lines = [];
   lines.push('BEGIN:VCALENDAR');
   lines.push('VERSION:2.0');
-  lines.push('PRODID:-//Trip Days Trip Planner//EN');
+  lines.push('PRODID:-//Mel\'s Park Planner//EN');
   lines.push('CALSCALE:GREGORIAN');
 
   const dtstamp = getICSDtstamp();
@@ -5443,7 +5443,7 @@ function generateSingleItemICS(trip, day, item){
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Trip Days Trip Planner//EN',
+    'PRODID:-//Mel\'s Park Planner//EN',
     'CALSCALE:GREGORIAN',
     ...buildICSEventLines(day, dayDate, item, dtstamp),
     'END:VCALENDAR'
@@ -9888,7 +9888,7 @@ function renderTripDetails(trip){
 
   const versionLine = document.createElement('div');
   versionLine.className = 'app-version-line';
-  versionLine.textContent = `Trip Days · v${APP_VERSION}`;
+  versionLine.textContent = `Mel's Park Planner · v${APP_VERSION}`;
   wrap.appendChild(versionLine);
 }
 
