@@ -3429,7 +3429,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.04';
+const APP_VERSION = '3.05';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5754,6 +5754,32 @@ function getSectionHoursLine(trip, dayIndex, currentPark){
   return line;
 }
 
+function buildParkHoursSummaryHtml(trip, dayIndex){
+  if(!trip.startDate) return '';
+  const date = computeDayDate(trip, dayIndex);
+  if(!date) return '';
+  const dateStr = dateToApiString(date);
+
+  return CROWD_LEVEL_PARKS.map(parkName => {
+    if(!parkScheduleCache[parkName]){
+      ensureParkScheduleLoaded(parkName).then(result => { if(result) render(); });
+      return '';
+    }
+    const hours = getParkHoursForDate(parkName, dateStr);
+    if(hours.status !== 'available') return '';
+    return `
+      <div class="park-hours-row">
+        <div class="park-hours-name">
+          ${escapeHtml(parkName)}
+          ${hours.earlyEntryTime ? `<span class="park-hours-perk-tag">Early Entry ${hours.earlyEntryTime}</span>` : ''}
+          ${hours.extendedEveningTime ? `<span class="park-hours-perk-tag">Extended Evening Hours (Deluxe &amp; DVC Resorts) until ${hours.extendedEveningTime}</span>` : ''}
+        </div>
+        <div class="park-hours-time">${hours.openingTime}–${hours.closingTime}</div>
+      </div>
+    `;
+  }).join('');
+}
+
 function getDayIdForDateString(trip, dateStr){
   for(let i = 0; i < trip.days.length; i++){
     const d = computeDayDate(trip, i);
@@ -7237,7 +7263,15 @@ function renderItinerarySidebar(trip){
     block.appendChild(diningFact);
   }
 
-  if(!crowdFacts.length && !diningItems.length) return;
+  const parkHoursHtml = buildParkHoursSummaryHtml(trip, dayIndex);
+  if(parkHoursHtml){
+    const hoursFact = document.createElement('div');
+    hoursFact.className = 'sidebar-fact';
+    hoursFact.innerHTML = `<span class="label">Park Hours</span>${parkHoursHtml}`;
+    block.appendChild(hoursFact);
+  }
+
+  if(!crowdFacts.length && !diningItems.length && !parkHoursHtml) return;
 
   wrap.appendChild(block);
 }
@@ -7698,6 +7732,19 @@ function renderDayPanels(){
       };
     }
     detailsBody.appendChild(infoRow1);
+
+    const parkHoursDetailHtml = buildParkHoursSummaryHtml(trip, dayIndex);
+    if(parkHoursDetailHtml){
+      const parkHoursRow = document.createElement('div');
+      parkHoursRow.className = 'day-info-row';
+      parkHoursRow.innerHTML = `
+        <div class="day-info-field" style="flex:1 1 100%;">
+          <label>Park Hours</label>
+          ${parkHoursDetailHtml}
+        </div>
+      `;
+      detailsBody.appendChild(parkHoursRow);
+    }
 
     const infoRow3 = document.createElement('div');
     infoRow3.className = 'day-info-row day-details-ropedrop-row';
