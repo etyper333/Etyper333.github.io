@@ -2417,6 +2417,35 @@
     font-size:13px;
     font-style:italic;
   }
+  .park-combo-row{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:10px;
+    padding:10px 0;
+    border-top:1px solid var(--line);
+  }
+  .park-combo-row:first-of-type{border-top:none;}
+  .park-combo-left{flex:1; min-width:0;}
+  .park-combo-right{flex-shrink:0; text-align:right;}
+  .park-combo-missing{
+    font-size:11px;
+    color:var(--slate);
+    font-style:italic;
+    margin-top:2px;
+  }
+  .crowd-pill{
+    display:inline-block;
+    margin-top:3px;
+    font-size:11px;
+    font-weight:700;
+    padding:3px 9px;
+    border-radius:14px;
+    white-space:nowrap;
+  }
+  .crowd-pill.crowd-low{background:#EAF3EE; color:#3F6B54;}
+  .crowd-pill.crowd-mid{background:#F7F1E1; color:#7A6A2A;}
+  .crowd-pill.crowd-high{background:#FCEEEA; color:#A34435;}
   .add-form select{
     appearance:none;
     -webkit-appearance:none;
@@ -3430,7 +3459,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.06';
+const APP_VERSION = '3.07';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5791,6 +5820,44 @@ function buildParkHoursSummaryHtml(trip, dayIndex){
   }).join('');
 }
 
+function buildCombinedParkInfoHtml(trip, dayIndex, day){
+  if(!trip.startDate) return '';
+  const date = computeDayDate(trip, dayIndex);
+  if(!date) return '';
+  const dateStr = dateToApiString(date);
+
+  return CROWD_LEVEL_PARKS.map(parkName => {
+    if(!parkScheduleCache[parkName]){
+      ensureParkScheduleLoaded(parkName).then(result => { if(result) render(); });
+    }
+    const hours = parkScheduleCache[parkName] ? getParkHoursForDate(parkName, dateStr) : { status: 'not-loaded' };
+    const crowdVal = getCrowdLevel(trip, day.id, parkName);
+    const crowdClass = getCrowdClass(crowdVal);
+    const crowdWord = crowdClass === 'crowd-low' ? 'Low' : crowdClass === 'crowd-mid' ? 'Moderate' : crowdClass === 'crowd-high' ? 'Busy' : '';
+
+    const perkTags = hours.status === 'available'
+      ? `${hours.earlyEntryTime ? `<span class="park-hours-perk-tag">Early Entry ${hours.earlyEntryTime}</span>` : ''}${hours.extendedEveningTime ? `<span class="park-hours-perk-tag">Extended Evening Hours (Deluxe &amp; DVC Resorts) until ${hours.extendedEveningTime}</span>` : ''}`
+      : `<div class="park-combo-missing">Hours not published yet</div>`;
+
+    const rightContent = `
+      ${hours.status === 'available' ? `<div class="park-hours-time">${hours.openingTime}–${hours.closingTime}</div>` : ''}
+      ${crowdVal ? `<div class="crowd-pill ${crowdClass}">${escapeHtml(crowdVal)} · ${crowdWord}</div>` : `<div class="park-combo-missing">No crowd level set</div>`}
+    `;
+
+    return `
+      <div class="park-combo-row">
+        <div class="park-combo-left">
+          <div class="park-hours-name">${escapeHtml(parkName)}</div>
+          ${perkTags}
+        </div>
+        <div class="park-combo-right">
+          ${rightContent}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
 function getDayIdForDateString(trip, dateStr){
   for(let i = 0; i < trip.days.length; i++){
     const d = computeDayDate(trip, i);
@@ -7744,14 +7811,14 @@ function renderDayPanels(){
     }
     detailsBody.appendChild(infoRow1);
 
-    const parkHoursDetailHtml = buildParkHoursSummaryHtml(trip, dayIndex);
-    if(parkHoursDetailHtml){
+    const parkComboHtml = buildCombinedParkInfoHtml(trip, dayIndex, day);
+    if(parkComboHtml){
       const parkHoursRow = document.createElement('div');
       parkHoursRow.className = 'day-info-row';
       parkHoursRow.innerHTML = `
         <div class="day-info-field" style="flex:1 1 100%;">
-          <label>Park Hours</label>
-          ${parkHoursDetailHtml}
+          <label>Park Hours &amp; Crowd Levels</label>
+          ${parkComboHtml}
         </div>
       `;
       detailsBody.appendChild(parkHoursRow);
