@@ -2330,6 +2330,86 @@
     color:var(--slate);
     font-style:italic;
   }
+  .park-hours-link{
+    display:block;
+    background:none;
+    border:none;
+    color:var(--sky);
+    font-size:12px;
+    font-weight:700;
+    text-decoration:underline;
+    padding:0 0 10px;
+    cursor:pointer;
+  }
+  .park-hours-date-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:14px;
+  }
+  .date-nav-btn{
+    width:30px;
+    height:30px;
+    border-radius:var(--radius-round);
+    border:1.5px solid var(--line);
+    background:var(--cream);
+    color:var(--slate);
+    font-size:14px;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .park-hours-date-display{
+    flex:1;
+    text-align:center;
+    background:var(--cream);
+    border:1.5px solid var(--line);
+    border-radius:var(--radius-md);
+    padding:8px 10px;
+    font-weight:700;
+    font-size:13.5px;
+  }
+  .park-hours-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 0;
+    border-top:1px solid var(--line);
+  }
+  .park-hours-row:first-of-type{border-top:none;}
+  .park-hours-name{
+    flex:1;
+    font-weight:700;
+    font-size:13.5px;
+  }
+  .park-hours-time{
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--sky);
+    white-space:nowrap;
+  }
+  .park-hours-crowd{
+    font-size:11px;
+    font-weight:700;
+    padding:3px 8px;
+    border-radius:var(--radius-lg);
+    border:1.5px solid var(--line);
+    background:var(--cream);
+    white-space:nowrap;
+  }
+  .park-hours-perk-tag{
+    display:block;
+    font-size:10.5px;
+    font-weight:700;
+    color:#7A6114;
+    margin-top:2px;
+  }
+  .park-hours-empty-note{
+    text-align:center;
+    padding:22px 10px;
+    color:var(--slate);
+    font-size:13px;
+    font-style:italic;
+  }
   .add-form select{
     appearance:none;
     -webkit-appearance:none;
@@ -3254,6 +3334,20 @@
   </div>
 </div>
 
+<div class="master-editor-overlay" id="parkHoursOverlay">
+  <div class="master-editor">
+    <h2>Park Hours</h2>
+    <p class="sub" id="parkHoursSub"></p>
+    <div class="park-hours-date-row">
+      <button type="button" class="date-nav-btn" id="parkHoursPrevBtn">‹</button>
+      <div class="park-hours-date-display" id="parkHoursDateDisplay"></div>
+      <button type="button" class="date-nav-btn" id="parkHoursNextBtn">›</button>
+    </div>
+    <div id="parkHoursBody"></div>
+    <button class="master-editor-close master-editor-close-sticky" id="parkHoursCloseBtn">Done</button>
+  </div>
+</div>
+
 <div class="master-editor-overlay" id="itemEditOverlay">
   <div class="master-editor">
     <h2 id="itemFormTitle">Edit Item</h2>
@@ -3325,7 +3419,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.01';
+const APP_VERSION = '3.02';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5119,6 +5213,16 @@ document.getElementById('dayCopySubmitBtn').onclick = async () => {
   }
 };
 
+document.getElementById('parkHoursCloseBtn').onclick = closeParkHoursModal;
+document.getElementById('parkHoursPrevBtn').onclick = () => {
+  parkHoursCurrentDate.setDate(parkHoursCurrentDate.getDate() - 1);
+  renderParkHoursModal();
+};
+document.getElementById('parkHoursNextBtn').onclick = () => {
+  parkHoursCurrentDate.setDate(parkHoursCurrentDate.getDate() + 1);
+  renderParkHoursModal();
+};
+
 function renderCrowdLevelsManager(){
   const trip = crowdLevelsManagerTrip;
   const body = document.getElementById('crowdLevelsManagerBody');
@@ -5541,6 +5645,145 @@ const ITEM_NAME_SUGGESTIONS = [
   "Roaring Fork","Geyser Point Bar & Grill","Ale & Compass Restaurant","Yachtsman Steakhouse","Market at Ale and Compass"
 ];
 const CROWD_LEVEL_PARKS = ["Magic Kingdom","EPCOT","Hollywood Studios","Animal Kingdom"];
+
+const PARK_HOURS_ENTITY_IDS = {
+  "Magic Kingdom": "75ea578a-adc8-4116-a54d-dccb60765ef9",
+  "EPCOT": "47f90d2c-e191-4239-a466-5892ef59a88b",
+  "Hollywood Studios": "288747d1-8b4f-4a64-867e-ea7c9b27bad8",
+  "Animal Kingdom": "1c84a229-8862-4648-9c71-378ddd2c7693"
+};
+
+let parkScheduleCache = {};
+
+async function fetchParkScheduleData(parkName){
+  const entityId = PARK_HOURS_ENTITY_IDS[parkName];
+  if(!entityId) return null;
+  try{
+    const res = await fetch(`https://api.themeparks.wiki/v1/entity/${entityId}/schedule`);
+    if(!res.ok) return null;
+    const data = await res.json();
+    parkScheduleCache[parkName] = { fetchedAt: new Date().toISOString(), schedule: data.schedule || [] };
+    return parkScheduleCache[parkName];
+  }catch(err){
+    console.warn('Could not fetch park schedule for ' + parkName + ':', err);
+    return null;
+  }
+}
+
+async function ensureParkScheduleLoaded(parkName){
+  if(parkScheduleCache[parkName]) return parkScheduleCache[parkName];
+  return await fetchParkScheduleData(parkName);
+}
+
+async function refreshAllParkSchedules(){
+  for(const parkName of Object.keys(PARK_HOURS_ENTITY_IDS)){
+    await fetchParkScheduleData(parkName);
+  }
+}
+
+function formatScheduleTime(isoString){
+  if(!isoString) return '';
+  const d = new Date(isoString);
+  let h = d.getHours();
+  const m = d.getMinutes();
+  const period = h >= 12 ? 'PM' : 'AM';
+  h = h % 12; if(h === 0) h = 12;
+  return `${h}:${String(m).padStart(2,'0')} ${period}`;
+}
+
+function getParkHoursForDate(parkName, dateStr){
+  const cached = parkScheduleCache[parkName];
+  if(!cached) return { status: 'not-loaded' };
+  const dayEntries = cached.schedule.filter(e => e.date === dateStr);
+  const operating = dayEntries.find(e => e.type === 'OPERATING');
+  if(!operating){
+    const today = new Date(); today.setHours(0,0,0,0);
+    const checkDate = new Date(dateStr + 'T00:00:00');
+    return { status: checkDate < today ? 'past' : 'not-published' };
+  }
+  const earlyEntry = dayEntries.find(e => e.type === 'TICKETED_EVENT' && e.description && e.description.toLowerCase().includes('early entry'));
+  const extendedEvening = dayEntries.find(e => e.type === 'TICKETED_EVENT' && e.description && e.description.toLowerCase().includes('extended evening'));
+  return {
+    status: 'available',
+    openingTime: formatScheduleTime(operating.openingTime),
+    closingTime: formatScheduleTime(operating.closingTime),
+    earlyEntryTime: earlyEntry ? formatScheduleTime(earlyEntry.openingTime) : null,
+    extendedEveningTime: extendedEvening ? formatScheduleTime(extendedEvening.closingTime) : null
+  };
+}
+
+function dateToApiString(date){
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function getDayIdForDateString(trip, dateStr){
+  for(let i = 0; i < trip.days.length; i++){
+    const d = computeDayDate(trip, i);
+    if(d && dateToApiString(d) === dateStr) return trip.days[i].id;
+  }
+  return null;
+}
+
+let parkHoursCurrentDate = null;
+
+function openParkHoursModal(day){
+  const trip = getActiveTrip();
+  if(!trip.startDate){
+    alert("Set your trip's start date in Trip Details first — park hours are shown by specific date.");
+    return;
+  }
+  const dayIndex = trip.days.findIndex(d => d.id === day.id);
+  parkHoursCurrentDate = computeDayDate(trip, dayIndex) || new Date();
+  document.getElementById('parkHoursSub').textContent = 'Standard hours, Early Entry, and Extended Evening Hours where they apply. Purely informational — nothing here affects your plans.';
+  renderParkHoursModal();
+  document.getElementById('parkHoursOverlay').classList.add('active');
+}
+function closeParkHoursModal(){
+  document.getElementById('parkHoursOverlay').classList.remove('active');
+}
+
+async function renderParkHoursModal(){
+  const trip = getActiveTrip();
+  document.getElementById('parkHoursDateDisplay').textContent = formatDayDateFull(parkHoursCurrentDate);
+  const body = document.getElementById('parkHoursBody');
+  body.innerHTML = '<p class="park-hours-empty-note">Loading…</p>';
+
+  const dateStr = dateToApiString(parkHoursCurrentDate);
+  await Promise.all(CROWD_LEVEL_PARKS.map(parkName => ensureParkScheduleLoaded(parkName)));
+
+  const dayIdForDate = getDayIdForDateString(trip, dateStr);
+  const rows = CROWD_LEVEL_PARKS.map(parkName => ({ parkName, hours: getParkHoursForDate(parkName, dateStr) }));
+  const availableRows = rows.filter(r => r.hours.status === 'available');
+
+  if(availableRows.length === 0){
+    const allPast = rows.every(r => r.hours.status === 'past');
+    const msg = allPast
+      ? 'This date has already passed.'
+      : "Disney hasn't published hours this far out yet — try checking back closer to your trip.";
+    body.innerHTML = `<div class="park-hours-empty-note">${msg}</div>`;
+    return;
+  }
+
+  body.innerHTML = availableRows.map(({ parkName, hours }) => {
+    const crowdVal = dayIdForDate ? getCrowdLevel(trip, dayIdForDate, parkName) : '';
+    const crowdClass = getCrowdClass(crowdVal);
+    return `
+      <div class="park-hours-row">
+        <div class="park-hours-name">
+          ${escapeHtml(parkName)}
+          ${hours.earlyEntryTime ? `<span class="park-hours-perk-tag">Early Entry ${hours.earlyEntryTime}</span>` : ''}
+          ${hours.extendedEveningTime ? `<span class="park-hours-perk-tag">Extended Evening Hours (Deluxe &amp; DVC Resorts) until ${hours.extendedEveningTime}</span>` : ''}
+        </div>
+        <div class="park-hours-time">${hours.openingTime}–${hours.closingTime}</div>
+        ${crowdVal ? `<div class="park-hours-crowd ${crowdClass}">${crowdVal}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
 const TYPES = [
   {key:"activity", label:"Activity", icon:"🎡"},
   {key:"logistics", label:"Logistics", icon:"🚶"},
@@ -7684,6 +7927,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
         <label>Name — required</label>
         <input type="text" data-f="name" placeholder="e.g. Hollywood Studios, Be Our Guest lunch" value="${escapeHtml(initial.name || '')}" autocomplete="off" />
       </div>
+      <button type="button" class="park-hours-link" data-role="open-park-hours">🕐 Not sure which park? Check hours &amp; crowds</button>
     </div>
 
     <div class="section-group">
@@ -7866,6 +8110,9 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   syncMainPlanUI();
   timeInput.addEventListener('input', () => { syncSectionVisibility(); syncMainPlanUI(); syncEndTimeUI(); syncAdjacentHint(); });
   sectionSelect.addEventListener('change', () => { syncMainPlanUI(); syncAdjacentHint(); });
+  wrap.querySelector('[data-role="open-park-hours"]').onclick = () => {
+    openParkHoursModal(day);
+  };
 
   const typeSelect = wrap.querySelector('[data-f="type"]');
   const mealRow = wrap.querySelector('[data-role="meal-row"]');
@@ -8375,7 +8622,8 @@ function closeTravelerColorModal(){
   ['travelerFilterOverlay', () => document.getElementById('travelerFilterOverlay').classList.remove('active')],
   ['itemKebabOverlay', closeItemKebabMenu],
   ['copyMoveOverlay', () => { document.getElementById('copyMoveOverlay').classList.remove('active'); copyMoveContext = null; }],
-  ['dayCopyOverlay', () => { document.getElementById('dayCopyOverlay').classList.remove('active'); dayCopyContext = null; }]
+  ['dayCopyOverlay', () => { document.getElementById('dayCopyOverlay').classList.remove('active'); dayCopyContext = null; }],
+  ['parkHoursOverlay', closeParkHoursModal]
 ].forEach(([overlayId, closeFn]) => {
   document.getElementById(overlayId).addEventListener('click', e => {
     if(e.target.id !== overlayId) return;
