@@ -1555,34 +1555,52 @@
     padding:0;
     flex-shrink:0;
   }
-  .crowd-levels-table{
+  .grid-table{
     width:100%;
     border-collapse:collapse;
-    font-size:13px;
+    font-size:11px;
   }
-  .crowd-levels-table th{
-    text-align:left;
-    font-size:10.5px;
+  .grid-table th{
+    font-size:9.5px;
     font-weight:700;
-    text-transform:uppercase;
-    letter-spacing:.04em;
     color:var(--slate);
-    padding:0 8px 6px;
+    text-align:center;
+    padding:4px 2px;
+    text-transform:uppercase;
     border-bottom:1.5px solid var(--line);
   }
-  .crowd-levels-table td{
-    padding:8px;
-    border-bottom:1px solid var(--line);
+  .grid-table td{
+    padding:6px 2px;
+    text-align:center;
+    border-top:1px solid var(--line);
+    vertical-align:middle;
+  }
+  .grid-day-row{cursor:pointer;}
+  .grid-day-label{
+    text-align:left !important;
+    font-weight:700;
+    font-size:11px;
+    white-space:nowrap;
     color:var(--ink);
   }
-  .crowd-levels-table tr:last-child td{
-    border-bottom:none;
+  .grid-cell{line-height:1.3;}
+  .grid-time{
+    font-weight:600;
+    color:var(--sky);
+    font-size:10px;
+    display:block;
   }
-  .crowd-levels-table td:last-child{
-    font-weight:700;
-    text-align:center;
-    width:50px;
+  .grid-dot{
+    display:inline-block;
+    width:7px;height:7px;
+    border-radius:var(--radius-round);
+    margin-top:2px;
   }
+  .grid-dot.crowd-low{background:#6E9A82;}
+  .grid-dot.crowd-mid{background:#C9A227;}
+  .grid-dot.crowd-high{background:#C2472A;}
+  .grid-empty{color:var(--line); font-size:12px;}
+  .perk-mark{color:var(--marigold); font-size:9px;}
   .print-only-fact{
     display:none;
   }
@@ -3476,7 +3494,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.10';
+const APP_VERSION = '3.11';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5738,6 +5756,7 @@ const ITEM_NAME_SUGGESTIONS = [
   "Roaring Fork","Geyser Point Bar & Grill","Ale & Compass Restaurant","Yachtsman Steakhouse","Market at Ale and Compass"
 ];
 const CROWD_LEVEL_PARKS = ["Magic Kingdom","EPCOT","Hollywood Studios","Animal Kingdom"];
+const PARK_ABBREVIATIONS = { "Magic Kingdom": "MK", "EPCOT": "EP", "Hollywood Studios": "HS", "Animal Kingdom": "AK" };
 
 const PARK_HOURS_ENTITY_IDS = {
   "Magic Kingdom": "75ea578a-adc8-4116-a54d-dccb60765ef9",
@@ -5899,6 +5918,75 @@ function buildCombinedParkInfoHtml(trip, dayIndex, day){
       </div>
     `;
   }).join('');
+}
+
+function formatCompactTime(fullTimeStr){
+  const match = fullTimeStr.match(/^(\d+):(\d+)\s(AM|PM)$/);
+  if(!match) return fullTimeStr;
+  const h = match[1], m = match[2], period = match[3];
+  const suffix = period === 'AM' ? 'a' : 'p';
+  return m === '00' ? `${h}${suffix}` : `${h}:${m}${suffix}`;
+}
+
+function buildParkHoursCrowdGrid(trip){
+  if(!trip.startDate || trip.days.length === 0) return null;
+
+  CROWD_LEVEL_PARKS.forEach(parkName => {
+    if(!parkScheduleCache[parkName]){
+      ensureParkScheduleLoaded(parkName).then(result => { if(result) renderTripDetails(trip); });
+    }
+  });
+
+  const table = document.createElement('table');
+  table.className = 'grid-table';
+
+  const headerRow = document.createElement('tr');
+  headerRow.innerHTML = `<th style="text-align:left;">Day</th>${CROWD_LEVEL_PARKS.map(p => `<th>${PARK_ABBREVIATIONS[p]}</th>`).join('')}`;
+  table.appendChild(headerRow);
+
+  trip.days.forEach((day, i) => {
+    const date = computeDayDate(trip, i);
+    const dateStr = date ? dateToApiString(date) : null;
+    const dayLabel = getDayDisplayLabel(trip, i, day, false);
+
+    const row = document.createElement('tr');
+    row.className = 'grid-day-row';
+    row.title = 'Tap for full details on this day';
+    row.onclick = () => openParkHoursModal(day);
+
+    const dayCell = document.createElement('td');
+    dayCell.className = 'grid-day-label';
+    dayCell.textContent = dayLabel;
+    row.appendChild(dayCell);
+
+    CROWD_LEVEL_PARKS.forEach(parkName => {
+      const hours = dateStr ? getParkHoursForDate(parkName, dateStr) : { status: 'not-loaded' };
+      const crowdVal = getCrowdLevel(trip, day.id, parkName);
+      const crowdClass = getCrowdClass(crowdVal);
+      const cell = document.createElement('td');
+
+      if(hours.status !== 'available' && !crowdVal){
+        cell.className = 'grid-cell grid-empty';
+        cell.textContent = '—';
+      } else {
+        cell.className = 'grid-cell';
+        const hasPerk = hours.status === 'available' && (hours.earlyEntryTime || hours.extendedEveningTime);
+        let inner = '';
+        if(hours.status === 'available'){
+          inner += `<span class="grid-time">${formatCompactTime(hours.openingTime)}\u2013${formatCompactTime(hours.closingTime)}${hasPerk ? '<span class="perk-mark">\u2726</span>' : ''}</span>`;
+        }
+        if(crowdVal){
+          inner += `<span class="grid-dot ${crowdClass}"></span>`;
+        }
+        cell.innerHTML = inner;
+      }
+      row.appendChild(cell);
+    });
+
+    table.appendChild(row);
+  });
+
+  return table;
 }
 
 function getDayIdForDateString(trip, dateStr){
@@ -9938,25 +10026,11 @@ function renderTripDetails(trip){
     }
   });
 
-  // --- Crowd Levels (read-only; editing lives in Tools > Manage Crowd Levels) ---
-  const setCrowdLevels = getSetCrowdLevels(trip);
-  if(setCrowdLevels.length > 0){
-    renderTripSubsection(wrap, trip, 'crowd', '🎢', 'Crowd Levels', `${setCrowdLevels.length} set`, body => {
-      const table = document.createElement('table');
-      table.className = 'crowd-levels-table';
-      table.innerHTML = `
-        <thead><tr><th>Day</th><th>Park</th><th>Level</th></tr></thead>
-        <tbody>
-          ${setCrowdLevels.map(s => `
-            <tr>
-              <td>${escapeHtml(s.dayLabel)}</td>
-              <td>${escapeHtml(s.park)}</td>
-              <td>${escapeHtml(s.level)}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      `;
-      body.appendChild(table);
+  // --- Park Hours & Crowd Levels (read-only; crowd editing lives in Tools > Manage Crowd Levels) ---
+  if(trip.startDate && trip.days.length > 0){
+    renderTripSubsection(wrap, trip, 'crowd', '🎢', 'Park Hours & Crowd Levels', `${trip.days.length} day${trip.days.length === 1 ? '' : 's'}`, body => {
+      const grid = buildParkHoursCrowdGrid(trip);
+      if(grid) body.appendChild(grid);
     });
   }
 
