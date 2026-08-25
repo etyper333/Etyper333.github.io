@@ -382,6 +382,23 @@
     color:var(--ink);
     cursor:pointer;
   }
+  .calendar-export-category-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:14px;
+  }
+  .calendar-export-category-btn{
+    font-family:'Inter',sans-serif;
+    font-size:11.5px;
+    font-weight:600;
+    padding:6px 10px;
+    border-radius:var(--radius-md);
+    border:1.5px solid var(--line);
+    background:var(--cream);
+    color:var(--ink);
+    cursor:pointer;
+  }
   .calendar-export-item-row{
     display:flex;
     align-items:center;
@@ -1188,81 +1205,38 @@
   .monorail{
     display:flex;
     align-items:center;
-    gap:0;
-    padding:18px 14px 4px;
-    overflow-x:auto;
+    gap:10px;
+    padding:14px 16px;
     background:var(--paper);
     border-bottom:1px solid var(--line);
   }
-  .current-day-sticky{
-    display:block;
-    width:100%;
-    text-align:left;
-    position:sticky;
-    top:var(--trip-meta-height, 60px);
-    z-index:10;
+  .day-nav-arrow{
+    flex-shrink:0;
+    width:36px;height:36px;
+    border-radius:var(--radius-round);
+    border:1.5px solid var(--line);
     background:var(--paper);
-    border:none;
-    border-bottom:1px solid var(--line);
-    padding:6px 16px;
-    font-family:'Baloo 2',sans-serif;
-    font-size:13px;
-    font-weight:700;
     color:var(--sky);
-    cursor:pointer;
-  }
-  .rail-stop{
-    display:flex;
-    align-items:center;
-    flex-shrink:0;
-  }
-  .rail-stop .dot-wrap{
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    cursor:pointer;
-    padding:0 4px;
-  }
-  .rail-stop .dot{
-    width:16px;height:16px;
-    border-radius:var(--radius-round);
-    background:var(--paper);
-    border:3px solid var(--slate);
-    transition:all .2s ease;
-  }
-  .rail-stop.active .dot{
-    background:var(--coral);
-    border-color:var(--coral);
-    box-shadow:0 0 0 4px var(--accent-glow);
-  }
-  .rail-stop .label{
-    font-size:11px;
-    font-weight:600;
-    color:var(--slate);
-    margin-top:6px;
-    white-space:nowrap;
-  }
-  .rail-stop.active .label{color:var(--coral);}
-  .rail-track{
-    width:36px;height:3px;
-    background:var(--line);
-    flex-shrink:0;
-  }
-  .add-day-btn{
-    flex-shrink:0;
-    margin-left:8px;
-    border:2px dashed var(--slate);
-    background:transparent;
-    color:var(--slate);
-    border-radius:var(--radius-round);
-    width:30px;height:30px;
     font-size:16px;
+    font-weight:700;
     cursor:pointer;
-    line-height:1;
   }
-  .add-day-btn.add-day-start{
-    margin-left:0;
-    margin-right:8px;
+  .day-nav-arrow:disabled{
+    opacity:.35;
+    cursor:default;
+  }
+  .day-nav-label{
+    flex:1;
+    text-align:center;
+    background:var(--paper);
+    border:1.5px solid var(--line);
+    border-radius:var(--radius-md);
+    padding:9px 10px;
+    font-family:'Baloo 2',sans-serif;
+    font-size:14.5px;
+    font-weight:700;
+    color:var(--ink);
+    cursor:pointer;
   }
 
   main{
@@ -2417,6 +2391,41 @@
     font-size:13px;
     font-style:italic;
   }
+  .day-jump-row{
+    display:block;
+    width:100%;
+    text-align:left;
+    padding:12px 14px;
+    border-radius:var(--radius-md);
+    border:1.5px solid var(--line);
+    background:var(--paper);
+    margin-bottom:8px;
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:14px;
+    color:var(--ink);
+  }
+  .day-jump-row.active{
+    border-color:var(--coral);
+    background:var(--accent-glow);
+    color:var(--coral);
+  }
+  .day-jump-add-row{
+    display:block;
+    width:100%;
+    text-align:center;
+    padding:10px;
+    border-radius:var(--radius-md);
+    border:1.5px dashed var(--slate);
+    background:transparent;
+    color:var(--slate);
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:13px;
+    cursor:pointer;
+    margin-bottom:8px;
+  }
   .park-combo-row{
     display:flex;
     align-items:flex-start;
@@ -3044,7 +3053,7 @@
 
     /* App chrome not relevant on paper, in either print mode */
     .trip-switcher, .view-tabs-wrap, .view-tabs, .lists-sub-tabs, .view-controls-row, .monorail,
-    .add-day-btn, .section-add-btn, .item-actions, .item-kebab-btn,
+    .section-add-btn, .item-actions, .item-kebab-btn,
     .add-form, .chevron,
     .print-packing-btn,
     .master-editor-overlay, .theme-switch-btn, .trip-title-chevron,
@@ -3259,7 +3268,6 @@
     </div>
 
     <nav class="monorail" id="monorail"></nav>
-    <button type="button" class="current-day-sticky" id="currentDaySticky" title="Tap to jump to the day switcher"></button>
 
     <main id="dayPanels"></main>
   </div>
@@ -3283,11 +3291,12 @@
 <div class="master-editor-overlay" id="calendarExportOverlay">
   <div class="master-editor">
     <h2>Export to Calendar</h2>
-    <p class="sub">Everything's included by default, except items still Penciled In. Uncheck anything you don't want on your calendar.</p>
+    <p class="sub">Everything's included by default, except items still Penciled In and Logistics items — uncheck anything else you don't want, or use the shortcuts below.</p>
     <div class="calendar-export-quick-actions">
       <button type="button" id="calendarExportSelectAll">Select All</button>
       <button type="button" id="calendarExportSelectNone">Select None</button>
     </div>
+    <div class="calendar-export-category-row" id="calendarExportCategoryRow"></div>
     <div id="calendarExportBody"></div>
     <button type="button" class="master-editor-close master-editor-close-sticky" id="calendarExportSubmitBtn">📅 Export Selected</button>
   </div>
@@ -3388,6 +3397,14 @@
   </div>
 </div>
 
+<div class="master-editor-overlay" id="dayJumpOverlay">
+  <div class="master-editor">
+    <h2>Jump to a Day</h2>
+    <div id="dayJumpBody"></div>
+    <button class="master-editor-close master-editor-close-sticky" id="dayJumpCloseBtn">Cancel</button>
+  </div>
+</div>
+
 <div class="master-editor-overlay" id="itemEditOverlay">
   <div class="master-editor">
     <h2 id="itemFormTitle">Edit Item</h2>
@@ -3459,7 +3476,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.08';
+const APP_VERSION = '3.10';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4845,7 +4862,7 @@ function openCalendarExportModal(trip){
   calendarExportSelectedIds = new Set();
   trip.days.forEach(day => {
     day.items.forEach(item => {
-      if(item.status !== 'tentative') calendarExportSelectedIds.add(item.id);
+      if(item.status !== 'tentative' && item.type !== 'logistics') calendarExportSelectedIds.add(item.id);
     });
   });
   renderCalendarExportModal();
@@ -5254,6 +5271,7 @@ document.getElementById('dayCopySubmitBtn').onclick = async () => {
 };
 
 document.getElementById('parkHoursCloseBtn').onclick = closeParkHoursModal;
+document.getElementById('dayJumpCloseBtn').onclick = closeDayJumpModal;
 document.getElementById('parkHoursPrevBtn').onclick = () => {
   parkHoursCurrentDate.setDate(parkHoursCurrentDate.getDate() - 1);
   renderParkHoursModal();
@@ -5372,11 +5390,36 @@ function renderCrowdLevelsManager(){
   };
   body.appendChild(addRow);
 }
+function renderCalendarExportCategoryButtons(){
+  const trip = calendarExportTrip;
+  const row = document.getElementById('calendarExportCategoryRow');
+  row.innerHTML = '';
+  TYPES.forEach(t => {
+    const itemsOfType = [];
+    trip.days.forEach(day => day.items.forEach(item => { if(item.type === t.key) itemsOfType.push(item); }));
+    if(itemsOfType.length === 0) return;
+    const allChecked = itemsOfType.every(item => calendarExportSelectedIds.has(item.id));
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'calendar-export-category-btn';
+    btn.textContent = `${t.icon} ${allChecked ? 'Uncheck' : 'Check'} all ${t.label}`;
+    btn.onclick = () => {
+      itemsOfType.forEach(item => {
+        if(allChecked) calendarExportSelectedIds.delete(item.id);
+        else calendarExportSelectedIds.add(item.id);
+      });
+      renderCalendarExportModal();
+    };
+    row.appendChild(btn);
+  });
+}
+
 function renderCalendarExportModal(){
   const trip = calendarExportTrip;
   const body = document.getElementById('calendarExportBody');
   body.innerHTML = '';
   if(!trip) return;
+  renderCalendarExportCategoryButtons();
   trip.days.forEach((day, dayIndex) => {
     if(day.items.length === 0) return;
     const dayLabel = document.createElement('div');
@@ -6619,7 +6662,6 @@ function render(){
   const isDayMode = currentView === 'itinerary';
   const isListsMode = currentView === 'packing' || currentView === 'groceries';
   document.getElementById('monorail').style.display = isDayMode ? '' : 'none';
-  document.getElementById('currentDaySticky').style.display = isDayMode ? '' : 'none';
   document.getElementById('viewControlsWrap').style.display = currentView === 'itinerary' ? '' : 'none';
   document.getElementById('dayPanels').style.display = isDayMode ? '' : 'none';
   document.getElementById('itinerarySidebar').style.display = isDayMode ? '' : 'none';
@@ -6637,19 +6679,9 @@ function render(){
     renderDayPanels();
     renderItinerarySidebar(trip);
 
-    const currentDayIndex = trip.days.findIndex(d => d.id === activeDayId);
-    const currentDayStickyEl = document.getElementById('currentDaySticky');
-    if(currentDayIndex !== -1){
-      currentDayStickyEl.textContent = getDayDisplayLabel(trip, currentDayIndex, trip.days[currentDayIndex], false);
-      currentDayStickyEl.onclick = () => {
-        document.getElementById('monorail').scrollIntoView({ behavior: 'smooth', block: 'start' });
-      };
-    }
-
     const tripMetaEl = document.getElementById('tripMeta');
     document.documentElement.style.setProperty('--trip-meta-height', tripMetaEl.offsetHeight + 'px');
-    const stackHeight = tripMetaEl.offsetHeight + currentDayStickyEl.offsetHeight;
-    document.documentElement.style.setProperty('--sticky-stack-height', stackHeight + 'px');
+    document.documentElement.style.setProperty('--sticky-stack-height', tripMetaEl.offsetHeight + 'px');
 
     const activeDay = trip.days.find(d => d.id === activeDayId);
     if(activeDay && isDayGenuinelyToday(trip, activeDay) && !autoScrolledToCurrentForDay.has(activeDayId)){
@@ -7415,31 +7447,78 @@ function renderMonorail(){
   const rail = document.getElementById('monorail');
   rail.innerHTML = '';
 
+  const currentIndex = trip.days.findIndex(d => d.id === activeDayId);
+
+  const prevBtn = document.createElement('button');
+  prevBtn.type = 'button';
+  prevBtn.className = 'day-nav-arrow';
+  prevBtn.textContent = '‹';
+  prevBtn.title = 'Previous day';
+  prevBtn.disabled = currentIndex <= 0;
+  prevBtn.onclick = () => {
+    if(currentIndex > 0){ activeDayId = trip.days[currentIndex - 1].id; render(); }
+  };
+  rail.appendChild(prevBtn);
+
+  const label = document.createElement('button');
+  label.type = 'button';
+  label.className = 'day-nav-label';
+  label.title = 'Tap to jump to a specific day';
+  if(currentIndex !== -1){
+    const dayLabel = getDayDisplayLabel(trip, currentIndex, trip.days[currentIndex], false);
+    label.textContent = `${dayLabel} · Day ${currentIndex + 1} of ${trip.days.length}`;
+  } else {
+    label.textContent = 'No days yet';
+  }
+  label.onclick = openDayJumpModal;
+  rail.appendChild(label);
+
+  const nextBtn = document.createElement('button');
+  nextBtn.type = 'button';
+  nextBtn.className = 'day-nav-arrow';
+  nextBtn.textContent = '›';
+  nextBtn.title = 'Next day';
+  nextBtn.disabled = currentIndex === -1 || currentIndex >= trip.days.length - 1;
+  nextBtn.onclick = () => {
+    if(currentIndex !== -1 && currentIndex < trip.days.length - 1){ activeDayId = trip.days[currentIndex + 1].id; render(); }
+  };
+  rail.appendChild(nextBtn);
+}
+
+function openDayJumpModal(){
+  renderDayJumpModal();
+  document.getElementById('dayJumpOverlay').classList.add('active');
+}
+function closeDayJumpModal(){
+  document.getElementById('dayJumpOverlay').classList.remove('active');
+}
+function renderDayJumpModal(){
+  const trip = getActiveTrip();
+  const body = document.getElementById('dayJumpBody');
+  body.innerHTML = '';
+
   const addStartBtn = document.createElement('button');
-  addStartBtn.className = 'add-day-btn add-day-start';
-  addStartBtn.textContent = '+';
-  addStartBtn.title = 'Add day at start of trip';
-  addStartBtn.onclick = addDayAtStart;
-  rail.appendChild(addStartBtn);
+  addStartBtn.type = 'button';
+  addStartBtn.className = 'day-jump-add-row';
+  addStartBtn.textContent = '+ Add day at start of trip';
+  addStartBtn.onclick = () => { closeDayJumpModal(); addDayAtStart(); };
+  body.appendChild(addStartBtn);
 
   trip.days.forEach((day, i) => {
-    if(i>0){
-      const track = document.createElement('div');
-      track.className = 'rail-track';
-      rail.appendChild(track);
-    }
-    const stop = document.createElement('div');
-    stop.className = 'rail-stop' + (day.id===activeDayId ? ' active' : '');
-    stop.innerHTML = `<div class="dot-wrap"><div class="dot"></div><div class="label">${escapeHtml(getDayDisplayLabel(trip, i, day, false))}</div></div>`;
-    stop.querySelector('.dot-wrap').onclick = () => { activeDayId = day.id; render(); };
-    rail.appendChild(stop);
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'day-jump-row' + (day.id === activeDayId ? ' active' : '');
+    row.textContent = getDayDisplayLabel(trip, i, day, false);
+    row.onclick = () => { activeDayId = day.id; closeDayJumpModal(); render(); };
+    body.appendChild(row);
   });
-  const addBtn = document.createElement('button');
-  addBtn.className = 'add-day-btn';
-  addBtn.textContent = '+';
-  addBtn.title = 'Add day at end of trip';
-  addBtn.onclick = addDay;
-  rail.appendChild(addBtn);
+
+  const addEndBtn = document.createElement('button');
+  addEndBtn.type = 'button';
+  addEndBtn.className = 'day-jump-add-row';
+  addEndBtn.textContent = '+ Add day at end of trip';
+  addEndBtn.onclick = () => { closeDayJumpModal(); addDay(); };
+  body.appendChild(addEndBtn);
 }
 
 function addDay(){
@@ -8785,7 +8864,8 @@ function closeTravelerColorModal(){
   ['itemKebabOverlay', closeItemKebabMenu],
   ['copyMoveOverlay', () => { document.getElementById('copyMoveOverlay').classList.remove('active'); copyMoveContext = null; }],
   ['dayCopyOverlay', () => { document.getElementById('dayCopyOverlay').classList.remove('active'); dayCopyContext = null; }],
-  ['parkHoursOverlay', closeParkHoursModal]
+  ['parkHoursOverlay', closeParkHoursModal],
+  ['dayJumpOverlay', closeDayJumpModal]
 ].forEach(([overlayId, closeFn]) => {
   document.getElementById(overlayId).addEventListener('click', e => {
     if(e.target.id !== overlayId) return;
