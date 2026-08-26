@@ -443,6 +443,9 @@
     font-weight:700;
     cursor:pointer;
   }
+  #toolsMenuBody{
+    margin-bottom:56px;
+  }
   .tools-menu-ghost-close{
     background:none;
     border:none;
@@ -738,9 +741,9 @@
     border:none;
     background:rgba(0,0,0,.1);
     color:inherit;
-    width:18px;height:18px;
+    width:26px;height:26px;
     border-radius:var(--radius-round);
-    font-size:12px;
+    font-size:13px;
     line-height:1;
     cursor:pointer;
     padding:0;
@@ -1268,6 +1271,11 @@
     margin-bottom:6px;
   }
   .sidebar-fact:last-child{margin-bottom:0;}
+  .sidebar-tappable-line{
+    color:var(--sky);
+    cursor:pointer;
+    text-decoration:underline;
+  }
   .sidebar-fact .label{
     display:block;
     font-size:10px;
@@ -1486,6 +1494,7 @@
     color:var(--ink);
     flex-shrink:0;
     white-space:nowrap;
+    cursor:pointer;
   }
   .section-crowd-badge.crowd-low{
     background:var(--accent-positive-bg);
@@ -1576,6 +1585,11 @@
     vertical-align:middle;
   }
   .grid-day-row{cursor:pointer;}
+  .grid-row-chevron{
+    color:var(--slate);
+    font-weight:700;
+    margin-left:3px;
+  }
   .grid-day-label{
     text-align:left !important;
     font-weight:700;
@@ -1591,10 +1605,16 @@
     display:block;
   }
   .grid-dot{
-    display:inline-block;
-    width:7px;height:7px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:15px;height:15px;
     border-radius:var(--radius-round);
     margin-top:2px;
+    font-size:8px;
+    font-weight:700;
+    color:white;
+    line-height:1;
   }
   .grid-dot.crowd-low{background:#6E9A82;}
   .grid-dot.crowd-mid{background:#C9A227;}
@@ -1947,6 +1967,7 @@
   }
   .item-actions{
     display:flex;
+    align-items:center;
     gap:10px;
     margin-top:4px;
     flex-wrap:wrap;
@@ -1965,13 +1986,32 @@
     font-weight:700;
     margin-left:auto;
   }
+  .item-actions .item-edit-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    font-size:12px;
+    font-weight:700;
+    border:1.5px solid var(--sky);
+    background:var(--cream);
+    color:var(--sky);
+    border-radius:var(--radius-xl);
+    padding:7px 12px;
+    cursor:pointer;
+    text-decoration:none;
+  }
   .item-kebab-btn{
     margin-left:auto;
     text-decoration:none !important;
     font-size:18px !important;
     line-height:1;
     color:var(--slate);
-    padding:0 4px !important;
+    width:38px !important;
+    height:38px !important;
+    border-radius:var(--radius-round) !important;
+    border:1.5px solid var(--line) !important;
+    background:var(--cream) !important;
+    cursor:pointer;
   }
   .item-kebab-menu{
     max-width:400px;
@@ -3282,7 +3322,7 @@
         <button type="button" class="mode-toggle-btn" data-mode="cards" title="Cards view">📋</button>
         <button type="button" class="mode-toggle-btn" data-mode="timeline" title="Timeline view">📅</button>
       </div>
-      <button type="button" id="compactToggleBtn" class="compact-toggle-icon-btn" title="Compact view">🗜️</button>
+      <button type="button" id="compactToggleBtn" class="compact-toggle-icon-btn" title="Compact view">↕️</button>
     </div>
 
     <nav class="monorail" id="monorail"></nav>
@@ -3405,8 +3445,6 @@
     <h2>Park Hours</h2>
     <p class="sub" id="parkHoursSub"></p>
     <button type="button" class="park-hours-link" id="parkHoursRefreshLink">↻ Refresh hours</button>
-    <button type="button" class="park-hours-link" id="parkHoursDebugLink" style="color:#A34435;">🔍 TEMP: Show raw cached data for this date</button>
-    <pre id="parkHoursDebugOutput" style="display:none; font-size:10px; background:#f5f5f5; padding:10px; border-radius:8px; overflow-x:auto; white-space:pre-wrap; margin-bottom:10px;"></pre>
     <div class="park-hours-date-row">
       <button type="button" class="date-nav-btn" id="parkHoursPrevBtn">‹</button>
       <div class="park-hours-date-display" id="parkHoursDateDisplay"></div>
@@ -3496,7 +3534,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.12';
+const APP_VERSION = '3.17';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5129,13 +5167,37 @@ document.getElementById('copyMoveSubmitBtn').onclick = async () => {
 
 function openItemKebabMenu(item, day, trip){
   const body = document.getElementById('itemKebabBody');
+  const status = item.status === 'tentative' ? 'tentative' : 'confirmed';
   body.innerHTML = `
+    <button type="button" data-role="kb-toggle-status">${status === 'confirmed' ? 'Pencil this in' : 'Confirm this'}</button>
+    <button type="button" data-role="kb-main-plan">${item.isMainPlan ? 'Unset Main Plan' : '📌 Set as Main Plan'}</button>
+    <div class="kebab-divider"></div>
     <button type="button" data-role="kb-calendar">📅 Add to Calendar</button>
     <button type="button" data-role="kb-copy">📋 Copy…</button>
     <button type="button" data-role="kb-move">➡️ Move…</button>
     <div class="kebab-divider"></div>
     <button type="button" data-role="kb-delete" class="danger">Delete</button>
   `;
+  body.querySelector('[data-role="kb-toggle-status"]').onclick = () => {
+    closeItemKebabMenu();
+    item.status = status === 'confirmed' ? 'tentative' : 'confirmed';
+    render();
+  };
+  body.querySelector('[data-role="kb-main-plan"]').onclick = () => {
+    closeItemKebabMenu();
+    if(item.isMainPlan){
+      item.isMainPlan = false;
+      render();
+    } else {
+      pendingMainPlanEdit.add(item.id);
+      editingItems.add(item.id);
+      render();
+      setTimeout(() => {
+        const submitBtn = document.querySelector('.item-card-editing [data-role="submit"]');
+        if(submitBtn) submitBtn.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }, 0);
+    }
+  };
   body.querySelector('[data-role="kb-calendar"]').onclick = () => {
     closeItemKebabMenu();
     const ics = generateSingleItemICS(trip, day, item);
@@ -5309,17 +5371,6 @@ document.getElementById('parkHoursRefreshLink').onclick = async () => {
   link.disabled = false;
   link.textContent = '✓ Refreshed';
   setTimeout(() => { link.textContent = '↻ Refresh hours'; }, 2000);
-};
-document.getElementById('parkHoursDebugLink').onclick = () => {
-  const dateStr = dateToApiString(parkHoursCurrentDate);
-  const output = document.getElementById('parkHoursDebugOutput');
-  const results = {};
-  CROWD_LEVEL_PARKS.forEach(parkName => {
-    const cached = parkScheduleCache[parkName];
-    results[parkName] = cached ? cached.schedule.filter(e => e.date === dateStr) : 'NOT CACHED YET';
-  });
-  output.textContent = `Date being checked: ${dateStr}\n\n` + JSON.stringify(results, null, 2);
-  output.style.display = 'block';
 };
 
 function renderCrowdLevelsManager(){
@@ -5869,32 +5920,6 @@ function getSectionHoursLine(trip, dayIndex, currentPark){
   return line;
 }
 
-function buildParkHoursSummaryHtml(trip, dayIndex){
-  if(!trip.startDate) return '';
-  const date = computeDayDate(trip, dayIndex);
-  if(!date) return '';
-  const dateStr = dateToApiString(date);
-
-  return CROWD_LEVEL_PARKS.map(parkName => {
-    if(!parkScheduleCache[parkName]){
-      ensureParkScheduleLoaded(parkName).then(result => { if(result) render(); });
-      return '';
-    }
-    const hours = getParkHoursForDate(parkName, dateStr);
-    if(hours.status !== 'available') return '';
-    return `
-      <div class="park-hours-row">
-        <div class="park-hours-name">
-          ${escapeHtml(parkName)}
-          ${hours.earlyEntryTime ? `<span class="park-hours-perk-tag">Early Entry ${hours.earlyEntryTime}</span>` : ''}
-          ${hours.extendedEveningTime ? `<span class="park-hours-perk-tag">Extended Evening Hours (Deluxe &amp; DVC Resorts) until ${hours.extendedEveningTime}</span>` : ''}
-        </div>
-        <div class="park-hours-time">${hours.openingTime}–${hours.closingTime}</div>
-      </div>
-    `;
-  }).join('');
-}
-
 function buildCombinedParkInfoHtml(trip, dayIndex, day){
   if(!trip.startDate) return '';
   const date = computeDayDate(trip, dayIndex);
@@ -5969,7 +5994,7 @@ function buildParkHoursCrowdGrid(trip){
 
     const dayCell = document.createElement('td');
     dayCell.className = 'grid-day-label';
-    dayCell.textContent = dayLabel;
+    dayCell.innerHTML = `${escapeHtml(dayLabel)}<span class="grid-row-chevron">\u203a</span>`;
     row.appendChild(dayCell);
 
     CROWD_LEVEL_PARKS.forEach(parkName => {
@@ -5989,7 +6014,7 @@ function buildParkHoursCrowdGrid(trip){
           inner += `<span class="grid-time">${formatCompactTime(hours.openingTime)}\u2013${formatCompactTime(hours.closingTime)}${hasPerk ? '<span class="perk-mark">\u2726</span>' : ''}</span>`;
         }
         if(crowdVal){
-          inner += `<span class="grid-dot ${crowdClass}"></span>`;
+          inner += `<span class="grid-dot ${crowdClass}">${escapeHtml(crowdVal)}</span>`;
         }
         cell.innerHTML = inner;
       }
@@ -6165,6 +6190,17 @@ function getItemSection(item){
 
 function getMainPlanForSection(day, sectionKey){
   return day.items.find(i => i.isMainPlan && getItemSection(i) === sectionKey) || null;
+}
+
+function getRelevantParksForDay(day){
+  const parks = [];
+  SECTIONS.forEach(sec => {
+    const mainPlanItem = getMainPlanForSection(day, sec.key);
+    if(mainPlanItem && CROWD_LEVEL_PARKS.includes(mainPlanItem.name) && !parks.includes(mainPlanItem.name)){
+      parks.push(mainPlanItem.name);
+    }
+  });
+  return parks;
 }
 
 function getDayBoundaryBlocks(day, excludeItemId){
@@ -7437,15 +7473,6 @@ function renderItinerarySidebar(trip){
     .filter(i => i.type === 'dining' && i.confirmationNumber && itemMatchesFilter(i))
     .sort((a,b) => (a.time||'').localeCompare(b.time||''));
 
-  const crowdFacts = [];
-  getSetCrowdLevels(trip)
-    .filter(s => s.dayId === day.id)
-    .forEach(slot => {
-      if(!crowdFacts.some(f => f.park === slot.park)){
-        crowdFacts.push({ park: slot.park, val: slot.level });
-      }
-    });
-
   const block = document.createElement('div');
   block.className = 'sidebar-block';
 
@@ -7454,12 +7481,27 @@ function renderItinerarySidebar(trip){
   title.textContent = 'At a glance';
   block.appendChild(title);
 
-  if(crowdFacts.length){
-    const crowdFact = document.createElement('div');
-    crowdFact.className = 'sidebar-fact';
-    crowdFact.innerHTML = `<span class="label">Crowd Level</span>${crowdFacts.map(f => `${escapeHtml(f.park)}: ${escapeHtml(f.val)}`).join('<br>')}`;
-    block.appendChild(crowdFact);
+  const relevantParks = getRelevantParksForDay(day);
+  const crowdFact = document.createElement('div');
+  crowdFact.className = 'sidebar-fact';
+  const crowdLabel = document.createElement('span');
+  crowdLabel.className = 'label';
+  crowdLabel.textContent = 'Park Hours & Crowd Level';
+  crowdFact.appendChild(crowdLabel);
+
+  const crowdTapLine = document.createElement('div');
+  crowdTapLine.className = 'sidebar-tappable-line';
+  crowdTapLine.onclick = () => openParkHoursModal(day);
+  if(relevantParks.length){
+    crowdTapLine.innerHTML = relevantParks.map(park => {
+      const val = getCrowdLevel(trip, day.id, park);
+      return `${escapeHtml(park)}${val ? ': ' + escapeHtml(val) : ''}`;
+    }).join('<br>');
+  } else {
+    crowdTapLine.textContent = '🎢 Check Park Hours & Crowd Levels';
   }
+  crowdFact.appendChild(crowdTapLine);
+  block.appendChild(crowdFact);
 
   if(diningItems.length){
     const diningFact = document.createElement('div');
@@ -7473,16 +7515,6 @@ function renderItinerarySidebar(trip){
     });
     block.appendChild(diningFact);
   }
-
-  const parkHoursHtml = buildParkHoursSummaryHtml(trip, dayIndex);
-  if(parkHoursHtml){
-    const hoursFact = document.createElement('div');
-    hoursFact.className = 'sidebar-fact';
-    hoursFact.innerHTML = `<span class="label">Park Hours</span>${parkHoursHtml}`;
-    block.appendChild(hoursFact);
-  }
-
-  if(!crowdFacts.length && !diningItems.length && !parkHoursHtml) return;
 
   wrap.appendChild(block);
 }
@@ -8042,7 +8074,7 @@ function renderDayPanels(){
         <span class="dot"></span>
         <span class="label">${sec.label}</span>
         ${currentParkDisplay ? `<span class="section-main-plan-display">${escapeHtml(currentParkDisplay)}</span>` : ''}
-        ${currentCrowd ? `<span class="section-crowd-badge ${crowdClass}" title="Crowd level — set in Trip Details">Crowd: ${currentCrowd}</span>` : ''}
+        ${currentCrowd ? `<button type="button" class="section-crowd-badge ${crowdClass}" title="Tap for full Park Hours & Crowd details">Crowd: ${currentCrowd}</button>` : ''}
         <span class="rule"></span>
         <button type="button" class="section-add-btn" title="Add item to ${sec.label}">+</button>
         ${hoursLine ? `<div class="section-hours-line">${hoursLine}</div>` : ''}
@@ -8050,6 +8082,9 @@ function renderDayPanels(){
       header.querySelector('.section-add-btn').onclick = () => {
         openItemAddModal(day, { section: sec.key }, 'Add to ' + sec.label);
       };
+      if(currentCrowd){
+        header.querySelector('.section-crowd-badge').onclick = () => openParkHoursModal(day);
+      }
       panel.appendChild(header);
 
       items.forEach(item => panel.appendChild(renderItemCard(day, item, currentOrNext)));
@@ -8207,17 +8242,11 @@ function renderItemCard(day, item, currentOrNext){
         <div class="item-compact-line2">${escapeHtml(compactLine2Parts.join(' · '))}</div>
       </div>
       <div class="item-actions">
-        <button data-role="toggle-status">${status === 'confirmed' ? 'Pencil this in' : 'Confirm this'}</button>
-        <button data-role="edit">Edit</button>
-        <button data-role="main-plan">${item.isMainPlan ? 'Unset Main Plan' : '📌 Set as Main Plan'}</button>
+        <button data-role="edit" class="item-edit-btn">✏️ Edit</button>
         <button data-role="kebab" class="item-kebab-btn" aria-label="More actions">⋮</button>
       </div>
     </div>
   `;
-  card.querySelector('[data-role="toggle-status"]').onclick = () => {
-    item.status = status === 'confirmed' ? 'tentative' : 'confirmed';
-    render();
-  };
   card.querySelector('[data-role="edit"]').onclick = () => {
     editingItems.add(item.id);
     render();
@@ -8225,20 +8254,6 @@ function renderItemCard(day, item, currentOrNext){
       const submitBtn = document.querySelector('.item-card-editing [data-role="submit"]');
       if(submitBtn) submitBtn.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }, 0);
-  };
-  card.querySelector('[data-role="main-plan"]').onclick = () => {
-    if(item.isMainPlan){
-      item.isMainPlan = false;
-      render();
-    } else {
-      pendingMainPlanEdit.add(item.id);
-      editingItems.add(item.id);
-      render();
-      setTimeout(() => {
-        const submitBtn = document.querySelector('.item-card-editing [data-role="submit"]');
-        if(submitBtn) submitBtn.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      }, 0);
-    }
   };
   card.querySelector('[data-role="kebab"]').onclick = () => {
     openItemKebabMenu(item, day, getActiveTrip());
