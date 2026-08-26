@@ -3405,6 +3405,8 @@
     <h2>Park Hours</h2>
     <p class="sub" id="parkHoursSub"></p>
     <button type="button" class="park-hours-link" id="parkHoursRefreshLink">↻ Refresh hours</button>
+    <button type="button" class="park-hours-link" id="parkHoursDebugLink" style="color:#A34435;">🔍 TEMP: Show raw cached data for this date</button>
+    <pre id="parkHoursDebugOutput" style="display:none; font-size:10px; background:#f5f5f5; padding:10px; border-radius:8px; overflow-x:auto; white-space:pre-wrap; margin-bottom:10px;"></pre>
     <div class="park-hours-date-row">
       <button type="button" class="date-nav-btn" id="parkHoursPrevBtn">‹</button>
       <div class="park-hours-date-display" id="parkHoursDateDisplay"></div>
@@ -3494,7 +3496,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.11';
+const APP_VERSION = '3.12';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5307,6 +5309,17 @@ document.getElementById('parkHoursRefreshLink').onclick = async () => {
   link.disabled = false;
   link.textContent = '✓ Refreshed';
   setTimeout(() => { link.textContent = '↻ Refresh hours'; }, 2000);
+};
+document.getElementById('parkHoursDebugLink').onclick = () => {
+  const dateStr = dateToApiString(parkHoursCurrentDate);
+  const output = document.getElementById('parkHoursDebugOutput');
+  const results = {};
+  CROWD_LEVEL_PARKS.forEach(parkName => {
+    const cached = parkScheduleCache[parkName];
+    results[parkName] = cached ? cached.schedule.filter(e => e.date === dateStr) : 'NOT CACHED YET';
+  });
+  output.textContent = `Date being checked: ${dateStr}\n\n` + JSON.stringify(results, null, 2);
+  output.style.display = 'block';
 };
 
 function renderCrowdLevelsManager(){
