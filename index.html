@@ -2134,15 +2134,19 @@
   .next-day-btn{
     display:block;
     flex:1;
-    background:var(--sky);
-    color:white;
-    border:none;
-    padding:13px;
+    background:var(--paper);
+    color:var(--ink);
+    border:1.5px solid var(--line);
+    padding:12px;
     border-radius:var(--radius-lg);
     font-family:'Baloo 2',sans-serif;
     font-weight:700;
     font-size:15px;
     cursor:pointer;
+  }
+  .next-day-btn:disabled{
+    opacity:.35;
+    cursor:default;
   }
   .day-notes-block label{
     display:block;
@@ -2308,7 +2312,7 @@
   .time-input-wrap{
     display:inline-flex;
     align-items:center;
-    border:1.5px solid var(--sage);
+    border:1.5px solid var(--line);
     border-radius:var(--radius-md);
     background:var(--paper);
     padding:9px 12px;
@@ -2521,6 +2525,9 @@
     background-position:right 10px center;
     padding-right:30px;
     background-color:var(--cream);
+  }
+  select{
+    color:var(--ink);
   }
   .form-row input, .form-row select, .form-row textarea{
     font-family:'Inter',sans-serif;
@@ -3534,7 +3541,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.17';
+const APP_VERSION = '3.19';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -8125,30 +8132,37 @@ function renderDayPanels(){
     if(dayIndex > 0 || dayIndex < trip.days.length - 1){
       const navRow = document.createElement('div');
       navRow.className = 'day-nav-row';
-      if(dayIndex > 0){
-        const prevDayBtn = document.createElement('button');
-        prevDayBtn.type = 'button';
-        prevDayBtn.className = 'next-day-btn';
-        prevDayBtn.textContent = `← Previous Day: ${getDayDisplayLabel(trip, dayIndex - 1, trip.days[dayIndex - 1], true)}`;
-        prevDayBtn.onclick = () => {
-          activeDayId = trip.days[dayIndex - 1].id;
-          render();
-          window.scrollTo({top:0, behavior:'smooth'});
-        };
-        navRow.appendChild(prevDayBtn);
-      }
-      if(dayIndex < trip.days.length - 1){
-        const nextDayBtn = document.createElement('button');
-        nextDayBtn.type = 'button';
-        nextDayBtn.className = 'next-day-btn';
-        nextDayBtn.textContent = `Next Day: ${getDayDisplayLabel(trip, dayIndex + 1, trip.days[dayIndex + 1], true)} →`;
-        nextDayBtn.onclick = () => {
-          activeDayId = trip.days[dayIndex + 1].id;
-          render();
-          window.scrollTo({top:0, behavior:'smooth'});
-        };
-        navRow.appendChild(nextDayBtn);
-      }
+
+      const prevDayBtn = document.createElement('button');
+      prevDayBtn.type = 'button';
+      prevDayBtn.className = 'next-day-btn';
+      prevDayBtn.disabled = dayIndex <= 0;
+      prevDayBtn.textContent = dayIndex > 0
+        ? `← Previous Day: ${getDayDisplayLabel(trip, dayIndex - 1, trip.days[dayIndex - 1], true)}`
+        : '← Previous Day';
+      prevDayBtn.onclick = () => {
+        if(dayIndex <= 0) return;
+        activeDayId = trip.days[dayIndex - 1].id;
+        render();
+        window.scrollTo({top:0, behavior:'smooth'});
+      };
+      navRow.appendChild(prevDayBtn);
+
+      const nextDayBtn = document.createElement('button');
+      nextDayBtn.type = 'button';
+      nextDayBtn.className = 'next-day-btn';
+      nextDayBtn.disabled = dayIndex >= trip.days.length - 1;
+      nextDayBtn.textContent = dayIndex < trip.days.length - 1
+        ? `Next Day: ${getDayDisplayLabel(trip, dayIndex + 1, trip.days[dayIndex + 1], true)} →`
+        : 'Next Day →';
+      nextDayBtn.onclick = () => {
+        if(dayIndex >= trip.days.length - 1) return;
+        activeDayId = trip.days[dayIndex + 1].id;
+        render();
+        window.scrollTo({top:0, behavior:'smooth'});
+      };
+      navRow.appendChild(nextDayBtn);
+
       panel.appendChild(navRow);
     }
 
@@ -8284,7 +8298,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
         <label>Name — required</label>
         <input type="text" data-f="name" placeholder="e.g. Hollywood Studios, Be Our Guest lunch" value="${escapeHtml(initial.name || '')}" autocomplete="off" />
       </div>
-      <button type="button" class="park-hours-link" data-role="open-park-hours">🕐 Not sure which park? Check hours &amp; crowds</button>
+      <button type="button" class="park-hours-link" data-role="open-park-hours">🎢 Check Park Hours &amp; Crowd Levels</button>
     </div>
 
     <div class="section-group">
@@ -8298,7 +8312,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
       <div class="time-field-block" data-role="section-row">
         <label class="form-row-label">Part of Day</label>
         <select data-f="section">
-          <option value="">Morning / Afternoon / Evening</option>
+          <option value="">Choose a part of day...</option>
           ${SECTIONS.map(s=>`<option value="${s.key}" ${s.key===initial.section?'selected':''}>${s.label}</option>`).join('')}
         </select>
       </div>
