@@ -1640,6 +1640,16 @@
     overflow:hidden;
     border:1px solid var(--line);
     position:relative;
+    cursor:pointer;
+  }
+  .item-card-chevron{
+    position:absolute;
+    top:12px;
+    right:14px;
+    color:var(--slate);
+    font-size:16px;
+    font-weight:700;
+    pointer-events:none;
   }
   .item-card.is-current, .item-card.is-next{
     border-color:var(--coral);
@@ -1986,20 +1996,6 @@
     font-weight:700;
     margin-left:auto;
   }
-  .item-actions .item-edit-btn{
-    display:inline-flex;
-    align-items:center;
-    gap:5px;
-    font-size:12px;
-    font-weight:700;
-    border:1.5px solid var(--sky);
-    background:var(--cream);
-    color:var(--sky);
-    border-radius:var(--radius-xl);
-    padding:7px 12px;
-    cursor:pointer;
-    text-decoration:none;
-  }
   .item-kebab-btn{
     margin-left:auto;
     text-decoration:none !important;
@@ -2016,27 +2012,55 @@
   .item-kebab-menu{
     max-width:400px;
   }
-  #itemKebabBody button{
+  #itemKebabBody .kb-primary{
     display:block;
     width:100%;
     text-align:left;
-    background:none;
+    background:var(--sky);
+    color:white;
     border:none;
     font-family:'Inter',sans-serif;
-    font-size:14.5px;
-    font-weight:600;
-    color:var(--ink);
-    padding:14px 12px;
+    font-size:13.5px;
+    font-weight:700;
+    padding:12px 14px;
     border-radius:var(--radius-md);
     cursor:pointer;
+    margin-bottom:10px;
   }
-  #itemKebabBody button.danger{
+  #itemKebabBody .kb-primary:last-of-type{margin-bottom:0;}
+  #itemKebabBody .kb-secondary{
+    display:block;
+    width:100%;
+    text-align:left;
+    background:var(--paper);
+    color:var(--sky);
+    border:1.5px solid var(--sky);
+    font-family:'Inter',sans-serif;
+    font-size:13.5px;
+    font-weight:700;
+    padding:12px 14px;
+    border-radius:var(--radius-md);
+    cursor:pointer;
+    margin-bottom:10px;
+  }
+  #itemKebabBody .kb-danger{
+    display:block;
+    width:100%;
+    text-align:left;
+    background:var(--paper);
     color:var(--coral);
+    border:1.5px solid var(--coral);
+    font-family:'Inter',sans-serif;
+    font-size:13.5px;
+    font-weight:700;
+    padding:12px 14px;
+    border-radius:var(--radius-md);
+    cursor:pointer;
   }
   .kebab-divider{
     height:1px;
     background:var(--line);
-    margin:6px 4px;
+    margin:14px 0;
   }
   .item-context{
     background:var(--paper);
@@ -3541,7 +3565,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.19';
+const APP_VERSION = '3.21';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5176,14 +5200,14 @@ function openItemKebabMenu(item, day, trip){
   const body = document.getElementById('itemKebabBody');
   const status = item.status === 'tentative' ? 'tentative' : 'confirmed';
   body.innerHTML = `
-    <button type="button" data-role="kb-toggle-status">${status === 'confirmed' ? 'Pencil this in' : 'Confirm this'}</button>
-    <button type="button" data-role="kb-main-plan">${item.isMainPlan ? 'Unset Main Plan' : '📌 Set as Main Plan'}</button>
+    <button type="button" class="kb-primary" data-role="kb-toggle-status">${status === 'confirmed' ? 'Pencil this in' : 'Confirm this'}</button>
+    <button type="button" class="kb-primary" data-role="kb-main-plan">${item.isMainPlan ? 'Unset Main Plan' : '📌 Set as Main Plan'}</button>
     <div class="kebab-divider"></div>
-    <button type="button" data-role="kb-calendar">📅 Add to Calendar</button>
-    <button type="button" data-role="kb-copy">📋 Copy…</button>
-    <button type="button" data-role="kb-move">➡️ Move…</button>
+    <button type="button" class="kb-secondary" data-role="kb-calendar">📅 Export to Calendar</button>
+    <button type="button" class="kb-secondary" data-role="kb-copy">📋 Copy…</button>
+    <button type="button" class="kb-secondary" data-role="kb-move">➡️ Move…</button>
     <div class="kebab-divider"></div>
-    <button type="button" data-role="kb-delete" class="danger">Delete</button>
+    <button type="button" class="kb-danger" data-role="kb-delete">Delete</button>
   `;
   body.querySelector('[data-role="kb-toggle-status"]').onclick = () => {
     closeItemKebabMenu();
@@ -7500,9 +7524,20 @@ function renderItinerarySidebar(trip){
   crowdTapLine.className = 'sidebar-tappable-line';
   crowdTapLine.onclick = () => openParkHoursModal(day);
   if(relevantParks.length){
+    const parkDate = computeDayDate(trip, dayIndex);
+    const parkDateStr = parkDate ? dateToApiString(parkDate) : null;
     crowdTapLine.innerHTML = relevantParks.map(park => {
       const val = getCrowdLevel(trip, day.id, park);
-      return `${escapeHtml(park)}${val ? ': ' + escapeHtml(val) : ''}`;
+      let hoursText = '';
+      if(parkDateStr){
+        if(!parkScheduleCache[park]){
+          ensureParkScheduleLoaded(park).then(result => { if(result) renderItinerarySidebar(trip); });
+        } else {
+          const hours = getParkHoursForDate(park, parkDateStr);
+          if(hours.status === 'available') hoursText = ` · ${hours.openingTime}–${hours.closingTime}`;
+        }
+      }
+      return `${escapeHtml(park)}${hoursText}${val ? ' · Crowd: ' + escapeHtml(val) : ''}`;
     }).join('<br>');
   } else {
     crowdTapLine.textContent = '🎢 Check Park Hours & Crowd Levels';
@@ -8256,12 +8291,12 @@ function renderItemCard(day, item, currentOrNext){
         <div class="item-compact-line2">${escapeHtml(compactLine2Parts.join(' · '))}</div>
       </div>
       <div class="item-actions">
-        <button data-role="edit" class="item-edit-btn">✏️ Edit</button>
         <button data-role="kebab" class="item-kebab-btn" aria-label="More actions">⋮</button>
       </div>
     </div>
+    <span class="item-card-chevron">›</span>
   `;
-  card.querySelector('[data-role="edit"]').onclick = () => {
+  card.onclick = () => {
     editingItems.add(item.id);
     render();
     setTimeout(() => {
@@ -8269,7 +8304,8 @@ function renderItemCard(day, item, currentOrNext){
       if(submitBtn) submitBtn.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }, 0);
   };
-  card.querySelector('[data-role="kebab"]').onclick = () => {
+  card.querySelector('[data-role="kebab"]').onclick = (e) => {
+    e.stopPropagation();
     openItemKebabMenu(item, day, getActiveTrip());
   };
   return card;
