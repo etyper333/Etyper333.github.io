@@ -2172,25 +2172,9 @@
   }
   .day-nav-row{
     display:flex;
-    gap:8px;
+    align-items:center;
+    gap:10px;
     margin:0 0 40px;
-  }
-  .next-day-btn{
-    display:block;
-    flex:1;
-    background:var(--paper);
-    color:var(--ink);
-    border:1.5px solid var(--line);
-    padding:12px;
-    border-radius:var(--radius-lg);
-    font-family:'Baloo 2',sans-serif;
-    font-weight:700;
-    font-size:15px;
-    cursor:pointer;
-  }
-  .next-day-btn:disabled{
-    opacity:.35;
-    cursor:default;
   }
   .day-notes-block label{
     display:block;
@@ -3595,7 +3579,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.26';
+const APP_VERSION = '3.27';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -8202,11 +8186,10 @@ function renderDayPanels(){
 
       const prevDayBtn = document.createElement('button');
       prevDayBtn.type = 'button';
-      prevDayBtn.className = 'next-day-btn';
+      prevDayBtn.className = 'day-nav-arrow';
+      prevDayBtn.textContent = '‹';
+      prevDayBtn.title = 'Previous day';
       prevDayBtn.disabled = dayIndex <= 0;
-      prevDayBtn.textContent = dayIndex > 0
-        ? `← Previous Day: ${getDayDisplayLabel(trip, dayIndex - 1, trip.days[dayIndex - 1], true)}`
-        : '← Previous Day';
       prevDayBtn.onclick = () => {
         if(dayIndex <= 0) return;
         activeDayId = trip.days[dayIndex - 1].id;
@@ -8215,13 +8198,21 @@ function renderDayPanels(){
       };
       navRow.appendChild(prevDayBtn);
 
+      const navLabel = document.createElement('button');
+      navLabel.type = 'button';
+      navLabel.className = 'day-nav-label';
+      navLabel.title = 'Tap to jump to a specific day';
+      const bottomDayLabel = getDayDisplayLabel(trip, dayIndex, day, false);
+      navLabel.textContent = `${bottomDayLabel} · Day ${dayIndex + 1} of ${trip.days.length}`;
+      navLabel.onclick = openDayJumpModal;
+      navRow.appendChild(navLabel);
+
       const nextDayBtn = document.createElement('button');
       nextDayBtn.type = 'button';
-      nextDayBtn.className = 'next-day-btn';
+      nextDayBtn.className = 'day-nav-arrow';
+      nextDayBtn.textContent = '›';
+      nextDayBtn.title = 'Next day';
       nextDayBtn.disabled = dayIndex >= trip.days.length - 1;
-      nextDayBtn.textContent = dayIndex < trip.days.length - 1
-        ? `Next Day: ${getDayDisplayLabel(trip, dayIndex + 1, trip.days[dayIndex + 1], true)} →`
-        : 'Next Day →';
       nextDayBtn.onclick = () => {
         if(dayIndex >= trip.days.length - 1) return;
         activeDayId = trip.days[dayIndex + 1].id;
