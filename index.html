@@ -524,13 +524,6 @@
     color:rgba(255,255,255,.5);
     padding:4px 0 2px;
   }
-  .share-link-label{
-    display:block;
-    font-size:12px;
-    font-weight:700;
-    color:var(--ink);
-    margin-bottom:6px;
-  }
   .share-link-row{
     display:flex;
     gap:8px;
@@ -1793,10 +1786,20 @@
     box-shadow:0 0 0 1.5px var(--ink);
   }
   .timeline-block-badge{
-    margin-right:2px;
+    flex-shrink:0;
+  }
+  .timeline-block-name-row{
+    display:flex;
+    align-items:center;
+    gap:3px;
+    min-width:0;
   }
   .timeline-block-name{
     font-weight:700;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    min-width:0;
   }
   .timeline-block-top-row{
     display:flex;
@@ -2866,6 +2869,16 @@
     cursor:pointer;
     margin:0 0 16px;
   }
+  .tools-menu-btn-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:16px;
+  }
+  .tools-menu-btn-row .print-packing-btn-secondary{
+    width:auto;
+    flex:1;
+    margin:0;
+  }
   .packing-btn-row{
     display:flex;
     flex-wrap:wrap;
@@ -3582,7 +3595,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.25';
+const APP_VERSION = '3.26';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -7941,8 +7954,10 @@ function renderDayTimelineGrid(panel, day, trip){
 
       block.innerHTML = `
         ${showExtras ? `<div class="timeline-block-top-row">${travelersHtml}${leftIndicatorsHtml}${crowdHtml}</div>` : (travelersHtml || '')}
-        ${entry.item.isMainPlan ? '<span class="timeline-block-badge">📌</span>' : ''}
-        <span class="timeline-block-name">${isLandmark ? '📍 ' : ''}${escapeHtml(getItemDisplayName(entry.item))}</span>
+        <div class="timeline-block-name-row">
+          ${entry.item.isMainPlan ? '<span class="timeline-block-badge">📌</span>' : ''}
+          <span class="timeline-block-name">${isLandmark ? '📍 ' : ''}${escapeHtml(getItemDisplayName(entry.item))}</span>
+        </div>
         ${mealHtml}
         ${spaciousHtml}
       `;
@@ -9286,7 +9301,7 @@ function renderToolsMenu(){
   if(trip.supabaseId){
     const shareUrl = `${window.location.origin}${window.location.pathname}?trip=${trip.supabaseId}`;
     shareSection.innerHTML = `
-      <label class="share-link-label">Share this trip</label>
+      <div class="packing-category-title">Share this trip</div>
       <div class="share-link-row">
         <input type="text" readonly value="${escapeHtml(shareUrl)}" class="share-link-input" />
         <button type="button" class="share-link-copy-btn">Copy Link</button>
@@ -9355,6 +9370,10 @@ function renderToolsMenu(){
   manageTripLabel.textContent = 'Manage This Trip';
   body.appendChild(manageTripLabel);
 
+  const manageTripBtnRow = document.createElement('div');
+  manageTripBtnRow.className = 'tools-menu-btn-row';
+  body.appendChild(manageTripBtnRow);
+
   const downloadBtn = document.createElement('button');
   downloadBtn.type = 'button';
   downloadBtn.className = 'print-packing-btn-secondary';
@@ -9388,12 +9407,12 @@ function renderToolsMenu(){
       closeToolsMenu();
     }
   };
-  body.appendChild(downloadBtn);
+  manageTripBtnRow.appendChild(downloadBtn);
 
   const duplicateBtn = document.createElement('button');
   duplicateBtn.type = 'button';
   duplicateBtn.className = 'print-packing-btn-secondary';
-  duplicateBtn.textContent = '📄 Duplicate this trip';
+  duplicateBtn.textContent = '📄 Duplicate';
   duplicateBtn.title = 'Creates a full, independent copy — every day, item, and stay';
   duplicateBtn.onclick = async () => {
     duplicateBtn.disabled = true;
@@ -9404,11 +9423,11 @@ function renderToolsMenu(){
     }catch(err){
       console.error('Duplicate trip failed:', err);
       duplicateBtn.disabled = false;
-      duplicateBtn.textContent = '📄 Duplicate this trip';
+      duplicateBtn.textContent = '📄 Duplicate';
       alert("Something went wrong duplicating this trip. Please try again.");
     }
   };
-  body.appendChild(duplicateBtn);
+  manageTripBtnRow.appendChild(duplicateBtn);
 
   const archiveStatusNote = document.createElement('p');
   archiveStatusNote.className = 'section-empty-note';
