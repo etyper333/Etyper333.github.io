@@ -2857,16 +2857,6 @@
     border-color:var(--marigold);
     color:white;
   }
-  .grocery-channel-heading{
-    font-family:'Baloo 2',sans-serif;
-    font-size:15px;
-    font-weight:700;
-    color:var(--ink);
-    margin:22px 0 8px;
-  }
-  .grocery-channel-heading:first-of-type{
-    margin-top:0;
-  }
   .grocery-category-label{
     font-size:11px;
     font-weight:700;
@@ -3629,7 +3619,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.29';
+const APP_VERSION = '3.31';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -8411,16 +8401,16 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   wrap.innerHTML = `
     <div class="section-group">
       <div class="section-heading">What</div>
-      <label class="form-row-label">Type</label>
-      <div class="form-row">
-        <select data-f="type">${TYPES.map(t=>`<option value="${t.key}" ${t.key===initial.type?'selected':''}>${t.icon} ${t.label}</option>`).join('')}</select>
-      </div>
       <div class="name-row-with-icon">
         <div class="name-col">
           <label>Name — required</label>
           <input type="text" data-f="name" placeholder="e.g. Hollywood Studios, Be Our Guest lunch" value="${escapeHtml(initial.name || '')}" autocomplete="off" />
         </div>
         <button type="button" class="park-link-icon" data-role="open-park-hours" title="Check Park Hours &amp; Crowd Levels">🎢</button>
+      </div>
+      <label class="form-row-label">Type</label>
+      <div class="form-row">
+        <select data-f="type">${TYPES.map(t=>`<option value="${t.key}" ${t.key===initial.type?'selected':''}>${t.icon} ${t.label}</option>`).join('')}</select>
       </div>
     </div>
 
@@ -9696,12 +9686,15 @@ function renderGroceryPanel(){
   intro.textContent = "Nothing is added automatically. Browse the catalog below and choose Pack or Deliver for anything that applies to this trip.";
   wrap.appendChild(intro);
 
+  let isFirstHeading = true;
   if(trip.groceryItems.length > 0){
     ['pack','delivery'].forEach(channel => {
       const channelItems = trip.groceryItems.filter(gi => gi.channel === channel);
       if(channelItems.length === 0) return;
       const heading = document.createElement('div');
-      heading.className = 'grocery-channel-heading';
+      heading.className = 'packing-category-title';
+      if(!isFirstHeading) heading.style.marginTop = '18px';
+      isFirstHeading = false;
       heading.textContent = channel === 'pack' ? '🧳 Packing With Us' : '📦 Ordering for Delivery';
       wrap.appendChild(heading);
 
@@ -9719,7 +9712,8 @@ function renderGroceryPanel(){
   }
 
   const catalogHeading = document.createElement('div');
-  catalogHeading.className = 'grocery-channel-heading';
+  catalogHeading.className = 'packing-category-title';
+  if(!isFirstHeading) catalogHeading.style.marginTop = '18px';
   catalogHeading.textContent = 'Add from catalog';
   wrap.appendChild(catalogHeading);
 
