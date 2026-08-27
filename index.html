@@ -3619,7 +3619,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.31';
+const APP_VERSION = '3.33';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5902,8 +5902,256 @@ const ITEM_NAME_SUGGESTIONS = [
   "Sassagoula Floatworks & Food Factory","Boatwright's Dining Hall","Riverside Mill Food Court",
   "Topolino's Terrace","Primo Piatto","Le Petit Cafe","The Turf Club Bar and Grill","The Artist's Palette",
   "The Paddock Grill","Chip 'n' Dale's Café","Whispering Canyon Cafe","Story Book Dining at Artist Point",
-  "Roaring Fork","Geyser Point Bar & Grill","Ale & Compass Restaurant","Yachtsman Steakhouse","Market at Ale and Compass"
+  "Roaring Fork","Geyser Point Bar & Grill","Ale & Compass Restaurant","Yachtsman Steakhouse","Market at Ale and Compass",
+  // Added by Melanie
+  "Resort Rest","Resort Activities","Poolside","Resort Hop"
 ];
+
+// Generated directly from the finalized item-name-suggestions spreadsheet - every key
+// lowercased for case-insensitive exact matching. Used only to suggest a default Type on
+// brand-new items; never touches an item that's being edited, and only fires when Type
+// hasn't already been manually changed by the person filling out the form.
+const ITEM_NAME_TYPE_GUESS = {
+  'magic kingdom':'activity',
+  'epcot':'activity',
+  'hollywood studios':'activity',
+  'animal kingdom':'activity',
+  'disney springs':'activity',
+  'typhoon lagoon':'activity',
+  'blizzard beach':'activity',
+  'pool time':'activity',
+  'travel / driving':'travel',
+  'mears connect / airport shuttle':'logistics',
+  'monorail':'logistics',
+  'skyliner':'logistics',
+  'bus transportation':'logistics',
+  'boat transportation':'logistics',
+  'bell services':'logistics',
+  'rope drop':'logistics',
+  'resort check-in':'logistics',
+  'resort check-out':'logistics',
+  'coffee run':'logistics',
+  'be our guest restaurant':'dining',
+  'casey\'s corner':'dining',
+  'cinderella\'s royal table':'dining',
+  'columbia harbour house':'dining',
+  'cosmic ray\'s starlight café':'dining',
+  'gaston\'s tavern':'dining',
+  'golden oak outpost':'dining',
+  'jungle navigation co. ltd. skipper canteen':'dining',
+  'liberty tree tavern':'dining',
+  'main street bakery':'dining',
+  'pecos bill tall tale inn and cafe':'dining',
+  'pinocchio village haus':'dining',
+  'sleepy hollow refreshments':'dining',
+  'the crystal palace':'dining',
+  'the diamond horseshoe':'dining',
+  'the friar\'s nook':'dining',
+  'the lunching pad':'dining',
+  'the plaza restaurant':'dining',
+  'tony\'s town square restaurant':'dining',
+  'tortuga tavern':'dining',
+  'akershus royal banquet hall':'dining',
+  'biergarten restaurant':'dining',
+  'chefs de france':'dining',
+  'connections café':'dining',
+  'connections eatery':'dining',
+  'coral reef restaurant':'dining',
+  'crêpes à emporter':'dining',
+  'garden grill restaurant':'dining',
+  'katsura grill':'dining',
+  'kringla bakeri og kafe':'dining',
+  'la cantina de san angel':'dining',
+  'la crêperie de paris':'dining',
+  'la hacienda de san angel':'dining',
+  'le cellier steakhouse':'dining',
+  'les halles boulangerie-patisserie':'dining',
+  'lotus blossom café':'dining',
+  'monsieur paul':'dining',
+  'nine dragons restaurant':'dining',
+  'refreshment outpost':'dining',
+  'refreshment port':'dining',
+  'regal eagle smokehouse':'dining',
+  'rose & crown dining room':'dining',
+  'san angel inn restaurante':'dining',
+  'shiki-sai: sushi izakaya':'dining',
+  'sommerfest':'dining',
+  'space 220 restaurant':'dining',
+  'spice road table':'dining',
+  'sunshine seasons':'dining',
+  'takumi-tei':'dining',
+  'tangierine café':'dining',
+  'teppan edo':'dining',
+  'the odyssey':'dining',
+  'tutto italia ristorante':'dining',
+  'via napoli ristorante e pizzeria':'dining',
+  'yorkshire county fish shop':'dining',
+  '50\'s prime time café':'dining',
+  'abc commissary':'dining',
+  'backlot express':'dining',
+  'catalina eddie\'s':'dining',
+  'docking bay 7 food and cargo':'dining',
+  'dockside diner':'dining',
+  'fairfax fare':'dining',
+  'hollywood & vine':'dining',
+  'mama melrose\'s ristorante italiano':'dining',
+  'pizzerizzo':'dining',
+  'ronto roasters':'dining',
+  'rosie\'s all-american cafe':'dining',
+  'roundup rodeo bbq':'dining',
+  'sci-fi dine-in theater restaurant':'dining',
+  'the hollywood brown derby':'dining',
+  'the trolley car café':'dining',
+  'woody\'s lunch box':'dining',
+  'creature comforts':'dining',
+  'flame tree barbecue':'dining',
+  'harambe market':'dining',
+  'mr. kamal\'s':'dining',
+  'pizzafari':'dining',
+  'rainforest cafe':'dining',
+  'satu\'li canteen':'dining',
+  'tamu tamu refreshments':'dining',
+  'tiffins':'dining',
+  'tusker house restaurant':'dining',
+  'yak & yeti local food cafes':'dining',
+  'yak & yeti restaurant':'dining',
+  'zuri\'s sweet shop':'dining',
+  'leaning palms':'dining',
+  'lowtide lou\'s':'dining',
+  'snack shack':'dining',
+  'surf doggies':'dining',
+  'typhoon tilly\'s':'dining',
+  'avalunch':'dining',
+  'cooling hut':'dining',
+  'lottawatta lodge':'dining',
+  'warming hut':'dining',
+  '4 rivers cantina barbacoa':'dining',
+  'amorette\'s patisserie':'dining',
+  'b.b. wolf\'s sausage co.':'dining',
+  'blaze fast-fire\'d pizza':'dining',
+  'chef art smith\'s homecomin\'':'dining',
+  'chicken guy!':'dining',
+  'city works eatery & pour house':'dining',
+  'cookes of dublin':'dining',
+  'd-luxe burger':'dining',
+  'earl of sandwich':'dining',
+  'enzo\'s hideaway':'dining',
+  'erin mckenna\'s bakery nyc':'dining',
+  'everglazed donuts & cold brew':'dining',
+  'frontera cocina':'dining',
+  'ghirardelli soda fountain and chocolate shop':'dining',
+  'gideon\'s bakehouse':'dining',
+  'house of blues restaurant & bar':'dining',
+  'häagen-dazs kiosk':'dining',
+  'jaleo by josé andrés':'dining',
+  'maria and enzo\'s ristorante':'dining',
+  'morimoto asia':'dining',
+  'paddlefish':'dining',
+  'paradiso 37':'dining',
+  'pepe by josé andrés':'dining',
+  'pizza ponte':'dining',
+  'planet hollywood':'dining',
+  'raglan road irish pub & restaurant':'dining',
+  'rainforest cafe (marketplace)':'dining',
+  'salt & straw':'dining',
+  'splitsville dining room':'dining',
+  'sprinkles':'dining',
+  'stk orlando':'dining',
+  'summer house on the lake':'dining',
+  't-rex':'dining',
+  'terralina crafted italian':'dining',
+  'the boathouse':'dining',
+  'the daily poutine':'dining',
+  'the edison':'dining',
+  'the polite pig':'dining',
+  'the smokehouse at house of blues':'dining',
+  'vivoli il gelato':'dining',
+  'wine bar george':'dining',
+  'wolfgang puck bar & grill':'dining',
+  'splitsville luxury lanes':'activity',
+  'level99':'activity',
+  'aerophile – the world leader in balloon flight':'activity',
+  'drawn to life (cirque du soleil)':'activity',
+  'amc disney springs 24 dine-in theatres':'activity',
+  'fantasia gardens & fairways miniature golf':'activity',
+  'winter summerland miniature golf':'activity',
+  'espn wide world of sports':'activity',
+  'boardwalk':'activity',
+  'oga\'s cantina':'dining',
+  'trader sam\'s grog grotto':'dining',
+  'river roost lounge':'dining',
+  'trail\'s end restaurant':'dining',
+  'meadow snack bar':'dining',
+  'p & j\'s southern takeout':'dining',
+  'hoop-dee-doo musical revue':'dining',
+  'chuck wagon':'dining',
+  'meadows trading post':'dining',
+  'settlement trading post':'dining',
+  'boma - flavors of africa':'dining',
+  'jiko - the cooking place':'dining',
+  'the mara':'dining',
+  'sanaa':'dining',
+  'sanaa kuamsha breakfast':'dining',
+  'world premiere food court':'dining',
+  'intermission food court':'dining',
+  'end zone food court':'dining',
+  'landscape of flavors':'dining',
+  'beaches & cream soda shop':'dining',
+  'cape may cafe':'dining',
+  'hurricane hanna\'s waterside bar and grill':'dining',
+  'beach club marketplace':'dining',
+  'flying fish':'dining',
+  'trattoria al forno':'dining',
+  'boardwalk deli':'dining',
+  'centertown market':'dining',
+  'sebastian\'s bistro':'dining',
+  'spyglass grill':'dining',
+  'california grill':'dining',
+  'chef mickey\'s':'dining',
+  'contempo café':'dining',
+  'steakhouse 71':'dining',
+  'the sand bar':'dining',
+  'maya grill':'dining',
+  'rix sports bar & grill':'dining',
+  'three bridges bar and grill':'dining',
+  'toledo':'dining',
+  'cafe rix':'dining',
+  'el mercado de coronado':'dining',
+  '1900 park fare':'dining',
+  'cítricos':'dining',
+  'grand floridian cafe':'dining',
+  'narcoossee\'s':'dining',
+  'victoria & albert\'s':'dining',
+  'gasparilla island grill':'dining',
+  'olivia\'s cafe':'dining',
+  'good\'s food to go':'dining',
+  '\'ohana':'dining',
+  'kona café':'dining',
+  'capt. cook\'s':'dining',
+  'everything pop shopping and dining':'dining',
+  'sassagoula floatworks & food factory':'dining',
+  'boatwright\'s dining hall':'dining',
+  'riverside mill food court':'dining',
+  'topolino\'s terrace':'dining',
+  'primo piatto':'dining',
+  'le petit cafe':'dining',
+  'the turf club bar and grill':'dining',
+  'the artist\'s palette':'dining',
+  'the paddock grill':'dining',
+  'chip \'n\' dale\'s café':'dining',
+  'whispering canyon cafe':'dining',
+  'story book dining at artist point':'dining',
+  'roaring fork':'dining',
+  'geyser point bar & grill':'dining',
+  'ale & compass restaurant':'dining',
+  'yachtsman steakhouse':'dining',
+  'market at ale and compass':'dining',
+  'resort rest':'rest',
+  'resort activities':'activity',
+  'poolside':'rest',
+  'resort hop':'activity',
+};
+
 const CROWD_LEVEL_PARKS = ["Magic Kingdom","EPCOT","Hollywood Studios","Animal Kingdom"];
 const PARK_ABBREVIATIONS = { "Magic Kingdom": "MK", "EPCOT": "EP", "Hollywood Studios": "HS", "Animal Kingdom": "AK" };
 
@@ -6182,7 +6430,7 @@ const TYPES = [
   {key:"logistics", label:"Logistics", icon:"🚶"},
   {key:"dining", label:"Dining", icon:"🍽️"},
   {key:"travel", label:"Travel", icon:"✈️"},
-  {key:"rest", label:"Rest / Hotel", icon:"🛌"},
+  {key:"rest", label:"Rest/Downtime", icon:"🛌"},
 ];
 const TYPE_DURATION_DEFAULTS = {
   activity: 120,
@@ -7594,7 +7842,23 @@ function renderItinerarySidebar(trip){
       return `${escapeHtml(park)}${hoursText}${val ? ' · Crowd: ' + escapeHtml(val) : ''}`;
     }).join('<br>');
   } else {
-    crowdTapLine.textContent = '🎢 Check Park Hours & Crowd Levels';
+    const parkDate = computeDayDate(trip, dayIndex);
+    const parkDateStr = parkDate ? dateToApiString(parkDate) : null;
+    const availableLines = [];
+    CROWD_LEVEL_PARKS.forEach(park => {
+      if(!parkDateStr) return;
+      if(!parkScheduleCache[park]){
+        ensureParkScheduleLoaded(park).then(result => { if(result) renderItinerarySidebar(trip); });
+        return;
+      }
+      const hours = getParkHoursForDate(park, parkDateStr);
+      if(hours.status === 'available'){
+        availableLines.push(`${escapeHtml(park)} · ${hours.openingTime}–${hours.closingTime}`);
+      }
+    });
+    crowdTapLine.innerHTML = availableLines.length
+      ? availableLines.join('<br>')
+      : '🎢 Check Park Hours &amp; Crowd Levels';
   }
   crowdFact.appendChild(crowdTapLine);
   block.appendChild(crowdFact);
@@ -8607,6 +8871,24 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   syncMealVisibility();
   typeSelect.addEventListener('change', syncMealVisibility);
   mealServiceSelect.addEventListener('change', syncMealVisibility);
+
+  // Auto-guess Type from an exact name match - only for genuinely new items (initial.id is
+  // only ever set when editing an existing one), and only while Type hasn't already been
+  // manually changed by the person filling out the form. Sets typeSelect.value directly and
+  // calls the existing sync functions itself, rather than dispatching a change event, so this
+  // can never be mistaken for - or accidentally trigger - a real user interaction with Type.
+  if(!initial.id){
+    typeSelect.addEventListener('change', () => { typeSelect.dataset.userTouched = '1'; });
+    nameInput.addEventListener('input', () => {
+      if(typeSelect.dataset.userTouched) return;
+      const guess = ITEM_NAME_TYPE_GUESS[nameInput.value.trim().toLowerCase()];
+      if(guess && typeSelect.value !== guess){
+        typeSelect.value = guess;
+        syncMealVisibility();
+        syncEndTimeUI();
+      }
+    });
+  }
 
   const trip = getActiveTrip();
   const tripTravelers = (trip && Array.isArray(trip.travelerIds))
