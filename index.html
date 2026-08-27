@@ -436,7 +436,7 @@
     padding:10px 14px;
     border-radius:var(--radius-md);
     border:1.5px solid var(--coral);
-    background:rgba(47,143,90,.12);
+    background:var(--accent-glow);
     color:var(--coral);
     font-family:'Inter',sans-serif;
     font-size:13.5px;
@@ -449,7 +449,7 @@
   .tools-menu-ghost-close{
     background:none;
     border:none;
-    color:var(--slate);
+    color:var(--ink);
     text-decoration:underline;
     box-shadow:none;
     font-weight:700;
@@ -1651,6 +1651,24 @@
     font-weight:700;
     pointer-events:none;
   }
+  .item-card-editing{
+    cursor:default;
+  }
+  .item-card-chevron-collapse{
+    position:absolute;
+    top:12px;
+    right:14px;
+    width:26px;
+    height:26px;
+    border-radius:var(--radius-round);
+    border:1.5px solid var(--line);
+    background:var(--cream);
+    color:var(--slate);
+    font-size:16px;
+    font-weight:700;
+    cursor:pointer;
+    z-index:1;
+  }
   .item-card.is-current, .item-card.is-next{
     border-color:var(--coral);
   }
@@ -1884,7 +1902,7 @@
 
   .item-body{
     flex:1;
-    padding:12px 14px;
+    padding:12px 28px 12px 14px;
     display:flex;
     flex-direction:column;
     gap:4px;
@@ -3565,7 +3583,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.21';
+const APP_VERSION = '3.23';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -8235,6 +8253,18 @@ function renderItemCard(day, item, currentOrNext){
     form.classList.add('nested');
     body.appendChild(form);
     editWrap.appendChild(body);
+    const collapseChevron = document.createElement('button');
+    collapseChevron.type = 'button';
+    collapseChevron.className = 'item-card-chevron-collapse';
+    collapseChevron.textContent = '‹';
+    collapseChevron.title = 'Collapse (only if nothing has been changed)';
+    collapseChevron.onclick = () => {
+      if(!form.isDirty()){
+        editingItems.delete(item.id);
+        render();
+      }
+    };
+    editWrap.appendChild(collapseChevron);
     return editWrap;
   }
 
@@ -9278,6 +9308,12 @@ function renderToolsMenu(){
     shareSection.innerHTML = '<p class="section-empty-note">Save this trip at least once to get a shareable link.</p>';
   }
   body.appendChild(shareSection);
+
+  const parkDataLabel = document.createElement('div');
+  parkDataLabel.className = 'packing-category-title';
+  parkDataLabel.style.marginTop = '18px';
+  parkDataLabel.textContent = 'Park & Calendar';
+  body.appendChild(parkDataLabel);
 
   const exportBtn = document.createElement('button');
   exportBtn.type = 'button';
