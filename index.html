@@ -446,9 +446,8 @@
   #toolsMenuBody{
     margin-bottom:56px;
   }
-  .tools-menu-ghost-close{
+  .master-editor-close.tools-menu-ghost-close{
     background:none;
-    border:none;
     color:var(--ink);
     text-decoration:underline;
     box-shadow:none;
@@ -3583,7 +3582,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.24';
+const APP_VERSION = '3.25';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
