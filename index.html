@@ -811,20 +811,6 @@
     margin:2px 0 8px;
     display:block;
   }
-  .clear-time-btn{
-    flex:0 0 auto !important;
-    min-width:0 !important;
-    font-family:'Inter',sans-serif;
-    font-size:11.5px;
-    font-weight:700;
-    color:var(--coral);
-    background:none;
-    border:1.5px solid var(--coral);
-    border-radius:var(--radius-lg);
-    padding:0 10px;
-    cursor:pointer;
-    white-space:nowrap;
-  }
   .who-checklist{
     display:flex;
     flex-wrap:wrap;
@@ -865,65 +851,6 @@
     border-radius:var(--radius-xl);
     background:var(--marigold);
     color:#5A3D00;
-  }
-  .main-plan-checkbox-label{
-    display:grid;
-    grid-template-columns:20px 1fr;
-    align-items:start;
-    column-gap:8px;
-    font-size:13px;
-    font-weight:600;
-    color:var(--ink);
-    cursor:pointer;
-    width:100%;
-    box-sizing:border-box;
-    padding:10px 12px;
-    border-radius:var(--radius-md);
-    border:1.5px solid var(--line);
-  }
-  .main-plan-checkbox-label.checked{
-    background:rgba(143,163,60,.14);
-    border-color:var(--marigold);
-  }
-  .pencilled-checkbox-label.checked{
-    background:rgba(122,140,126,.12);
-    border-style:dashed;
-    border-color:var(--slate);
-  }
-  .main-plan-checkbox-label input[type=checkbox]{
-    accent-color:var(--coral);
-    margin:2px 0 0;
-    width:20px;
-  }
-  .main-plan-checkbox-label span{
-    min-width:0;
-    overflow-wrap:break-word;
-  }
-  .main-plan-checkbox-label input[type=checkbox]:disabled + span{
-    color:var(--slate);
-    font-weight:500;
-  }
-  .landmark-checkbox-label{
-    display:grid;
-    grid-template-columns:20px 1fr;
-    align-items:start;
-    column-gap:8px;
-    font-size:13px;
-    font-weight:600;
-    color:var(--ink);
-    cursor:pointer;
-    width:100%;
-    box-sizing:border-box;
-  }
-  .landmark-checkbox-label input[type=checkbox]{
-    accent-color:var(--sky);
-    margin:2px 0 0;
-    width:20px;
-  }
-  .landmark-checkbox-label span{
-    min-width:0;
-    white-space:normal;
-    word-wrap:break-word;
   }
   .trip-summary-trigger{
     display:flex;
@@ -2309,14 +2236,20 @@
     color:var(--sky);
     margin:0 0 10px;
   }
-  .name-row{
-    background:var(--cream);
-    border:1.5px solid var(--sage);
-    border-radius:var(--radius-md);
-    padding:10px;
+  .time-field-block{
+    margin-bottom:10px;
+  }
+  .name-row-with-icon{
+    display:flex;
+    gap:8px;
+    align-items:flex-end;
     margin-bottom:8px;
   }
-  .name-row label{
+  .name-row-with-icon .name-col{
+    flex:1;
+    min-width:0;
+  }
+  .name-row-with-icon label{
     font-size:11.5px;
     font-weight:700;
     text-transform:uppercase;
@@ -2325,7 +2258,7 @@
     margin-bottom:4px;
     display:block;
   }
-  .name-row input{
+  .name-row-with-icon input{
     font-family:'Inter',sans-serif;
     font-size:13.5px;
     padding:9px 10px;
@@ -2333,9 +2266,121 @@
     border:1.5px solid var(--sage);
     width:100%;
     background:var(--paper);
+    box-sizing:border-box;
   }
-  .time-field-block{
-    margin-bottom:10px;
+  .park-link-icon{
+    flex-shrink:0;
+    width:38px;
+    height:38px;
+    border-radius:var(--radius-round);
+    border:1.5px solid var(--line);
+    background:var(--cream);
+    font-size:16px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .time-ends-row{
+    display:flex;
+    gap:8px;
+  }
+  .time-ends-row .time-ends-col{
+    flex:1;
+    min-width:0;
+  }
+  .time-ends-row .time-input-wrap{
+    width:100%;
+    box-sizing:border-box;
+    position:relative;
+  }
+  .time-ends-row .time-field-block{
+    margin-bottom:0;
+  }
+  .time-clear-x{
+    position:absolute;
+    right:6px;
+    top:50%;
+    transform:translateY(-50%);
+    width:22px;
+    height:22px;
+    border-radius:var(--radius-round);
+    border:none;
+    background:var(--line);
+    color:var(--slate);
+    font-size:11px;
+    font-weight:700;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:1;
+  }
+  .end-time-label-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:6px;
+  }
+  .na-pill-label{
+    display:inline-flex;
+    align-items:center;
+    gap:3px;
+    font-size:10px;
+    font-weight:700;
+    text-transform:none;
+    letter-spacing:0;
+    color:var(--slate);
+    background:var(--cream);
+    border:1px solid var(--line);
+    border-radius:var(--radius-round);
+    padding:2px 7px;
+    cursor:pointer;
+  }
+  .na-pill-checkbox{
+    width:12px;
+    height:12px;
+    margin:0;
+  }
+  .bool-chip-row{
+    display:flex;
+    gap:8px;
+    margin-top:10px;
+  }
+  .bool-chip{
+    flex:1;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--ink);
+    cursor:pointer;
+    padding:9px 10px;
+    border-radius:var(--radius-md);
+    border:1.5px solid var(--line);
+    background:var(--paper);
+    box-sizing:border-box;
+  }
+  .bool-chip input[type=checkbox]{
+    accent-color:var(--coral);
+    margin:0;
+    width:16px;
+    height:16px;
+    flex-shrink:0;
+  }
+  .bool-chip[data-role="main-plan-row"].checked{
+    background:rgba(143,163,60,.14);
+    border-color:var(--marigold);
+  }
+  .bool-chip[data-role="pencil-row"].checked{
+    background:rgba(122,140,126,.12);
+    border-style:dashed;
+    border-color:var(--slate);
+  }
+  .bool-chip input[type=checkbox]:disabled + span{
+    color:var(--slate);
+    font-weight:500;
   }
   .time-input-wrap{
     display:inline-flex;
@@ -3579,7 +3624,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.27';
+const APP_VERSION = '3.28';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -8353,7 +8398,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   wrap.addEventListener('input', () => { formTouched = true; });
   wrap.addEventListener('change', () => { formTouched = true; });
   wrap.addEventListener('click', e => {
-    if(e.target.closest('.landmark-checkbox-label') || e.target.closest('[data-role="clear-time"]')){
+    if(e.target.closest('.na-pill-label') || e.target.closest('[data-role="clear-time"]')){
       formTouched = true;
     }
   });
@@ -8365,20 +8410,41 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
       <div class="form-row">
         <select data-f="type">${TYPES.map(t=>`<option value="${t.key}" ${t.key===initial.type?'selected':''}>${t.icon} ${t.label}</option>`).join('')}</select>
       </div>
-      <div class="name-row">
-        <label>Name — required</label>
-        <input type="text" data-f="name" placeholder="e.g. Hollywood Studios, Be Our Guest lunch" value="${escapeHtml(initial.name || '')}" autocomplete="off" />
+      <div class="name-row-with-icon">
+        <div class="name-col">
+          <label>Name — required</label>
+          <input type="text" data-f="name" placeholder="e.g. Hollywood Studios, Be Our Guest lunch" value="${escapeHtml(initial.name || '')}" autocomplete="off" />
+        </div>
+        <button type="button" class="park-link-icon" data-role="open-park-hours" title="Check Park Hours &amp; Crowd Levels">🎢</button>
       </div>
-      <button type="button" class="park-hours-link" data-role="open-park-hours">🎢 Check Park Hours &amp; Crowd Levels</button>
     </div>
 
     <div class="section-group">
       <div class="section-heading">When</div>
-      <div class="time-field-block">
-        <label class="form-row-label">Time</label>
-        <div class="time-input-wrap"><input type="time" data-f="time" value="${initial.time || ''}" /></div>
-        <div class="adjacent-hint" data-role="adjacent-hint"></div>
+      <div class="time-ends-row">
+        <div class="time-ends-col">
+          <label class="form-row-label">Time</label>
+          <div class="time-field-block">
+            <div class="time-input-wrap">
+              <input type="time" data-f="time" value="${initial.time || ''}" />
+              <button type="button" class="time-clear-x" data-role="clear-time" style="display:none;" title="Clear time">✕</button>
+            </div>
+          </div>
+        </div>
+        <div class="time-ends-col" data-role="end-time-col">
+          <label class="form-row-label end-time-label-row" data-role="end-time-label">
+            Ends at
+            <label class="na-pill-label">
+              <input type="checkbox" data-f="isLandmarkCheckbox" class="na-pill-checkbox" />
+              <span>📍 n/a</span>
+            </label>
+          </label>
+          <div class="time-field-block" data-role="end-time-row">
+            <div class="time-input-wrap"><input type="time" data-f="endTime" /></div>
+          </div>
+        </div>
       </div>
+      <div class="adjacent-hint" data-role="adjacent-hint"></div>
       <div class="or-divider" data-role="when-or">or</div>
       <div class="time-field-block" data-role="section-row">
         <label class="form-row-label">Part of Day</label>
@@ -8386,19 +8452,6 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
           <option value="">Choose a part of day...</option>
           ${SECTIONS.map(s=>`<option value="${s.key}" ${s.key===initial.section?'selected':''}>${s.label}</option>`).join('')}
         </select>
-      </div>
-      <div class="form-row">
-        <button type="button" class="clear-time-btn" data-role="clear-time" style="display:none;">✕ Clear time</button>
-      </div>
-      <div class="form-row landmark-row">
-        <label class="landmark-checkbox-label">
-          <input type="checkbox" data-f="isLandmarkCheckbox" />
-          <span>📍 No duration — just a moment in time</span>
-        </label>
-      </div>
-      <label class="form-row-label" data-role="end-time-label">Ends at</label>
-      <div class="time-field-block" data-role="end-time-row">
-        <div class="time-input-wrap"><input type="time" data-f="endTime" /></div>
       </div>
       <div class="form-row" data-role="meal-row">
         <select data-f="mealService">
@@ -8417,23 +8470,18 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
 
     <div class="section-group">
       <div class="section-heading">Details</div>
-      <div class="form-row">
-        <label class="main-plan-checkbox-label" data-role="main-plan-row">
+      <div class="bool-chip-row">
+        <label class="bool-chip" data-role="main-plan-row">
           <input type="checkbox" data-f="isMainPlanCheckbox" ${initial.isMainPlan ? 'checked' : ''} />
-          <span data-role="main-plan-label">📌 Main plan for this part of the day</span>
+          <span data-role="main-plan-label">📌 Main Plan</span>
+        </label>
+        <label class="bool-chip" data-role="pencil-row">
+          <input type="checkbox" data-f="isPencilledInCheckbox" ${initial.status === 'tentative' ? 'checked' : ''} />
+          <span>✏️ Penciled In</span>
         </label>
       </div>
       <div data-role="who-wrap"></div>
-      <div class="form-row">
-        <label class="main-plan-checkbox-label pencilled-checkbox-label" data-role="pencil-row">
-          <input type="checkbox" data-f="isPencilledInCheckbox" ${initial.status === 'tentative' ? 'checked' : ''} />
-          <span>✏️ Penciled in — not confirmed yet</span>
-        </label>
-      </div>
-      <label class="form-row-label">Confirmation # (optional)</label>
-      <div class="form-row">
-        <input type="text" data-f="confirmationNumber" placeholder="e.g. WDW12345678" value="${escapeHtml(initial.confirmationNumber || '')}" />
-      </div>
+      <div data-role="confirmation-wrap"></div>
       <label class="form-row-label">Notes</label>
       <div class="form-row">
         <textarea data-f="notes" placeholder="Who's going, what to bring...">${escapeHtml(initial.notes || '')}</textarea>
@@ -8489,13 +8537,12 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
     return sectionSelect.value;
   };
 
-  const endTimeLabel = wrap.querySelector('[data-role="end-time-label"]');
+  const endTimeCol = wrap.querySelector('[data-role="end-time-col"]');
   const endTimeRow = wrap.querySelector('[data-role="end-time-row"]');
   const endTimeInput = wrap.querySelector('[data-f="endTime"]');
   const typeSelectForDuration = wrap.querySelector('[data-f="type"]');
   const mealServiceForDuration = wrap.querySelector('[data-f="mealService"]');
   const landmarkCheckbox = wrap.querySelector('[data-f="isLandmarkCheckbox"]');
-  const landmarkRow = wrap.querySelector('.landmark-row');
   const isInitiallyLandmark = !!(initial.time && initial.endTime && initial.endTime === initial.time);
   landmarkCheckbox.checked = isInitiallyLandmark;
 
@@ -8512,13 +8559,11 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
     return getComputedDefaultEnd();
   };
   const syncEndTimeUI = () => {
-    landmarkRow.style.display = timeInput.value ? '' : 'none';
+    endTimeCol.style.display = timeInput.value ? '' : 'none';
     if(!timeInput.value || landmarkCheckbox.checked){
-      endTimeLabel.style.display = 'none';
       endTimeRow.style.display = 'none';
       return;
     }
-    endTimeLabel.style.display = '';
     endTimeRow.style.display = '';
     if(!endTimeInput.dataset.userTouched){
       endTimeInput.value = getDisplayEndTimeValue();
@@ -8534,7 +8579,6 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   attachSuggestionDropdown(nameInput, () => [...PARKS.filter(p => p && p !== 'Other'), ...ITEM_NAME_SUGGESTIONS]);
   const mainPlanCheckbox = wrap.querySelector('[data-f="isMainPlanCheckbox"]');
   const mainPlanRow = wrap.querySelector('[data-role="main-plan-row"]');
-  const mainPlanLabel = wrap.querySelector('[data-role="main-plan-label"]');
   const syncMainPlanRowStyle = () => { mainPlanRow.classList.toggle('checked', mainPlanCheckbox.checked); };
   mainPlanCheckbox.addEventListener('change', syncMainPlanRowStyle);
   syncMainPlanRowStyle();
@@ -8543,10 +8587,10 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
     const sectionLabel = section ? (SECTIONS.find(s=>s.key===section)||{}).label : '';
     if(!section){
       mainPlanCheckbox.disabled = true;
-      mainPlanLabel.textContent = '📌 Main plan (choose a time or section first)';
+      mainPlanRow.title = 'Choose a time or part of day first';
     } else {
       mainPlanCheckbox.disabled = false;
-      mainPlanLabel.textContent = `📌 Main plan for the ${sectionLabel}`;
+      mainPlanRow.title = `Main plan for the ${sectionLabel}`;
     }
   };
   syncMainPlanUI();
@@ -8612,6 +8656,30 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   const syncPencilRowStyle = () => { pencilRow.classList.toggle('checked', pencilledInCheckbox.checked); };
   pencilledInCheckbox.addEventListener('change', syncPencilRowStyle);
   syncPencilRowStyle();
+
+  const confirmationWrap = wrap.querySelector('[data-role="confirmation-wrap"]');
+  let confirmationExpanded = !!(initial.confirmationNumber && initial.confirmationNumber.trim());
+  const renderConfirmation = () => {
+    const existingValue = confirmationWrap.querySelector('[data-f="confirmationNumber"]');
+    const currentValue = existingValue ? existingValue.value : (initial.confirmationNumber || '');
+    confirmationWrap.innerHTML = confirmationExpanded ? `
+      <label class="form-row-label">Confirmation # (optional)</label>
+      <div class="form-row">
+        <input type="text" data-f="confirmationNumber" placeholder="e.g. WDW12345678" value="${escapeHtml(currentValue)}" />
+      </div>
+    ` : `
+      <input type="hidden" data-f="confirmationNumber" value="${escapeHtml(currentValue)}" />
+      <button type="button" class="who-toggle-link" data-role="confirmation-toggle">+ Add confirmation #</button>
+    `;
+    if(!confirmationExpanded){
+      confirmationWrap.querySelector('[data-role="confirmation-toggle"]').onclick = () => {
+        confirmationExpanded = true;
+        renderConfirmation();
+      };
+    }
+  };
+  renderConfirmation();
+
   wrap.querySelector('[data-role="submit"]').onclick = () => {
     const isMainPlan = mainPlanCheckbox.checked && !mainPlanCheckbox.disabled;
     const name = wrap.querySelector('[data-f="name"]').value.trim();
@@ -8623,7 +8691,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
       return;
     }
     if(landmarkCheckbox.checked && !time){
-      alert('A moment in time needs an actual time — pick one, or uncheck "No duration."');
+      alert('A moment in time needs an actual time — pick one, or uncheck "n/a" next to Ends At.');
       return;
     }
     const type = typeSelect.value;
