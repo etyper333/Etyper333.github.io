@@ -1776,6 +1776,11 @@
   .timeline-block-traveler-names{
     font-size:9.5px;
     opacity:.9;
+    display:block;
+    width:100%;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
   }
   .timeline-more-btn{
     position:absolute;
@@ -3624,7 +3629,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.28';
+const APP_VERSION = '3.29';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
