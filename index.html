@@ -164,7 +164,7 @@
     --accent-positive-bg:rgba(107,155,79,.18);
     --accent-positive-text:#3E5C2A;
     --accent-mid-bg:rgba(242,183,5,.20);
-    --accent-mid-text:#8A6704;
+    --accent-mid-text:#7C5D04;
     --accent-high-bg:rgba(232,83,31,.18);
     --accent-high-text:#8A3010;
     --accent-neutral-bg:rgba(138,120,96,.18);
@@ -632,6 +632,7 @@
     font-weight:600;
     padding:7px 12px;
     border-radius:var(--radius-xl);
+    box-shadow:0 1px 3px rgba(27,42,46,.15);
     width:fit-content;
     max-width:100%;
     background:var(--accent-neutral-bg);
@@ -727,6 +728,7 @@
     font-weight:600;
     padding:6px 8px 6px 12px;
     border-radius:var(--radius-xl);
+    box-shadow:0 1px 3px rgba(27,42,46,.15);
     background:var(--accent-neutral-bg);
     color:var(--accent-neutral-text);
   }
@@ -851,8 +853,8 @@
     font-weight:700;
     padding:2px 8px;
     border-radius:var(--radius-xl);
-    background:var(--marigold);
-    color:#5A3D00;
+    background:var(--accent-mid-bg);
+    color:var(--accent-mid-text);
     box-shadow:0 1px 3px rgba(27,42,46,.15);
   }
   .trip-summary-trigger{
@@ -2596,6 +2598,7 @@
     padding:3px 9px;
     border-radius:var(--radius-xl);
     white-space:nowrap;
+    box-shadow:0 1px 3px rgba(27,42,46,.15);
   }
   .crowd-pill.crowd-low{background:#EAF3EE; color:#3F6B54;}
   .crowd-pill.crowd-mid{background:#F7F1E1; color:#7A6A2A;}
@@ -2750,6 +2753,7 @@
     background:var(--accent-positive-bg);
     padding:2px 7px;
     border-radius:var(--radius-xl);
+    box-shadow:0 1px 3px rgba(27,42,46,.15);
   }
   .tab-packing-essential{background:var(--sage);}
   .tab-packing-regular{background:var(--slate);}
@@ -3624,7 +3628,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.36';
+const APP_VERSION = '3.37';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
