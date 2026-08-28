@@ -3660,6 +3660,22 @@
   </div>
 </div>
 
+<div class="master-editor-overlay" id="templateApplyDayPickerOverlay">
+  <div class="master-editor">
+    <h2>Apply To Which Day?</h2>
+    <div class="item-context" id="templateApplyDayPickerContext"></div>
+    <div class="form-row">
+      <label class="form-row-label">Day</label>
+      <select id="templateApplyDayPickerSelect"></select>
+    </div>
+    <div class="sticky-footer-group">
+      <button type="button" class="submit-btn" id="templateApplyDayPickerContinueBtn">Continue</button>
+      <button type="button" class="cancel-btn" id="templateApplyDayPickerCancelBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+
 <div class="master-editor-overlay" id="parkHoursOverlay">
 
   <div class="master-editor">
@@ -3755,7 +3771,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.48';
+const APP_VERSION = '3.49';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5882,18 +5898,51 @@ function openTemplateDetailModal(template, day){
   `).join('');
 
   const applyBtn = document.getElementById('templateDetailApplyBtn');
-  applyBtn.style.display = day ? '' : 'none';
+  applyBtn.style.display = '';
+  applyBtn.textContent = day ? '📥 Apply to this day' : '📥 Apply to a day…';
 }
 document.getElementById('templateDetailBackBtn').onclick = () => {
   document.getElementById('templateDetailOverlay').classList.remove('active');
   templateDetailContext = null;
 };
 document.getElementById('templateDetailApplyBtn').onclick = () => {
-  if(!templateDetailContext || !templateDetailContext.day) return;
+  if(!templateDetailContext) return;
   const { template, day } = templateDetailContext;
   document.getElementById('templateDetailOverlay').classList.remove('active');
   templateDetailContext = null;
-  openApplyTemplateModal(template, day, getActiveTrip());
+  if(day){
+    openApplyTemplateModal(template, day, getActiveTrip());
+  } else {
+    openTemplateApplyDayPickerModal(template);
+  }
+};
+
+let templateApplyDayPickerTemplate = null;
+
+function openTemplateApplyDayPickerModal(template){
+  templateApplyDayPickerTemplate = template;
+  const trip = getActiveTrip();
+  document.getElementById('templateApplyDayPickerContext').innerHTML = `<strong>${escapeHtml(template.name)}</strong>`;
+  const select = document.getElementById('templateApplyDayPickerSelect');
+  select.innerHTML = trip.days.map((d, i) => {
+    const label = getDayDisplayLabel(trip, i, d, true);
+    return `<option value="${d.id}">${escapeHtml(label)}</option>`;
+  }).join('');
+  document.getElementById('templateApplyDayPickerOverlay').classList.add('active');
+}
+document.getElementById('templateApplyDayPickerCancelBtn').onclick = () => {
+  document.getElementById('templateApplyDayPickerOverlay').classList.remove('active');
+  templateApplyDayPickerTemplate = null;
+};
+document.getElementById('templateApplyDayPickerContinueBtn').onclick = () => {
+  if(!templateApplyDayPickerTemplate) return;
+  const trip = getActiveTrip();
+  const dayId = document.getElementById('templateApplyDayPickerSelect').value;
+  const day = trip.days.find(d => d.id === dayId);
+  const template = templateApplyDayPickerTemplate;
+  document.getElementById('templateApplyDayPickerOverlay').classList.remove('active');
+  templateApplyDayPickerTemplate = null;
+  if(day) openApplyTemplateModal(template, day, trip);
 };
 
 let applyTemplateContext = null;
