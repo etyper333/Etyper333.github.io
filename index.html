@@ -551,6 +551,7 @@
     border:none;
     background:var(--sky);
     color:white;
+    box-shadow:0 2px 8px rgba(27,42,46,.16), 0 1px 3px rgba(27,42,46,.10);
     cursor:pointer;
   }
   .share-link-note{
@@ -969,6 +970,7 @@
   .mode-toggle-btn.active{
     background:var(--sky);
     color:white;
+    box-shadow:0 2px 8px rgba(27,42,46,.16), 0 1px 3px rgba(27,42,46,.10);
   }
   .compact-toggle-icon-btn{
     flex-shrink:0;
@@ -985,6 +987,7 @@
     background:var(--sky);
     border-color:var(--sky);
     color:white;
+    box-shadow:0 2px 8px rgba(27,42,46,.16), 0 1px 3px rgba(27,42,46,.10);
   }
   .traveler-filter-check-row{
     display:flex;
@@ -1096,6 +1099,7 @@
   .view-tab.active{
     background:var(--sky);
     color:white;
+    box-shadow:0 2px 8px rgba(27,42,46,.16), 0 1px 3px rgba(27,42,46,.10);
   }
   .view-tab-primary{
     flex:1.7;
@@ -1129,6 +1133,7 @@
     background:var(--sky);
     border-color:var(--sky);
     color:white;
+    box-shadow:0 2px 8px rgba(27,42,46,.16), 0 1px 3px rgba(27,42,46,.10);
   }
 
   .monorail{
@@ -1979,6 +1984,7 @@
     text-align:left;
     background:var(--sky);
     color:white;
+    box-shadow:0 2px 8px rgba(27,42,46,.16), 0 1px 3px rgba(27,42,46,.10);
     border:none;
     font-family:'Inter',sans-serif;
     font-size:13.5px;
@@ -2666,6 +2672,7 @@
   .submit-btn{
     background:var(--coral);
     color:white;
+    box-shadow:0 2px 8px rgba(27,42,46,.16), 0 1px 3px rgba(27,42,46,.10);
     border:none;
     padding:10px 16px;
     border-radius:var(--radius-md);
@@ -2811,6 +2818,7 @@
   .packing-add-row button{
     background:var(--coral);
     color:white;
+    box-shadow:0 2px 8px rgba(27,42,46,.16), 0 1px 3px rgba(27,42,46,.10);
     border:none;
     padding:0 16px;
     border-radius:var(--radius-md);
@@ -2883,6 +2891,7 @@
     width:100%;
     background:var(--sky);
     color:white;
+    box-shadow:0 2px 8px rgba(27,42,46,.16), 0 1px 3px rgba(27,42,46,.10);
     border:none;
     padding:10px;
     border-radius:var(--radius-md);
@@ -3070,6 +3079,7 @@
     flex:1;
     background:var(--coral);
     color:white;
+    box-shadow:0 2px 8px rgba(27,42,46,.16), 0 1px 3px rgba(27,42,46,.10);
     border:none;
     border-radius:var(--radius-md);
     padding:10px 16px;
@@ -3103,6 +3113,7 @@
     border:none;
     background:var(--sky);
     color:white;
+    box-shadow:0 2px 8px rgba(27,42,46,.16), 0 1px 3px rgba(27,42,46,.10);
     cursor:pointer;
   }
   .wizard-note{
@@ -3125,6 +3136,7 @@
     text-align:center;
     background:var(--sky);
     color:white;
+    box-shadow:0 2px 8px rgba(27,42,46,.16), 0 1px 3px rgba(27,42,46,.10);
     border:none;
     padding:11px;
     border-radius:var(--radius-md);
@@ -3630,7 +3642,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.39';
+const APP_VERSION = '3.40';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
