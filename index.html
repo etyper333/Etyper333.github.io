@@ -3802,7 +3802,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.51';
+const APP_VERSION = '3.52';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -6888,6 +6888,43 @@ const ITEM_NAME_TYPE_GUESS = {
   'resort hop':'activity',
 };
 
+// A separate, much smaller fallback for freely-typed names that don't exactly match anything
+// in the 238-entry catalog above - e.g. "Bus to HS" won't ever match exactly, but genuinely
+// should still guess Logistics. Deliberately conservative: only unambiguous, high-confidence
+// prefixes made the list - "pool" was left out on purpose, since Poolside (Rest) and active
+// pool time (Activity) were already flagged as genuinely ambiguous during earlier template
+// work. Prefix-only matching (the name must *start with* the keyword, not just contain it
+// anywhere) is deliberate too - it keeps the multi-match problem naturally small, since a
+// name only ever has one real prefix. Easy to expand once real usage shows what's needed.
+const ITEM_NAME_TYPE_PREFIX_GUESS = [
+  { prefix: 'bus', type: 'logistics' },
+  { prefix: 'skyliner', type: 'logistics' },
+  { prefix: 'monorail', type: 'logistics' },
+  { prefix: 'boat', type: 'logistics' },
+  { prefix: 'ferry', type: 'logistics' },
+  { prefix: 'tram', type: 'logistics' },
+  { prefix: 'uber', type: 'logistics' },
+  { prefix: 'lyft', type: 'logistics' },
+  { prefix: 'shuttle', type: 'logistics' },
+  { prefix: 'mears', type: 'logistics' },
+  { prefix: 'valet', type: 'logistics' },
+  { prefix: 'parking', type: 'logistics' },
+  { prefix: 'breakfast', type: 'dining' },
+  { prefix: 'lunch', type: 'dining' },
+  { prefix: 'dinner', type: 'dining' },
+  { prefix: 'brunch', type: 'dining' },
+  { prefix: 'flight', type: 'travel' },
+];
+function guessTypeFromNamePrefix(name){
+  const lower = name.trim().toLowerCase();
+  const match = ITEM_NAME_TYPE_PREFIX_GUESS.find(entry => {
+    if(!lower.startsWith(entry.prefix)) return false;
+    const nextChar = lower.charAt(entry.prefix.length);
+    return nextChar === '' || !/[a-z]/.test(nextChar);
+  });
+  return match ? match.type : null;
+}
+
 const CROWD_LEVEL_PARKS = ["Magic Kingdom","EPCOT","Hollywood Studios","Animal Kingdom"];
 const PARK_ABBREVIATIONS = { "Magic Kingdom": "MK", "EPCOT": "EP", "Hollywood Studios": "HS", "Animal Kingdom": "AK" };
 
@@ -9617,7 +9654,8 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
     typeSelect.addEventListener('change', () => { typeSelect.dataset.userTouched = '1'; });
     nameInput.addEventListener('input', () => {
       if(typeSelect.dataset.userTouched) return;
-      const guess = ITEM_NAME_TYPE_GUESS[nameInput.value.trim().toLowerCase()];
+      const typedName = nameInput.value.trim();
+      const guess = ITEM_NAME_TYPE_GUESS[typedName.toLowerCase()] || guessTypeFromNamePrefix(typedName);
       if(guess && typeSelect.value !== guess){
         typeSelect.value = guess;
         syncMealVisibility();
