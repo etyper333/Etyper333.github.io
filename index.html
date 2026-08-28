@@ -3305,7 +3305,7 @@
     .day-details-ropedrop-row,
     .print-hide-if-empty{display:none !important;}
 
-    .item-card, .stay-card{box-shadow:none !important;border-color:#ccc !important;}
+    .item-card, .stay-card, .item-main-plan-badge, .item-traveler-badge, .item-meal-badge, .item-status, .crowd-pill, .traveler-chip, .dining-reminder-pill, .packing-category-title .essential-tag{box-shadow:none !important;border-color:#ccc !important;}
 
     .day-title-display{font-size:18px;}
 
@@ -3628,7 +3628,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.37';
+const APP_VERSION = '3.38';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
