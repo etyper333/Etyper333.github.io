@@ -842,6 +842,7 @@
     border-radius:var(--radius-xl);
     background:var(--accent-neutral-bg);
     color:var(--accent-neutral-text);
+    box-shadow:0 1px 3px rgba(27,42,46,.15);
   }
   .item-main-plan-badge{
     display:inline-flex;
@@ -852,6 +853,7 @@
     border-radius:var(--radius-xl);
     background:var(--marigold);
     color:#5A3D00;
+    box-shadow:0 1px 3px rgba(27,42,46,.15);
   }
   .trip-summary-trigger{
     display:flex;
@@ -1880,6 +1882,7 @@
     padding:2px 8px;
     border-radius:var(--radius-xl);
     width:fit-content;
+    box-shadow:0 1px 3px rgba(27,42,46,.15);
   }
   .item-status.status-tentative{
     background:var(--accent-neutral-bg);
@@ -1916,6 +1919,7 @@
     padding:2px 8px;
     border-radius:var(--radius-xl);
     width:fit-content;
+    box-shadow:0 1px 3px rgba(27,42,46,.15);
     background:var(--accent-mid-bg);
     color:var(--accent-mid-text);
   }
@@ -3620,7 +3624,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.35';
+const APP_VERSION = '3.36';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
