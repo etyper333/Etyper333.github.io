@@ -2383,6 +2383,27 @@
     background:var(--paper);
     box-sizing:border-box;
   }
+  .template-tag-chip-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .template-tag-chip{
+    font-family:'Inter',sans-serif;
+    font-size:12px;
+    font-weight:600;
+    padding:6px 12px;
+    border-radius:var(--radius-xl);
+    border:1.5px solid var(--line);
+    background:var(--paper);
+    color:var(--slate);
+    cursor:pointer;
+  }
+  .template-tag-chip.checked{
+    border-color:var(--sky-text);
+    background:var(--accent-glow);
+    color:var(--sky-text);
+  }
   .bool-chip input[type=checkbox]{
     accent-color:var(--coral);
     margin:0;
@@ -2681,6 +2702,10 @@
     font-size:13.5px;
     cursor:pointer;
     width:100%;
+  }
+  .submit-btn:disabled{
+    opacity:.35;
+    cursor:default;
   }
   .form-row .submit-btn{
     width:auto;
@@ -3551,6 +3576,55 @@
   </div>
 </div>
 
+<div class="master-editor-overlay" id="itemSelectOverlay">
+  <div class="master-editor">
+    <h2>Move Items</h2>
+    <p class="sub">Pick which items from this day to move — everything else stays right where it is.</p>
+    <div class="calendar-export-quick-actions">
+      <button type="button" id="itemSelectSelectAll">Select All</button>
+      <button type="button" id="itemSelectSelectNone">Select None</button>
+    </div>
+    <div id="itemSelectBody"></div>
+    <div class="sticky-footer-group">
+      <button type="button" class="submit-btn" id="itemSelectContinueBtn">Continue</button>
+      <button type="button" class="cancel-btn" id="itemSelectCancelBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="master-editor-overlay" id="saveTemplateOverlay">
+  <div class="master-editor">
+    <h2>Save as Template</h2>
+    <div class="item-context" id="saveTemplateContext"></div>
+    <div class="form-row">
+      <label class="form-row-label">Name — required</label>
+      <input type="text" id="saveTemplateName" placeholder="e.g. Classic Rope Drop Day" autocomplete="off" />
+    </div>
+    <div class="form-row">
+      <label class="form-row-label">Description</label>
+      <textarea id="saveTemplateDescription" placeholder="e.g. Early entry, lunch at Be Our Guest, pool break, late dinner"></textarea>
+    </div>
+    <div class="form-row">
+      <label class="form-row-label">Tags</label>
+      <div id="saveTemplateTagChips" class="template-tag-chip-row"></div>
+    </div>
+    <div class="summary-line" id="saveTemplateError" style="display:none;"></div>
+    <div class="sticky-footer-group">
+      <button type="button" class="submit-btn" id="saveTemplateSubmitBtn">💾 Save Template</button>
+      <button type="button" class="cancel-btn" id="saveTemplateCancelBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="master-editor-overlay" id="templateListOverlay">
+  <div class="master-editor">
+    <h2>Templates</h2>
+    <p class="sub">Saved day shapes, shared across every trip.</p>
+    <div id="templateListBody"></div>
+    <button type="button" class="master-editor-close master-editor-close-sticky" id="templateListCloseBtn">Done</button>
+  </div>
+</div>
+
 <div class="master-editor-overlay" id="parkHoursOverlay">
   <div class="master-editor">
     <h2>Park Hours</h2>
@@ -3645,7 +3719,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.43';
+const APP_VERSION = '3.45';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -3655,6 +3729,69 @@ const SUPABASE_KEY = 'sb_publishable_bns5qH6pn0P5aXAUdVCTYg__MijW9d3';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Inserts a brand-new item into Supabase immediately, rather than waiting for the next
+// Templates live in their own standalone table, genuinely separate from trips/days/items -
+// a template is always read and written as one whole unit (never needing a single item within
+// it updated independently the way a real day's items do), so it stores its item list as one
+// JSON block rather than following the normalized days/items pattern the rest of the schema uses.
+async function fetchTemplates(){
+  try{
+    const { data, error } = await supabaseClient.from('day_templates').select('*').order('created_at', { ascending: false });
+    if(error){ console.warn('Could not fetch templates:', error); return []; }
+    return (data || []).map(row => ({
+      id: row.id,
+      name: row.name || '',
+      description: row.description || '',
+      tags: Array.isArray(row.tags) ? row.tags : [],
+      createdBy: row.created_by || '',
+      originalStartTime: row.original_start_time || '',
+      items: Array.isArray(row.items) ? row.items : []
+    }));
+  }catch(err){
+    console.warn('Could not fetch templates:', err);
+    return [];
+  }
+}
+
+async function createTemplateInSupabase(payload){
+  try{
+    const { data, error } = await supabaseClient.from('day_templates').insert({
+      name: payload.name, description: payload.description || '', tags: payload.tags || [],
+      original_start_time: payload.originalStartTime || '', items: payload.items || []
+    }).select();
+    if(error || !data || data.length === 0){ return { ok: false }; }
+    return { ok: true, id: data[0].id };
+  }catch(err){
+    console.warn('Could not save template:', err);
+    return { ok: false };
+  }
+}
+
+// Templates deliberately never carry travelerIds, unlike Copy Day's field-carrying rules -
+// travelers are scoped per-trip, so an ID captured from the source trip would be meaningless,
+// or point at the wrong person entirely, once a template is applied to a different trip later.
+function buildTemplateItemsFromDay(day){
+  const timedItems = day.items.filter(i => i.time);
+  const anchorMinutes = timedItems.length > 0
+    ? Math.min(...timedItems.map(i => timeToMinutes(i.time)))
+    : null;
+  return day.items.map(item => {
+    const base = {
+      name: item.name || '', type: item.type || '', mealService: item.mealService || '',
+      mealPeriod: item.mealPeriod || '', confirmationNumber: item.confirmationNumber || '',
+      notes: item.notes || '', isMainPlan: !!item.isMainPlan
+    };
+    if(item.time && anchorMinutes !== null){
+      const startMinutes = timeToMinutes(item.time);
+      const endMinutes = item.endTime ? timeToMinutes(item.endTime) : null;
+      return Object.assign(base, {
+        offsetMinutes: startMinutes - anchorMinutes,
+        durationMinutes: endMinutes !== null ? (endMinutes - startMinutes) : null
+      });
+    }
+    return Object.assign(base, { offsetMinutes: null, durationMinutes: null, section: item.section || '' });
+  });
+}
+
 // full sync. If the parent day hasn't been synced yet either, this is a safe no-op -
 // the big sync will create the day first, then the item, in the correct order.
 async function syncNewItemToSupabase(item, day, trip){
@@ -5103,14 +5240,16 @@ async function executeCopyItem(sourceItem, destDay, newTime, trip){
   await syncNewItemToSupabase(newItem, destDay, trip);
 }
 
-async function executeCopyDay(sourceDay, destDay, trip){
+async function executeCopyDay(sourceDay, destDay, trip, selectedItems){
+  const itemsToCopy = selectedItems || sourceDay.items;
+  const isFullDay = !selectedItems;
   const newItems = [];
-  sourceDay.items.forEach(sourceItem => {
+  itemsToCopy.forEach(sourceItem => {
     const newItem = buildCopiedItem(sourceItem, destDay, sourceItem.time);
     destDay.items.push(newItem);
     newItems.push(newItem);
   });
-  const hadNotesToMerge = !!(sourceDay.notes && sourceDay.notes.trim());
+  const hadNotesToMerge = isFullDay && !!(sourceDay.notes && sourceDay.notes.trim());
   if(hadNotesToMerge){
     destDay.notes = destDay.notes && destDay.notes.trim()
       ? (destDay.notes + '\n\n' + sourceDay.notes)
@@ -5149,13 +5288,14 @@ async function executeMoveItem(item, sourceDay, destDay, newTime, trip){
   await syncItemMoveToSupabase(item, sourceDay, destDay, trip);
 }
 
-async function executeMoveDay(sourceDay, destDay, trip){
-  const itemsToMove = sourceDay.items.slice();
+async function executeMoveDay(sourceDay, destDay, trip, selectedItems){
+  const itemsToMove = (selectedItems || sourceDay.items).slice();
+  const isFullDay = !selectedItems;
   itemsToMove.forEach(item => {
     applyItemRelocation(item, sourceDay, destDay, item.time);
   });
 
-  const hadNotesToMove = !!(sourceDay.notes && sourceDay.notes.trim());
+  const hadNotesToMove = isFullDay && !!(sourceDay.notes && sourceDay.notes.trim());
   if(hadNotesToMove){
     destDay.notes = destDay.notes && destDay.notes.trim()
       ? (destDay.notes + '\n\n' + sourceDay.notes)
@@ -5346,6 +5486,8 @@ function openDayKebabMenu(day, dayIndex, trip){
   body.innerHTML = `
     <button type="button" data-role="kb-copy-day">📋 Copy this day…</button>
     <button type="button" data-role="kb-move-day">➡️ Move this day…</button>
+    ${day.items.length > 0 ? '<button type="button" data-role="kb-move-items">☑️ Move items…</button>' : ''}
+    ${day.items.length > 0 ? '<button type="button" data-role="kb-save-template">💾 Save as Template…</button>' : ''}
     ${canRemove ? '<div class="kebab-divider"></div><button type="button" data-role="kb-remove-day" class="danger">Remove day</button>' : ''}
   `;
   body.querySelector('[data-role="kb-copy-day"]').onclick = () => {
@@ -5356,6 +5498,16 @@ function openDayKebabMenu(day, dayIndex, trip){
     closeItemKebabMenu();
     openDayCopyModal(day, trip, 'move');
   };
+  if(day.items.length > 0){
+    body.querySelector('[data-role="kb-move-items"]').onclick = () => {
+      closeItemKebabMenu();
+      openItemSelectModal(day, trip);
+    };
+    body.querySelector('[data-role="kb-save-template"]').onclick = () => {
+      closeItemKebabMenu();
+      openSaveTemplateModal(day, trip);
+    };
+  }
   if(canRemove){
     body.querySelector('[data-role="kb-remove-day"]').onclick = () => {
       closeItemKebabMenu();
@@ -5368,14 +5520,15 @@ function openDayKebabMenu(day, dayIndex, trip){
 let dayCopyContext = null;
 let dayCopyMoveMode = 'copy';
 
-function openDayCopyModal(sourceDay, trip, initialMode){
-  dayCopyContext = { sourceDay, trip };
+function openDayCopyModal(sourceDay, trip, initialMode, selectedItems){
+  dayCopyContext = { sourceDay, trip, selectedItems: selectedItems || null };
   const sourceDayIndex = trip.days.findIndex(d => d.id === sourceDay.id);
-  const itemCount = sourceDay.items.length;
+  const itemCount = (selectedItems || sourceDay.items).length;
+  const countLabel = selectedItems ? `${itemCount} selected item${itemCount === 1 ? '' : 's'}` : `${itemCount} item${itemCount === 1 ? '' : 's'}`;
 
   document.getElementById('dayCopyContext').innerHTML = `
     <strong>${escapeHtml(getDayDisplayLabel(trip, sourceDayIndex, sourceDay, true))}</strong>
-    ${itemCount} item${itemCount === 1 ? '' : 's'}
+    ${countLabel}
   `;
 
   setDayCopyMoveMode(initialMode || 'copy');
@@ -5411,13 +5564,15 @@ function setDayCopyMoveMode(mode){
 
 function updateDayCopySummary(){
   if(!dayCopyContext) return;
-  const { sourceDay, trip } = dayCopyContext;
+  const { sourceDay, trip, selectedItems } = dayCopyContext;
   const destDayId = document.getElementById('dayCopyDaySelect').value;
   const destDayIndex = trip.days.findIndex(d => d.id === destDayId);
   const destDay = trip.days[destDayIndex];
   if(!destDay) return;
   const dayLabel = getDayDisplayLabel(trip, destDayIndex, destDay, true);
-  const itemCount = sourceDay.items.length;
+  const relevantItems = selectedItems || sourceDay.items;
+  const itemCount = relevantItems.length;
+  const itemsPhrase = selectedItems ? `${itemCount} item${itemCount === 1 ? '' : 's'}` : `all ${itemCount} item${itemCount === 1 ? '' : 's'}`;
 
   const summaryEl = document.getElementById('dayCopySummary');
   const submitBtn = document.getElementById('dayCopySubmitBtn');
@@ -5427,15 +5582,19 @@ function updateDayCopySummary(){
   const joinsExisting = destDay.items.length > 0;
   if(dayCopyMoveMode === 'copy'){
     summaryEl.textContent = joinsExisting
-      ? `This adds ${itemCount} item${itemCount === 1 ? '' : 's'} to ${dayLabel}, alongside what's already there. The original day stays exactly as it is.`
-      : `This copies ${itemCount} item${itemCount === 1 ? '' : 's'} onto ${dayLabel}. The original day stays exactly as it is.`;
+      ? `This adds ${itemsPhrase} to ${dayLabel}, alongside what's already there. The original day stays exactly as it is.`
+      : `This copies ${itemsPhrase} onto ${dayLabel}. The original day stays exactly as it is.`;
     submitBtn.textContent = `📋 Copy to ${dayLabel}`;
   } else {
     const sourceDayIndex = trip.days.findIndex(d => d.id === sourceDay.id);
     const sourceLabel = getDayDisplayLabel(trip, sourceDayIndex, sourceDay, true);
+    const sourceWillBeEmpty = !selectedItems || selectedItems.length === sourceDay.items.length;
+    const sourceNote = sourceWillBeEmpty
+      ? `${sourceLabel} will be empty afterward.`
+      : `${sourceLabel} will keep its remaining ${sourceDay.items.length - itemCount} item${(sourceDay.items.length - itemCount) === 1 ? '' : 's'}.`;
     summaryEl.textContent = joinsExisting
-      ? `This moves all ${itemCount} item${itemCount === 1 ? '' : 's'} to ${dayLabel}, joining what's already there. ${sourceLabel} will be empty afterward.`
-      : `This moves all ${itemCount} item${itemCount === 1 ? '' : 's'} to ${dayLabel}. ${sourceLabel} will be empty afterward.`;
+      ? `This moves ${itemsPhrase} to ${dayLabel}, joining what's already there. ${sourceNote}`
+      : `This moves ${itemsPhrase} to ${dayLabel}. ${sourceNote}`;
     submitBtn.textContent = `➡️ Move to ${dayLabel}`;
   }
 }
@@ -5449,7 +5608,7 @@ document.getElementById('dayCopyCancelBtn').onclick = () => {
 };
 document.getElementById('dayCopySubmitBtn').onclick = async () => {
   if(!dayCopyContext) return;
-  const { sourceDay, trip } = dayCopyContext;
+  const { sourceDay, trip, selectedItems } = dayCopyContext;
   const destDay = trip.days.find(d => d.id === document.getElementById('dayCopyDaySelect').value);
   const mode = dayCopyMoveMode;
 
@@ -5457,10 +5616,173 @@ document.getElementById('dayCopySubmitBtn').onclick = async () => {
   dayCopyContext = null;
 
   if(mode === 'copy'){
-    await executeCopyDay(sourceDay, destDay, trip);
+    await executeCopyDay(sourceDay, destDay, trip, selectedItems);
   } else {
-    await executeMoveDay(sourceDay, destDay, trip);
+    await executeMoveDay(sourceDay, destDay, trip, selectedItems);
   }
+};
+
+let itemSelectContext = null;
+let itemSelectSelectedIds = new Set();
+
+function openItemSelectModal(day, trip){
+  itemSelectContext = { day, trip };
+  itemSelectSelectedIds = new Set();
+  renderItemSelectModal();
+  document.getElementById('itemSelectOverlay').classList.add('active');
+}
+
+function renderItemSelectModal(){
+  if(!itemSelectContext) return;
+  const { day } = itemSelectContext;
+  const body = document.getElementById('itemSelectBody');
+  const sorted = [...day.items].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+  body.innerHTML = '';
+  sorted.forEach(item => {
+    const row = document.createElement('label');
+    row.className = 'calendar-export-item-row';
+    const timeLabel = item.time ? formatTime(item.time) : 'No time set';
+    row.innerHTML = `
+      <input type="checkbox" ${itemSelectSelectedIds.has(item.id) ? 'checked' : ''} />
+      <span>${escapeHtml(timeLabel)} — ${escapeHtml(item.name)}</span>
+    `;
+    row.querySelector('input').onchange = (e) => {
+      if(e.target.checked) itemSelectSelectedIds.add(item.id);
+      else itemSelectSelectedIds.delete(item.id);
+      updateItemSelectContinueBtn();
+    };
+    body.appendChild(row);
+  });
+  updateItemSelectContinueBtn();
+}
+
+function updateItemSelectContinueBtn(){
+  const btn = document.getElementById('itemSelectContinueBtn');
+  const count = itemSelectSelectedIds.size;
+  btn.disabled = count === 0;
+  btn.textContent = count === 0 ? 'Continue' : `Continue with ${count} item${count === 1 ? '' : 's'}`;
+}
+
+document.getElementById('itemSelectSelectAll').onclick = () => {
+  if(!itemSelectContext) return;
+  itemSelectContext.day.items.forEach(item => itemSelectSelectedIds.add(item.id));
+  renderItemSelectModal();
+};
+document.getElementById('itemSelectSelectNone').onclick = () => {
+  itemSelectSelectedIds = new Set();
+  renderItemSelectModal();
+};
+document.getElementById('itemSelectCancelBtn').onclick = () => {
+  document.getElementById('itemSelectOverlay').classList.remove('active');
+  itemSelectContext = null;
+};
+document.getElementById('itemSelectContinueBtn').onclick = () => {
+  if(!itemSelectContext || itemSelectSelectedIds.size === 0) return;
+  const { day, trip } = itemSelectContext;
+  const selectedItems = day.items.filter(item => itemSelectSelectedIds.has(item.id));
+  document.getElementById('itemSelectOverlay').classList.remove('active');
+  itemSelectContext = null;
+  openDayCopyModal(day, trip, 'move', selectedItems);
+};
+
+const TEMPLATE_TAG_SUGGESTIONS = ['Sleep in', 'Rope dropping', 'No parks', 'Park day', 'Arrival day', 'Departure day'];
+let saveTemplateContext = null;
+let saveTemplateSelectedTags = new Set();
+
+function openSaveTemplateModal(day, trip){
+  saveTemplateContext = { day, trip };
+  saveTemplateSelectedTags = new Set();
+  document.getElementById('saveTemplateName').value = '';
+  document.getElementById('saveTemplateDescription').value = '';
+  document.getElementById('saveTemplateError').style.display = 'none';
+
+  const itemCount = day.items.length;
+  document.getElementById('saveTemplateContext').innerHTML = `${itemCount} item${itemCount === 1 ? '' : 's'} on this day will be captured`;
+
+  const chipRow = document.getElementById('saveTemplateTagChips');
+  chipRow.innerHTML = '';
+  TEMPLATE_TAG_SUGGESTIONS.forEach(tag => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'template-tag-chip';
+    chip.textContent = tag;
+    chip.onclick = () => {
+      if(saveTemplateSelectedTags.has(tag)) saveTemplateSelectedTags.delete(tag);
+      else saveTemplateSelectedTags.add(tag);
+      chip.classList.toggle('checked', saveTemplateSelectedTags.has(tag));
+    };
+    chipRow.appendChild(chip);
+  });
+
+  document.getElementById('saveTemplateOverlay').classList.add('active');
+}
+
+document.getElementById('saveTemplateCancelBtn').onclick = () => {
+  document.getElementById('saveTemplateOverlay').classList.remove('active');
+  saveTemplateContext = null;
+};
+document.getElementById('saveTemplateSubmitBtn').onclick = async () => {
+  if(!saveTemplateContext) return;
+  const name = document.getElementById('saveTemplateName').value.trim();
+  const errorEl = document.getElementById('saveTemplateError');
+  if(!name){
+    errorEl.textContent = 'Give this template a name first.';
+    errorEl.style.display = '';
+    return;
+  }
+  errorEl.style.display = 'none';
+
+  const { day } = saveTemplateContext;
+  const description = document.getElementById('saveTemplateDescription').value.trim();
+  const timedItems = day.items.filter(i => i.time).sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+  const originalStartTime = timedItems.length > 0 ? timedItems[0].time : '';
+  const items = buildTemplateItemsFromDay(day);
+
+  const submitBtn = document.getElementById('saveTemplateSubmitBtn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Saving…';
+  const result = await createTemplateInSupabase({
+    name, description, tags: Array.from(saveTemplateSelectedTags), originalStartTime, items
+  });
+  submitBtn.disabled = false;
+  submitBtn.textContent = '💾 Save Template';
+
+  if(!result.ok){
+    errorEl.textContent = "Couldn't save the template — check your connection and try again.";
+    errorEl.style.display = '';
+    return;
+  }
+  document.getElementById('saveTemplateOverlay').classList.remove('active');
+  saveTemplateContext = null;
+};
+
+async function openTemplateListModal(){
+  document.getElementById('templateListOverlay').classList.add('active');
+  const body = document.getElementById('templateListBody');
+  body.innerHTML = '<div class="empty-state">Loading templates…</div>';
+  const templates = await fetchTemplates();
+  if(templates.length === 0){
+    body.innerHTML = '<div class="empty-state">No templates saved yet. Save a day as a template from that day\'s kebab menu to get started.</div>';
+    return;
+  }
+  body.innerHTML = '';
+  templates.forEach(tpl => {
+    const row = document.createElement('div');
+    row.className = 'stay-card';
+    const tagsHtml = tpl.tags.length > 0
+      ? `<div class="badge-row" style="margin-top:6px;">${tpl.tags.map(t => `<span class="item-status status-tentative">${escapeHtml(t)}</span>`).join('')}</div>`
+      : '';
+    row.innerHTML = `
+      <div style="font-weight:700; font-size:14px;">${escapeHtml(tpl.name)}</div>
+      ${tpl.description ? `<div style="font-size:12.5px; color:var(--slate); margin-top:3px;">${escapeHtml(tpl.description)}</div>` : ''}
+      <div style="font-size:11.5px; color:var(--slate); margin-top:4px;">${tpl.items.length} item${tpl.items.length === 1 ? '' : 's'} · Original start time ${tpl.originalStartTime ? escapeHtml(formatTime(tpl.originalStartTime)) : '—'}</div>
+      ${tagsHtml}
+    `;
+    body.appendChild(row);
+  });
+}
+document.getElementById('templateListCloseBtn').onclick = () => {
+  document.getElementById('templateListOverlay').classList.remove('active');
 };
 
 document.getElementById('parkHoursCloseBtn').onclick = closeParkHoursModal;
@@ -9830,6 +10152,22 @@ function renderToolsMenu(){
     removeTrip(trip.id);
   };
   body.appendChild(removeBtn);
+
+  const templatesLabel = document.createElement('div');
+  templatesLabel.className = 'packing-category-title';
+  templatesLabel.style.marginTop = '18px';
+  templatesLabel.textContent = 'Templates';
+  body.appendChild(templatesLabel);
+
+  const manageTemplatesBtn = document.createElement('button');
+  manageTemplatesBtn.type = 'button';
+  manageTemplatesBtn.className = 'print-packing-btn-secondary';
+  manageTemplatesBtn.textContent = '📑 Manage Templates';
+  manageTemplatesBtn.onclick = () => {
+    closeToolsMenu();
+    openTemplateListModal();
+  };
+  body.appendChild(manageTemplatesBtn);
 
   const manageAllLabel = document.createElement('div');
   manageAllLabel.className = 'packing-category-title';
