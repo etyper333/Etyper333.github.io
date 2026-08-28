@@ -2015,9 +2015,10 @@
     display:block;
     width:100%;
     text-align:left;
-    background:var(--paper);
-    color:var(--coral);
-    border:1.5px solid var(--coral);
+    background:var(--coral);
+    color:white;
+    box-shadow:0 2px 8px rgba(27,42,46,.16), 0 1px 3px rgba(27,42,46,.10);
+    border:none;
     font-family:'Inter',sans-serif;
     font-size:13.5px;
     font-weight:700;
@@ -3199,9 +3200,10 @@
     display:block;
     width:100%;
     text-align:center;
-    background:none;
-    border:1.5px solid var(--coral);
-    color:var(--coral);
+    background:var(--coral);
+    box-shadow:0 2px 8px rgba(27,42,46,.16), 0 1px 3px rgba(27,42,46,.10);
+    border:none;
+    color:white;
     padding:9px;
     border-radius:var(--radius-md);
     font-weight:700;
@@ -3719,7 +3721,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.46';
+const APP_VERSION = '3.47';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
