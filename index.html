@@ -3627,7 +3627,41 @@
   </div>
 </div>
 
+<div class="master-editor-overlay" id="templateDetailOverlay">
+  <div class="master-editor">
+    <h2 id="templateDetailName"></h2>
+    <p class="sub" id="templateDetailDescription"></p>
+    <div id="templateDetailTags" class="badge-row" style="margin-bottom:10px;"></div>
+    <div class="item-context" id="templateDetailMeta"></div>
+    <div id="templateDetailItems"></div>
+    <div class="sticky-footer-group">
+      <button type="button" class="submit-btn" id="templateDetailApplyBtn" style="display:none;">📥 Apply to this day</button>
+      <button type="button" class="cancel-btn" id="templateDetailBackBtn">Back</button>
+    </div>
+  </div>
+</div>
+
+<div class="master-editor-overlay" id="applyTemplateOverlay">
+  <div class="master-editor">
+    <h2>Apply Template</h2>
+    <div class="item-context" id="applyTemplateContext"></div>
+    <div class="form-row">
+      <label class="form-row-label">Start time</label>
+      <input type="time" id="applyTemplateStartTime" />
+    </div>
+    <p class="sub" style="margin-top:-4px;">Original start time — everything else shifts along with it if you change this.</p>
+    <button type="button" class="park-hours-link" id="applyTemplateParkHoursLink">🎢 Check Park Hours & Crowd Levels</button>
+    <div id="applyTemplateMergeChoice"></div>
+    <div class="summary-line" id="applyTemplateSummary"></div>
+    <div class="sticky-footer-group">
+      <button type="button" class="submit-btn" id="applyTemplateSubmitBtn">📥 Apply</button>
+      <button type="button" class="cancel-btn" id="applyTemplateCancelBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div class="master-editor-overlay" id="parkHoursOverlay">
+
   <div class="master-editor">
     <h2>Park Hours</h2>
     <p class="sub" id="parkHoursSub"></p>
@@ -3721,7 +3755,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.47';
+const APP_VERSION = '3.48';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5490,6 +5524,7 @@ function openDayKebabMenu(day, dayIndex, trip){
     <button type="button" class="kb-secondary" data-role="kb-move-day">➡️ Move this day…</button>
     ${day.items.length > 0 ? '<button type="button" class="kb-secondary" data-role="kb-move-items">☑️ Move items…</button>' : ''}
     ${day.items.length > 0 ? '<button type="button" class="kb-secondary" data-role="kb-save-template">💾 Save as Template…</button>' : ''}
+    <button type="button" class="kb-secondary" data-role="kb-apply-template">📥 Apply Template…</button>
     ${canRemove ? '<div class="kebab-divider"></div><button type="button" class="kb-danger" data-role="kb-remove-day">Remove day</button>' : ''}
   `;
   body.querySelector('[data-role="kb-copy-day"]').onclick = () => {
@@ -5499,6 +5534,10 @@ function openDayKebabMenu(day, dayIndex, trip){
   body.querySelector('[data-role="kb-move-day"]').onclick = () => {
     closeItemKebabMenu();
     openDayCopyModal(day, trip, 'move');
+  };
+  body.querySelector('[data-role="kb-apply-template"]').onclick = () => {
+    closeItemKebabMenu();
+    openTemplateListModal(day);
   };
   if(day.items.length > 0){
     body.querySelector('[data-role="kb-move-items"]').onclick = () => {
@@ -5758,7 +5797,7 @@ document.getElementById('saveTemplateSubmitBtn').onclick = async () => {
   saveTemplateContext = null;
 };
 
-async function openTemplateListModal(){
+async function openTemplateListModal(day){
   document.getElementById('templateListOverlay').classList.add('active');
   const body = document.getElementById('templateListBody');
   body.innerHTML = '<div class="empty-state">Loading templates…</div>';
@@ -5771,6 +5810,7 @@ async function openTemplateListModal(){
   templates.forEach(tpl => {
     const row = document.createElement('div');
     row.className = 'stay-card';
+    row.style.cursor = 'pointer';
     const tagsHtml = tpl.tags.length > 0
       ? `<div class="badge-row" style="margin-top:6px;">${tpl.tags.map(t => `<span class="item-status status-tentative">${escapeHtml(t)}</span>`).join('')}</div>`
       : '';
@@ -5780,11 +5820,182 @@ async function openTemplateListModal(){
       <div style="font-size:11.5px; color:var(--slate); margin-top:4px;">${tpl.items.length} item${tpl.items.length === 1 ? '' : 's'} · Original start time ${tpl.originalStartTime ? escapeHtml(formatTime(tpl.originalStartTime)) : '—'}</div>
       ${tagsHtml}
     `;
+    row.onclick = () => {
+      document.getElementById('templateListOverlay').classList.remove('active');
+      openTemplateDetailModal(tpl, day);
+    };
     body.appendChild(row);
   });
 }
+// Shared by the Template Detail preview and the actual Apply execution, so both always
+// agree on the same computed times - the preview is never showing something Apply won't
+// actually produce.
+function computeTemplateItemTimes(template, startTime){
+  const anchorMinutes = startTime ? timeToMinutes(startTime) : null;
+  return template.items.map(tplItem => {
+    const base = {
+      name: tplItem.name, type: tplItem.type, mealService: tplItem.mealService,
+      mealPeriod: tplItem.mealPeriod, confirmationNumber: tplItem.confirmationNumber,
+      notes: tplItem.notes, isMainPlan: tplItem.isMainPlan
+    };
+    if(tplItem.offsetMinutes !== null && anchorMinutes !== null){
+      const startMinutes = anchorMinutes + tplItem.offsetMinutes;
+      return Object.assign(base, {
+        time: minutesToTime(startMinutes),
+        endTime: tplItem.durationMinutes !== null ? minutesToTime(startMinutes + tplItem.durationMinutes) : '',
+        section: ''
+      });
+    }
+    return Object.assign(base, { time: '', endTime: '', section: tplItem.section || '' });
+  });
+}
+
 document.getElementById('templateListCloseBtn').onclick = () => {
   document.getElementById('templateListOverlay').classList.remove('active');
+};
+
+let templateDetailContext = null;
+
+function openTemplateDetailModal(template, day){
+  templateDetailContext = { template, day };
+  document.getElementById('templateDetailOverlay').classList.add('active');
+  document.getElementById('templateDetailName').textContent = template.name;
+  const descEl = document.getElementById('templateDetailDescription');
+  descEl.textContent = template.description || '';
+  descEl.style.display = template.description ? '' : 'none';
+
+  const tagsEl = document.getElementById('templateDetailTags');
+  tagsEl.innerHTML = template.tags.map(t => `<span class="item-status status-tentative">${escapeHtml(t)}</span>`).join('');
+  tagsEl.style.display = template.tags.length > 0 ? '' : 'none';
+
+  document.getElementById('templateDetailMeta').textContent =
+    `${template.items.length} item${template.items.length === 1 ? '' : 's'} · Original start time ${template.originalStartTime ? formatTime(template.originalStartTime) : '—'}`;
+
+  const previewItems = computeTemplateItemTimes(template, template.originalStartTime);
+  const sorted = previewItems.slice().sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+  const itemsBody = document.getElementById('templateDetailItems');
+  itemsBody.innerHTML = sorted.map(item => `
+    <div class="stay-card" style="margin-bottom:8px;">
+      <div style="font-size:12px; font-weight:700; color:var(--sky-text);">${item.time ? escapeHtml(formatTime(item.time)) : 'No time set'}</div>
+      <div style="font-weight:600; font-size:13.5px;">${escapeHtml(item.name)}</div>
+    </div>
+  `).join('');
+
+  const applyBtn = document.getElementById('templateDetailApplyBtn');
+  applyBtn.style.display = day ? '' : 'none';
+}
+document.getElementById('templateDetailBackBtn').onclick = () => {
+  document.getElementById('templateDetailOverlay').classList.remove('active');
+  templateDetailContext = null;
+};
+document.getElementById('templateDetailApplyBtn').onclick = () => {
+  if(!templateDetailContext || !templateDetailContext.day) return;
+  const { template, day } = templateDetailContext;
+  document.getElementById('templateDetailOverlay').classList.remove('active');
+  templateDetailContext = null;
+  openApplyTemplateModal(template, day, getActiveTrip());
+};
+
+let applyTemplateContext = null;
+let applyTemplateMode = 'merge';
+
+function openApplyTemplateModal(template, day, trip){
+  applyTemplateContext = { template, day, trip };
+  applyTemplateMode = 'merge';
+  document.getElementById('applyTemplateStartTime').value = template.originalStartTime || '';
+  const dayIndex = trip.days.findIndex(d => d.id === day.id);
+  document.getElementById('applyTemplateContext').innerHTML = `
+    <strong>${escapeHtml(template.name)}</strong>
+    Applying to ${escapeHtml(getDayDisplayLabel(trip, dayIndex, day, true))}
+  `;
+  document.getElementById('applyTemplateParkHoursLink').onclick = () => openParkHoursModal(day);
+
+  const mergeChoiceEl = document.getElementById('applyTemplateMergeChoice');
+  if(day.items.length > 0){
+    mergeChoiceEl.innerHTML = `
+      <div class="mode-toggle" style="margin-top:12px;">
+        <button type="button" class="mode-toggle-option" data-apply-mode="merge">
+          ➕ Add to day
+          <span class="sub">Keeps what's already there</span>
+        </button>
+        <button type="button" class="mode-toggle-option" data-apply-mode="replace">
+          🔁 Replace items
+          <span class="sub">Removes existing items first</span>
+        </button>
+      </div>
+    `;
+    mergeChoiceEl.querySelectorAll('[data-apply-mode]').forEach(btn => {
+      btn.onclick = () => { applyTemplateMode = btn.dataset.applyMode; updateApplyTemplateSummary(); };
+    });
+  } else {
+    mergeChoiceEl.innerHTML = '';
+  }
+  updateApplyTemplateSummary();
+  document.getElementById('applyTemplateOverlay').classList.add('active');
+}
+
+function updateApplyTemplateSummary(){
+  if(!applyTemplateContext) return;
+  const { template, day } = applyTemplateContext;
+  document.querySelectorAll('[data-apply-mode]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.applyMode === applyTemplateMode);
+    btn.classList.toggle('move-active', btn.dataset.applyMode === 'replace' && applyTemplateMode === 'replace');
+  });
+  const summaryEl = document.getElementById('applyTemplateSummary');
+  const itemCount = template.items.length;
+  const itemsPhrase = `${itemCount} item${itemCount === 1 ? '' : 's'}`;
+  if(day.items.length === 0){
+    summaryEl.textContent = `This adds ${itemsPhrase} to this day.`;
+  } else if(applyTemplateMode === 'merge'){
+    summaryEl.textContent = `This adds ${itemsPhrase}, alongside the ${day.items.length} already on this day.`;
+  } else {
+    summaryEl.textContent = `This removes the ${day.items.length} existing item${day.items.length === 1 ? '' : 's'} on this day and replaces them with ${itemsPhrase} from this template. Day notes aren't affected.`;
+  }
+}
+
+document.getElementById('applyTemplateCancelBtn').onclick = () => {
+  document.getElementById('applyTemplateOverlay').classList.remove('active');
+  applyTemplateContext = null;
+};
+document.getElementById('applyTemplateSubmitBtn').onclick = async () => {
+  if(!applyTemplateContext) return;
+  const { template, day, trip } = applyTemplateContext;
+  const startTime = document.getElementById('applyTemplateStartTime').value;
+  const mode = applyTemplateMode;
+
+  document.getElementById('applyTemplateOverlay').classList.remove('active');
+  applyTemplateContext = null;
+
+  const submitBtn = document.getElementById('applyTemplateSubmitBtn');
+  submitBtn.disabled = true;
+
+  if(mode === 'replace'){
+    const existingItems = day.items.slice();
+    day.items = [];
+    render();
+    for(const item of existingItems){
+      await deleteItemFromSupabaseNow(item);
+    }
+  }
+
+  const computedItems = computeTemplateItemTimes(template, startTime);
+  const newItems = computedItems.map(computed => {
+    const destSection = computed.time ? getItemSection({ time: computed.time }) : computed.section;
+    return Object.assign({
+      id: cryptoId(),
+      status: 'confirmed',
+      travelerIds: []
+    }, computed, {
+      section: destSection,
+      isMainPlan: computeMainPlanCarry(day, destSection, computed.isMainPlan, null)
+    });
+  });
+  newItems.forEach(item => day.items.push(item));
+  render();
+  for(const item of newItems){
+    await syncNewItemToSupabase(item, day, trip);
+  }
+  submitBtn.disabled = false;
 };
 
 document.getElementById('parkHoursCloseBtn').onclick = closeParkHoursModal;
