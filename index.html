@@ -3642,7 +3642,32 @@
     <div id="templateDetailItems"></div>
     <div class="sticky-footer-group">
       <button type="button" class="submit-btn" id="templateDetailApplyBtn" style="display:none;">📥 Apply to this day</button>
+      <button type="button" class="cancel-btn" id="templateDetailEditBtn">✏️ Edit name, description, tags</button>
       <button type="button" class="cancel-btn" id="templateDetailBackBtn">Back</button>
+    </div>
+  </div>
+</div>
+
+<div class="master-editor-overlay" id="editTemplateOverlay">
+  <div class="master-editor">
+    <h2>Edit Template</h2>
+    <p class="sub">Name, description, and tags only — the items inside a template aren't editable yet. To change what's actually in it, save a corrected day as a new template and delete this one.</p>
+    <div class="form-row">
+      <label class="form-row-label">Name — required</label>
+      <input type="text" id="editTemplateName" autocomplete="off" />
+    </div>
+    <div class="form-row">
+      <label class="form-row-label">Description</label>
+      <textarea id="editTemplateDescription"></textarea>
+    </div>
+    <div class="form-row">
+      <label class="form-row-label">Tags</label>
+      <div id="editTemplateTagChips" class="template-tag-chip-row"></div>
+    </div>
+    <div class="summary-line" id="editTemplateError" style="display:none;"></div>
+    <div class="sticky-footer-group">
+      <button type="button" class="submit-btn" id="editTemplateSubmitBtn">💾 Save Changes</button>
+      <button type="button" class="cancel-btn" id="editTemplateCancelBtn">Cancel</button>
     </div>
   </div>
 </div>
@@ -3777,7 +3802,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.50';
+const APP_VERSION = '3.51';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -3820,6 +3845,23 @@ async function createTemplateInSupabase(payload){
     return { ok: true, id: data[0].id };
   }catch(err){
     console.warn('Could not save template:', err);
+    return { ok: false };
+  }
+}
+
+// Metadata-only for now (name, description, tags) - deliberately not touching items or
+// original_start_time. Editing a template's actual content is a real, separate piece of
+// work, held for later; the honest workaround in the meantime is deleting and re-saving.
+async function updateTemplateInSupabase(templateId, payload){
+  try{
+    const { data, error } = await supabaseClient.from('day_templates').update({
+      name: payload.name, description: payload.description || '', tags: payload.tags || [],
+      updated_at: new Date().toISOString()
+    }).eq('id', templateId).select();
+    if(error || !data || data.length === 0){ return { ok: false }; }
+    return { ok: true };
+  }catch(err){
+    console.warn('Could not update template:', err);
     return { ok: false };
   }
 }
@@ -5908,8 +5950,10 @@ function openTemplateDetailModal(template, day){
   applyBtn.textContent = day ? '📥 Apply to this day' : '📥 Apply to a day…';
 }
 document.getElementById('templateDetailBackBtn').onclick = () => {
+  const day = templateDetailContext ? templateDetailContext.day : null;
   document.getElementById('templateDetailOverlay').classList.remove('active');
   templateDetailContext = null;
+  openTemplateListModal(day);
 };
 document.getElementById('templateDetailApplyBtn').onclick = () => {
   if(!templateDetailContext) return;
@@ -5921,6 +5965,82 @@ document.getElementById('templateDetailApplyBtn').onclick = () => {
   } else {
     openTemplateApplyDayPickerModal(template);
   }
+};
+
+document.getElementById('templateDetailEditBtn').onclick = () => {
+  if(!templateDetailContext) return;
+  openEditTemplateModal(templateDetailContext.template);
+};
+
+let editTemplateSelectedTags = new Set();
+
+function openEditTemplateModal(template){
+  editTemplateSelectedTags = new Set(template.tags);
+  document.getElementById('editTemplateName').value = template.name;
+  document.getElementById('editTemplateDescription').value = template.description || '';
+  document.getElementById('editTemplateError').style.display = 'none';
+
+  const chipRow = document.getElementById('editTemplateTagChips');
+  chipRow.innerHTML = '';
+  TEMPLATE_TAG_SUGGESTIONS.forEach(tag => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'template-tag-chip';
+    chip.classList.toggle('checked', editTemplateSelectedTags.has(tag));
+    chip.textContent = tag;
+    chip.onclick = () => {
+      if(editTemplateSelectedTags.has(tag)) editTemplateSelectedTags.delete(tag);
+      else editTemplateSelectedTags.add(tag);
+      chip.classList.toggle('checked', editTemplateSelectedTags.has(tag));
+    };
+    chipRow.appendChild(chip);
+  });
+
+  document.getElementById('templateDetailOverlay').classList.remove('active');
+  document.getElementById('editTemplateOverlay').classList.add('active');
+}
+
+document.getElementById('editTemplateCancelBtn').onclick = () => {
+  document.getElementById('editTemplateOverlay').classList.remove('active');
+  if(templateDetailContext) openTemplateDetailModal(templateDetailContext.template, templateDetailContext.day);
+};
+document.getElementById('editTemplateSubmitBtn').onclick = async () => {
+  if(!templateDetailContext) return;
+  const name = document.getElementById('editTemplateName').value.trim();
+  const errorEl = document.getElementById('editTemplateError');
+  if(!name){
+    errorEl.textContent = 'Give this template a name first.';
+    errorEl.style.display = '';
+    return;
+  }
+  errorEl.style.display = 'none';
+
+  const { template } = templateDetailContext;
+  const description = document.getElementById('editTemplateDescription').value.trim();
+  const tags = Array.from(editTemplateSelectedTags);
+
+  const submitBtn = document.getElementById('editTemplateSubmitBtn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Saving…';
+  const result = await updateTemplateInSupabase(template.id, { name, description, tags });
+  submitBtn.disabled = false;
+  submitBtn.textContent = '💾 Save Changes';
+
+  if(!result.ok){
+    errorEl.textContent = "Couldn't save changes — check your connection and try again.";
+    errorEl.style.display = '';
+    return;
+  }
+
+  // Update the in-memory template object so Detail reflects the change immediately,
+  // without needing a fresh fetch from Supabase just to see what was just saved.
+  template.name = name;
+  template.description = description;
+  template.tags = tags;
+
+  const returnDay = templateDetailContext.day;
+  document.getElementById('editTemplateOverlay').classList.remove('active');
+  openTemplateDetailModal(template, returnDay);
 };
 
 let templateApplyDayPickerTemplate = null;
