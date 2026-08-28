@@ -951,6 +951,7 @@
   .mode-toggle-group{
     display:flex;
     flex-shrink:0;
+    margin-left:6px;
     border:1.5px solid var(--line);
     border-radius:var(--radius-md);
     overflow:hidden;
@@ -3644,7 +3645,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.42';
+const APP_VERSION = '3.43';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
