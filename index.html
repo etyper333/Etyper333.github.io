@@ -2338,11 +2338,17 @@
     justify-content:center;
     z-index:1;
   }
+  .start-time-label-row{
+    display:flex;
+    align-items:center;
+    min-height:22px;
+  }
   .end-time-label-row{
     display:flex;
     align-items:center;
     justify-content:space-between;
     gap:6px;
+    min-height:22px;
   }
   .na-pill-label{
     display:inline-flex;
@@ -3771,7 +3777,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.49';
+const APP_VERSION = '3.50';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -9292,7 +9298,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
       <div class="section-heading">When</div>
       <div class="time-ends-row">
         <div class="time-ends-col">
-          <label class="form-row-label">Time</label>
+          <label class="form-row-label start-time-label-row">Time</label>
           <div class="time-field-block">
             <div class="time-input-wrap">
               <input type="time" data-f="time" value="${initial.time || ''}" />
