@@ -3719,7 +3719,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.45';
+const APP_VERSION = '3.46';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5484,11 +5484,11 @@ function openDayKebabMenu(day, dayIndex, trip){
   const canRemove = trip.days.length > 1 && (dayIndex === 0 || dayIndex === trip.days.length - 1);
   const body = document.getElementById('itemKebabBody');
   body.innerHTML = `
-    <button type="button" data-role="kb-copy-day">📋 Copy this day…</button>
-    <button type="button" data-role="kb-move-day">➡️ Move this day…</button>
-    ${day.items.length > 0 ? '<button type="button" data-role="kb-move-items">☑️ Move items…</button>' : ''}
-    ${day.items.length > 0 ? '<button type="button" data-role="kb-save-template">💾 Save as Template…</button>' : ''}
-    ${canRemove ? '<div class="kebab-divider"></div><button type="button" data-role="kb-remove-day" class="danger">Remove day</button>' : ''}
+    <button type="button" class="kb-secondary" data-role="kb-copy-day">📋 Copy this day…</button>
+    <button type="button" class="kb-secondary" data-role="kb-move-day">➡️ Move this day…</button>
+    ${day.items.length > 0 ? '<button type="button" class="kb-secondary" data-role="kb-move-items">☑️ Move items…</button>' : ''}
+    ${day.items.length > 0 ? '<button type="button" class="kb-secondary" data-role="kb-save-template">💾 Save as Template…</button>' : ''}
+    ${canRemove ? '<div class="kebab-divider"></div><button type="button" class="kb-danger" data-role="kb-remove-day">Remove day</button>' : ''}
   `;
   body.querySelector('[data-role="kb-copy-day"]').onclick = () => {
     closeItemKebabMenu();
