@@ -2032,6 +2032,24 @@
     background:var(--line);
     margin:14px 0;
   }
+  .kebab-danger-zone{
+    margin:20px 0 16px;
+    padding-top:16px;
+    border-top:1px solid var(--line);
+  }
+  .kb-cancel{
+    display:block;
+    width:100%;
+    text-align:center;
+    background:none;
+    border:none;
+    color:var(--slate);
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:13.5px;
+    padding:10px;
+    cursor:pointer;
+  }
   .item-context{
     background:var(--paper);
     border:1px solid var(--line);
@@ -3799,7 +3817,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.54';
+const APP_VERSION = '3.55';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5533,9 +5551,12 @@ function openItemKebabMenu(item, day, trip){
     <button type="button" class="kb-secondary" data-role="kb-calendar">📅 Export to Calendar</button>
     <button type="button" class="kb-secondary" data-role="kb-copy">📋 Copy…</button>
     <button type="button" class="kb-secondary" data-role="kb-move">➡️ Move…</button>
-    <div class="kebab-divider"></div>
-    <button type="button" class="kb-danger" data-role="kb-delete">Delete</button>
+    <div class="kebab-danger-zone"><button type="button" class="kb-danger" data-role="kb-delete">Delete</button></div>
+    <button type="button" class="kb-cancel" data-role="kb-cancel">Cancel</button>
   `;
+  body.querySelector('[data-role="kb-cancel"]').onclick = () => {
+    closeItemKebabMenu();
+  };
   body.querySelector('[data-role="kb-toggle-status"]').onclick = () => {
     closeItemKebabMenu();
     item.status = status === 'confirmed' ? 'tentative' : 'confirmed';
@@ -5596,7 +5617,8 @@ function openDayKebabMenu(day, dayIndex, trip){
     ${day.items.length > 0 ? '<button type="button" class="kb-secondary" data-role="kb-move-items">☑️ Move items…</button>' : ''}
     ${day.items.length > 0 ? '<button type="button" class="kb-secondary" data-role="kb-save-template">💾 Save as Template…</button>' : ''}
     <button type="button" class="kb-secondary" data-role="kb-apply-template">📥 Apply Template…</button>
-    ${canRemove ? '<div class="kebab-divider"></div><button type="button" class="kb-danger" data-role="kb-remove-day">Remove day</button>' : ''}
+    ${canRemove ? '<div class="kebab-danger-zone"><button type="button" class="kb-danger" data-role="kb-remove-day">Remove day</button></div>' : ''}
+    <button type="button" class="kb-cancel" data-role="kb-cancel">Cancel</button>
   `;
   body.querySelector('[data-role="kb-copy-day"]').onclick = () => {
     closeItemKebabMenu();
@@ -5609,6 +5631,9 @@ function openDayKebabMenu(day, dayIndex, trip){
   body.querySelector('[data-role="kb-apply-template"]').onclick = () => {
     closeItemKebabMenu();
     openTemplateListModal(day);
+  };
+  body.querySelector('[data-role="kb-cancel"]').onclick = () => {
+    closeItemKebabMenu();
   };
   if(day.items.length > 0){
     body.querySelector('[data-role="kb-move-items"]').onclick = () => {
