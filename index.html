@@ -1162,6 +1162,7 @@
   }
   .day-nav-label{
     flex:1;
+    min-width:0;
     text-align:center;
     background:var(--paper);
     border:1.5px solid var(--line);
@@ -1171,6 +1172,25 @@
     font-size:14.5px;
     font-weight:700;
     color:var(--ink);
+    cursor:pointer;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .day-actions-pill{
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    gap:4px;
+    border:1.5px solid var(--sky);
+    background:var(--cream);
+    color:var(--sky-text);
+    border-radius:16px;
+    padding:9px 12px;
+    font-family:'Inter',sans-serif;
+    font-size:12.5px;
+    font-weight:700;
+    white-space:nowrap;
     cursor:pointer;
   }
 
@@ -1182,6 +1202,9 @@
 
   .itinerary-sidebar{
     display:none;
+  }
+  .at-a-glance-inline{
+    margin-bottom:16px;
   }
   .sidebar-block{
     background:var(--paper);
@@ -1249,6 +1272,9 @@
       top:calc(var(--sticky-stack-height, 100px) + 18px);
       padding-top:18px;
     }
+    .at-a-glance-inline{
+      display:none;
+    }
   }
 
   .day-panel{
@@ -1275,31 +1301,6 @@
     flex:1;
     min-width:120px;
   }
-  .stay-link-btn{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    width:100%;
-    background:var(--paper);
-    border:1.5px solid var(--sky);
-    border-radius:var(--radius-md);
-    padding:11px 12px;
-    font-family:'Inter',sans-serif;
-    font-weight:600;
-    font-size:13px;
-    color:var(--sky-text);
-    cursor:pointer;
-  }
-  .day-title-display{
-    font-family:'Baloo 2',sans-serif;
-    font-size:16px;
-    font-weight:700;
-    color:var(--ink);
-    padding:8px 2px;
-    flex:1 1 auto;
-    min-width:140px;
-  }
-
   .day-info-row{
     display:flex;
     margin-bottom:0;
@@ -3351,13 +3352,9 @@
     .print-only-fact{display:block !important;font-size:12px;color:#000;margin-bottom:3px;}
     .trip-basics-fields .day-info-row,
     .stay-card .day-info-row,
-    .day-details-hotel-row,
-    .day-details-ropedrop-row,
     .print-hide-if-empty{display:none !important;}
 
     .item-card, .stay-card, .item-main-plan-badge, .item-traveler-badge, .item-meal-badge, .item-status, .crowd-pill, .traveler-chip, .dining-reminder-pill, .packing-category-title .essential-tag{box-shadow:none !important;border-color:#ccc !important;}
-
-    .day-title-display{font-size:18px;}
 
     /* Use the full page width instead of the mobile-width column */
     main, #tripDetailsWrap{max-width:none !important;padding:0 !important;display:block !important;background:none !important;}
@@ -3802,7 +3799,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.53';
+const APP_VERSION = '3.54';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -7036,44 +7033,6 @@ function getSectionHoursLine(trip, dayIndex, currentPark){
   return line;
 }
 
-function buildCombinedParkInfoHtml(trip, dayIndex, day){
-  if(!trip.startDate) return '';
-  const date = computeDayDate(trip, dayIndex);
-  if(!date) return '';
-  const dateStr = dateToApiString(date);
-
-  return CROWD_LEVEL_PARKS.map(parkName => {
-    if(!parkScheduleCache[parkName]){
-      ensureParkScheduleLoaded(parkName).then(result => { if(result) render(); });
-    }
-    const hours = parkScheduleCache[parkName] ? getParkHoursForDate(parkName, dateStr) : { status: 'not-loaded' };
-    const crowdVal = getCrowdLevel(trip, day.id, parkName);
-    const crowdClass = getCrowdClass(crowdVal);
-    const crowdWord = crowdClass === 'crowd-low' ? 'Low' : crowdClass === 'crowd-mid' ? 'Moderate' : crowdClass === 'crowd-high' ? 'Busy' : '';
-
-    const perkTags = hours.status === 'available'
-      ? `${hours.earlyEntryTime ? `<span class="park-hours-perk-tag">Early Entry ${hours.earlyEntryTime}</span>` : ''}${hours.extendedEveningTime ? `<span class="park-hours-perk-tag">Extended Evening Hours (Deluxe &amp; DVC Resorts) until ${hours.extendedEveningTime}</span>` : ''}`
-      : `<div class="park-combo-missing">Hours not published yet</div>`;
-
-    const rightContent = `
-      ${hours.status === 'available' ? `<div class="park-hours-time">${hours.openingTime}–${hours.closingTime}</div>` : ''}
-      ${crowdVal ? `<div class="crowd-pill ${crowdClass}">${escapeHtml(crowdVal)} · ${crowdWord}</div>` : `<div class="park-combo-missing">No crowd level set</div>`}
-    `;
-
-    return `
-      <div class="park-combo-row">
-        <div class="park-combo-left">
-          <div class="park-hours-name">${escapeHtml(parkName)}</div>
-          ${perkTags}
-        </div>
-        <div class="park-combo-right">
-          ${rightContent}
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
 function formatCompactTime(fullTimeStr){
   const match = fullTimeStr.match(/^(\d+):(\d+)\s(AM|PM)$/);
   if(!match) return fullTimeStr;
@@ -7664,9 +7623,7 @@ let activeDayId = appData.trips[0].days[0].id;
 let currentView = 'itinerary';
 let showArchivedTrips = false;
 let lastListsSubView = 'packing';
-let expandedDetails = new Set();
 let autoScrolledToCurrentForDay = new Set();
-let initializedDayDetailsDefaults = new Set();
 let editingItems = new Set();
 let pendingMainPlanEdit = new Set();
 let expandedTripDetails = new Set();
@@ -8577,13 +8534,8 @@ function renderViewOptionsTrigger(){
   });
 }
 
-function renderItinerarySidebar(trip){
-  const wrap = document.getElementById('itinerarySidebar');
+function renderAtAGlanceBlock(trip, wrap, day, dayIndex){
   wrap.innerHTML = '';
-
-  const dayIndex = trip.days.findIndex(d => d.id === activeDayId);
-  if(dayIndex === -1) return;
-  const day = trip.days[dayIndex];
 
   const diningItems = day.items
     .filter(i => i.type === 'dining' && i.confirmationNumber && itemMatchesFilter(i))
@@ -8596,6 +8548,20 @@ function renderItinerarySidebar(trip){
   title.className = 'sidebar-block-title';
   title.textContent = 'At a glance';
   block.appendChild(title);
+
+  // Tonight's hotel only earns a place here when it's genuinely informative - a real
+  // split stay across more than one resort. On a single-hotel trip, the sticky Trip
+  // Details header already says this, so repeating it here would just be noise.
+  const isSplitStay = new Set((trip.stays || []).map(s => s.hotel).filter(Boolean)).size > 1;
+  if(isSplitStay){
+    const nightStay = getStayForDayIndex(trip, dayIndex);
+    if(nightStay){
+      const hotelFact = document.createElement('div');
+      hotelFact.className = 'sidebar-fact';
+      hotelFact.innerHTML = `<span class="label">Tonight's Hotel</span><div>🏨 ${escapeHtml(nightStay.hotel)}</div>`;
+      block.appendChild(hotelFact);
+    }
+  }
 
   const relevantParks = getRelevantParksForDay(day);
   const crowdFact = document.createElement('div');
@@ -8616,7 +8582,7 @@ function renderItinerarySidebar(trip){
       let hoursText = '';
       if(parkDateStr){
         if(!parkScheduleCache[park]){
-          ensureParkScheduleLoaded(park).then(result => { if(result) renderItinerarySidebar(trip); });
+          ensureParkScheduleLoaded(park).then(result => { if(result) renderAtAGlanceBlock(trip, wrap, day, dayIndex); });
         } else {
           const hours = getParkHoursForDate(park, parkDateStr);
           if(hours.status === 'available') hoursText = ` · ${hours.openingTime}–${hours.closingTime}`;
@@ -8631,7 +8597,7 @@ function renderItinerarySidebar(trip){
     CROWD_LEVEL_PARKS.forEach(park => {
       if(!parkDateStr) return;
       if(!parkScheduleCache[park]){
-        ensureParkScheduleLoaded(park).then(result => { if(result) renderItinerarySidebar(trip); });
+        ensureParkScheduleLoaded(park).then(result => { if(result) renderAtAGlanceBlock(trip, wrap, day, dayIndex); });
         return;
       }
       const hours = getParkHoursForDate(park, parkDateStr);
@@ -8660,6 +8626,13 @@ function renderItinerarySidebar(trip){
   }
 
   wrap.appendChild(block);
+}
+
+function renderItinerarySidebar(trip){
+  const wrap = document.getElementById('itinerarySidebar');
+  const dayIndex = trip.days.findIndex(d => d.id === activeDayId);
+  if(dayIndex === -1){ wrap.innerHTML = ''; return; }
+  renderAtAGlanceBlock(trip, wrap, trip.days[dayIndex], dayIndex);
 }
 
 function renderOverview(trip, wrap){
@@ -8759,6 +8732,18 @@ function renderMonorail(){
     if(currentIndex !== -1 && currentIndex < trip.days.length - 1){ activeDayId = trip.days[currentIndex + 1].id; render(); }
   };
   rail.appendChild(nextBtn);
+
+  if(currentIndex !== -1){
+    const actionsBtn = document.createElement('button');
+    actionsBtn.type = 'button';
+    actionsBtn.className = 'day-actions-pill';
+    actionsBtn.innerHTML = '⋮ Day actions';
+    actionsBtn.setAttribute('aria-label', 'Day actions');
+    actionsBtn.onclick = () => {
+      openDayKebabMenu(trip.days[currentIndex], currentIndex, trip);
+    };
+    rail.appendChild(actionsBtn);
+  }
 }
 
 function openDayJumpModal(){
@@ -9091,110 +9076,24 @@ function renderDayPanels(){
     panel.className = 'day-panel' + (day.id===activeDayId ? ' active' : '');
     const currentOrNext = getCurrentOrNextItem(trip, day);
 
-    const row = document.createElement('div');
-    row.className = 'park-select-row';
     const isFirst = dayIndex === 0;
     const isLast = dayIndex === trip.days.length - 1;
     const canRemove = trip.days.length > 1 && (isFirst || isLast);
-    if(trip.startDate){
-      row.innerHTML = `
-        <div class="day-title-display">${escapeHtml(getDayDisplayLabel(trip, dayIndex, day, true))}</div>
-        <button type="button" class="item-kebab-btn" data-role="day-kebab" aria-label="Day actions">⋮</button>
-      `;
-    } else {
+    if(!trip.startDate){
+      const row = document.createElement('div');
+      row.className = 'park-select-row';
       row.innerHTML = `
         <input class="day-title-input" value="${escapeHtml(day.label)}" data-role="label" />
-        <button type="button" class="item-kebab-btn" data-role="day-kebab" aria-label="Day actions">⋮</button>
       `;
       row.querySelector('[data-role="label"]').oninput = e => { day.label = e.target.value; renderMonorail(); };
       row.querySelector('[data-role="label"]').onblur = () => handleDayFieldBlur(trip, day);
-    }
-    row.querySelector('[data-role="day-kebab"]').onclick = () => {
-      openDayKebabMenu(day, dayIndex, trip);
-    };
-    panel.appendChild(row);
-
-    const nightStay = getStayForDayIndex(trip, dayIndex);
-
-    if(!initializedDayDetailsDefaults.has(day.id)){
-      initializedDayDetailsDefaults.add(day.id);
-      if(!nightStay) expandedDetails.add(day.id);
+      panel.appendChild(row);
     }
 
-    const detailsAccordion = document.createElement('div');
-    detailsAccordion.className = 'accordion' + (expandedDetails.has(day.id) ? ' open' : '');
-
-    const detailsSummaryParts = [];
-    if(nightStay) detailsSummaryParts.push(nightStay.hotel);
-    if(day.ropeDrop) detailsSummaryParts.push('Rope drop ' + formatTime(day.ropeDrop));
-    const detailsSummary = detailsSummaryParts.length ? detailsSummaryParts.join(' · ') : 'Hotel & rope drop time';
-
-    const detailsHeader = document.createElement('button');
-    detailsHeader.type = 'button';
-    detailsHeader.className = 'accordion-header';
-    detailsHeader.innerHTML = `
-      <span class="accordion-title">🏨 Day details</span>
-      <span class="accordion-summary">${escapeHtml(detailsSummary)}</span>
-      <span class="chevron">▾</span>
-    `;
-    detailsHeader.onclick = () => {
-      if(expandedDetails.has(day.id)) expandedDetails.delete(day.id);
-      else expandedDetails.add(day.id);
-      render();
-    };
-    detailsAccordion.appendChild(detailsHeader);
-
-    const detailsBody = document.createElement('div');
-    detailsBody.className = 'accordion-body';
-
-    const infoRow1 = document.createElement('div');
-    infoRow1.className = 'day-info-row day-details-hotel-row';
-    infoRow1.innerHTML = `
-      <div class="day-info-field" style="flex:1 1 100%;">
-        <label>Tonight's hotel</label>
-        ${nightStay
-          ? `<div class="day-title-display" style="padding:8px 10px;background:var(--cream);border-radius:var(--radius-md);font-size:14px;">${escapeHtml(nightStay.hotel)}</div>`
-          : `<button type="button" class="stay-link-btn" data-role="stay-link">Set up your stay in Trip Details <span>→</span></button>`
-        }
-      </div>
-    `;
-    if(!nightStay){
-      infoRow1.querySelector('[data-role="stay-link"]').onclick = () => {
-        expandedTripDetails.add(trip.id);
-        expandedTripSubsections.add(trip.id + ':lodging');
-        render();
-        window.scrollTo({top:0, behavior:'smooth'});
-      };
-    }
-    detailsBody.appendChild(infoRow1);
-
-    const parkComboHtml = buildCombinedParkInfoHtml(trip, dayIndex, day);
-    if(parkComboHtml){
-      const parkHoursRow = document.createElement('div');
-      parkHoursRow.className = 'day-info-row';
-      parkHoursRow.innerHTML = `
-        <div class="day-info-field" style="flex:1 1 100%;">
-          <label>Park Hours &amp; Crowd Levels</label>
-          ${parkComboHtml}
-        </div>
-      `;
-      detailsBody.appendChild(parkHoursRow);
-    }
-
-    const infoRow3 = document.createElement('div');
-    infoRow3.className = 'day-info-row day-details-ropedrop-row';
-    infoRow3.innerHTML = `
-      <div class="day-info-field day-info-field-time day-info-field-full">
-        <label for="rope-${day.id}">Rope drop target</label>
-        <input id="rope-${day.id}" type="time" value="${day.ropeDrop || ''}" data-role="ropeDrop" />
-      </div>
-    `;
-    infoRow3.querySelector('[data-role="ropeDrop"]').oninput = e => { day.ropeDrop = e.target.value; };
-    infoRow3.querySelector('[data-role="ropeDrop"]').onblur = () => handleDayFieldBlur(trip, day);
-    detailsBody.appendChild(infoRow3);
-
-    detailsAccordion.appendChild(detailsBody);
-    panel.appendChild(detailsAccordion);
+    const atAGlanceInline = document.createElement('div');
+    atAGlanceInline.className = 'at-a-glance-inline';
+    panel.appendChild(atAGlanceInline);
+    renderAtAGlanceBlock(trip, atAGlanceInline, day, dayIndex);
 
     const sorted = [...day.items].sort((a,b) => (a.time||'').localeCompare(b.time||''));
 
@@ -11471,6 +11370,31 @@ document.getElementById('compactToggleBtn').onclick = () => {
 updateCompactToggleBtn();
 
 
+// Rope drop no longer has its own dedicated field or UI - folded into day notes instead,
+// since it was the one piece of Day Details genuinely unique to a single day once hotel and
+// park hours both moved to the now-always-visible At a Glance. Runs once per day at startup:
+// ropeDrop is cleared and the change synced immediately after, so this can't re-fire and
+// duplicate the note on a later load. Placeholder trips are safely skipped without any
+// explicit check - their fake day never has a real ropeDrop value set, and even if it did,
+// syncSingleDayUpdate already no-ops for anything without a real supabaseId.
+async function migrateRopeDropToNotes(){
+  for(const trip of appData.trips){
+    for(const day of trip.days){
+      if(!day.ropeDrop) continue;
+      const ropeDropNote = 'Rope drop target: ' + formatTime(day.ropeDrop);
+      if(!day.notes || !day.notes.includes(ropeDropNote)){
+        day.notes = day.notes ? (day.notes + '\n' + ropeDropNote) : ropeDropNote;
+      }
+      day.ropeDrop = '';
+      try{
+        await syncSingleDayUpdate(day);
+      }catch(err){
+        console.warn('Could not sync rope drop migration for a day (will retry on next sync):', err);
+      }
+    }
+  }
+}
+
 (async function initApp(){
   applyStartupTheme();
   applyStartupDefaultView();
@@ -11478,6 +11402,7 @@ updateCompactToggleBtn();
   if(!loadedFromLink){
     await loadRememberedTripsIfNoLinkPresent();
   }
+  await migrateRopeDropToNotes();
   render();
   establishAllBaselines();
   setInterval(updateUnsavedIndicator, 3000);
