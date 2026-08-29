@@ -3802,7 +3802,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.52';
+const APP_VERSION = '3.53';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4141,6 +4141,16 @@ function tripHasMeaningfulContent(trip){
 
 async function syncTripToSupabase(trip, allTravelers){
   const deletedByOthers = [];
+
+  // A placeholder trip (buildPlaceholderTrip) is a deliberately incomplete, local-only
+  // stand-in used for other trips shown in the switcher before they've been fully loaded -
+  // startDate and other fields are always blank on it regardless of the real saved value.
+  // Writing it back to Supabase would silently overwrite genuine, correct server data with
+  // nulls for a trip nobody actually opened or edited. Confirmed as a real, live bug and
+  // fixed here directly, matching the same guard already in place on the read path.
+  if(trip._isPlaceholder){
+    return deletedByOthers;
+  }
 
   if(!trip.supabaseId && !tripHasMeaningfulContent(trip)){
     return deletedByOthers;
