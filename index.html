@@ -1570,6 +1570,7 @@
     font-weight:700;
     cursor:pointer;
     z-index:1;
+    transform:rotate(180deg);
   }
   .item-card-actions-inline{
     position:absolute;
@@ -3421,7 +3422,7 @@
 
 <div class="trip-meta" id="tripMeta">
   <button type="button" id="tripSummaryTrigger" class="trip-summary-trigger">
-    <span class="trip-summary-label">🏨 Trip Details</span>
+    <span class="trip-summary-label">Trip Details</span>
     <span class="trip-summary-text"></span>
     <span class="trip-summary-chevron">▾</span>
   </button>
@@ -3816,7 +3817,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.60';
+const APP_VERSION = '3.61';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -9262,7 +9263,7 @@ function renderItemCard(day, item, currentOrNext){
     const collapseChevron = document.createElement('button');
     collapseChevron.type = 'button';
     collapseChevron.className = 'item-card-chevron-collapse';
-    collapseChevron.textContent = '‹';
+    collapseChevron.textContent = '▾';
     collapseChevron.title = 'Collapse (only if nothing has been changed)';
     collapseChevron.onclick = () => {
       if(!form.isDirty()){
@@ -9344,7 +9345,7 @@ function renderItemCard(day, item, currentOrNext){
         <button data-role="kebab" class="item-kebab-btn" aria-label="More actions">⋮</button>
       </div>
     </div>
-    <span class="item-card-chevron">›</span>
+    <span class="item-card-chevron">▾</span>
   `;
   card.onclick = () => {
     editingItems.add(item.id);
