@@ -959,11 +959,13 @@
   .mode-toggle-btn{
     background:var(--paper);
     border:none;
-    padding:8px 11px;
-    font-size:15px;
+    padding:8px 12px;
+    font-family:'Inter',sans-serif;
+    font-size:12.5px;
+    font-weight:600;
     cursor:pointer;
     color:var(--slate);
-    line-height:1;
+    white-space:nowrap;
   }
   .mode-toggle-btn + .mode-toggle-btn{
     border-left:1.5px solid var(--line);
@@ -978,11 +980,13 @@
     background:var(--paper);
     border:1.5px solid var(--line);
     border-radius:var(--radius-md);
-    padding:8px 11px;
-    font-size:15px;
+    padding:8px 12px;
+    font-family:'Inter',sans-serif;
+    font-size:12.5px;
+    font-weight:600;
     cursor:pointer;
     color:var(--slate);
-    line-height:1;
+    white-space:nowrap;
   }
   .compact-toggle-icon-btn.active{
     background:var(--sky);
@@ -1415,41 +1419,6 @@
     overflow:hidden;
     text-overflow:ellipsis;
     white-space:nowrap;
-  }
-  .section-crowd-badge{
-    font-family:'Inter',sans-serif;
-    font-size:11.5px;
-    font-weight:700;
-    padding:4px 10px;
-    border-radius:var(--radius-lg);
-    border:1.5px solid var(--line);
-    background:var(--paper);
-    color:var(--ink);
-    flex-shrink:0;
-    white-space:nowrap;
-    cursor:pointer;
-  }
-  .section-crowd-badge.crowd-low{
-    background:var(--accent-positive-bg);
-    border-color:var(--sage);
-    color:var(--accent-positive-text);
-  }
-  .section-crowd-badge.crowd-mid{
-    background:var(--accent-mid-bg);
-    border-color:var(--marigold);
-    color:var(--accent-mid-text);
-  }
-  .section-crowd-badge.crowd-high{
-    background:var(--accent-high-bg);
-    border-color:var(--sky);
-    color:var(--accent-high-text);
-  }
-  .section-hours-line{
-    width:100%;
-    font-size:11.5px;
-    color:var(--sky-text);
-    font-weight:600;
-    padding:2px 0 0 16px;
   }
   .crowd-entry-row{
     display:flex;
@@ -3496,10 +3465,10 @@
     <div class="view-controls-row" id="viewControlsWrap" style="display:none;">
       <button type="button" class="traveler-filter-trigger" id="travelerFilterTrigger" style="display:none;"></button>
       <div class="mode-toggle-group" id="modeToggleGroup">
-        <button type="button" class="mode-toggle-btn" data-mode="cards" title="Cards view">📋</button>
-        <button type="button" class="mode-toggle-btn" data-mode="timeline" title="Timeline view">📅</button>
+        <button type="button" class="mode-toggle-btn" data-mode="cards">Cards</button>
+        <button type="button" class="mode-toggle-btn" data-mode="timeline">Timeline</button>
       </div>
-      <button type="button" id="compactToggleBtn" class="compact-toggle-icon-btn" title="Compact view">↕️</button>
+      <button type="button" id="compactToggleBtn" class="compact-toggle-icon-btn">Compact</button>
     </div>
 
     <nav class="monorail" id="monorail"></nav>
@@ -3847,7 +3816,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.58';
+const APP_VERSION = '3.60';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -7089,26 +7058,6 @@ function dateToApiString(date){
   return `${y}-${m}-${d}`;
 }
 
-function getSectionHoursLine(trip, dayIndex, currentPark){
-  if(!CROWD_LEVEL_PARKS.includes(currentPark) || !trip.startDate) return '';
-  const date = computeDayDate(trip, dayIndex);
-  if(!date) return '';
-  const dateStr = dateToApiString(date);
-
-  if(!parkScheduleCache[currentPark]){
-    ensureParkScheduleLoaded(currentPark).then(result => { if(result) render(); });
-    return '';
-  }
-
-  const hours = getParkHoursForDate(currentPark, dateStr);
-  if(hours.status !== 'available') return '';
-
-  let line = `${hours.openingTime}–${hours.closingTime}`;
-  if(hours.earlyEntryTime) line += ` · Early Entry ${hours.earlyEntryTime}`;
-  if(hours.extendedEveningTime) line += ` · Extended Evening Hours (Deluxe &amp; DVC Resorts) until ${hours.extendedEveningTime}`;
-  return line;
-}
-
 function formatCompactTime(fullTimeStr){
   const match = fullTimeStr.match(/^(\d+):(\d+)\s(AM|PM)$/);
   if(!match) return fullTimeStr;
@@ -9184,27 +9133,17 @@ function renderDayPanels(){
       const header = document.createElement('div');
       header.className = `section-header section-${sec.key}`;
       const mainPlanItem = getMainPlanForSection(day, sec.key);
-      const currentPark = mainPlanItem ? mainPlanItem.name : '';
       const currentParkDisplay = mainPlanItem ? getItemDisplayName(mainPlanItem) : '';
-      const showCrowd = CROWD_LEVEL_PARKS.includes(currentPark);
-      const currentCrowd = showCrowd ? getCrowdLevel(trip, day.id, currentPark) : '';
-      const crowdClass = getCrowdClass(currentCrowd);
-      const hoursLine = getSectionHoursLine(trip, dayIndex, currentPark);
       header.innerHTML = `
         <span class="dot"></span>
         <span class="label">${sec.label}</span>
         ${currentParkDisplay ? `<span class="section-main-plan-display">${escapeHtml(currentParkDisplay)}</span>` : ''}
-        ${currentCrowd ? `<button type="button" class="section-crowd-badge ${crowdClass}" title="Tap for full Park Hours & Crowd details">Crowd: ${currentCrowd}</button>` : ''}
         <span class="rule"></span>
         <button type="button" class="section-add-btn" title="Add item to ${sec.label}">+</button>
-        ${hoursLine ? `<div class="section-hours-line">${hoursLine}</div>` : ''}
       `;
       header.querySelector('.section-add-btn').onclick = () => {
         openItemAddModal(day, { section: sec.key }, 'Add to ' + sec.label);
       };
-      if(currentCrowd){
-        header.querySelector('.section-crowd-badge').onclick = () => openParkHoursModal(day);
-      }
       panel.appendChild(header);
 
       items.forEach(item => panel.appendChild(renderItemCard(day, item, currentOrNext)));
