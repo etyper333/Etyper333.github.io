@@ -32,8 +32,6 @@
     --accent-neutral-text:#465A4C;
     --accent-glow:rgba(47,143,90,.18);
     --backdrop:rgba(15,42,30,.55);
-    --stripe-a:var(--marigold);
-    --stripe-b:var(--coral);
     --radius-sm:4px;
     --radius-md:8px;
     --radius-lg:8px;
@@ -64,8 +62,6 @@
     --accent-neutral-text:#4A3F32;
     --accent-glow:rgba(179,63,35,.18);
     --backdrop:rgba(42,31,22,.55);
-    --stripe-a:var(--marigold);
-    --stripe-b:var(--coral);
   }
   :root[data-theme="magic-kingdom"]{
     --ink:#1A1F2E;
@@ -91,8 +87,6 @@
     --accent-neutral-text:#3D4356;
     --accent-glow:rgba(194,59,107,.18);
     --backdrop:rgba(20,40,77,.55);
-    --stripe-a:var(--marigold);
-    --stripe-b:var(--coral);
   }
   :root[data-theme="ariel"]{
     --ink:#16232A;
@@ -118,8 +112,6 @@
     --accent-neutral-text:#45534F;
     --accent-glow:rgba(217,72,31,.18);
     --backdrop:rgba(7,63,63,.55);
-    --stripe-a:var(--marigold);
-    --stripe-b:var(--coral);
   }
   :root[data-theme="mickey"]{
     --ink:#1A1A1A;
@@ -145,8 +137,6 @@
     --accent-neutral-text:#4A4A4A;
     --accent-glow:rgba(194,58,72,.18);
     --backdrop:rgba(13,13,13,.55);
-    --stripe-a:var(--marigold);
-    --stripe-b:var(--coral);
   }
   :root[data-theme="orange-bird"]{
     --ink:#2E1F0F;
@@ -172,8 +162,6 @@
     --accent-neutral-text:#5A4C38;
     --accent-glow:rgba(232,83,31,.18);
     --backdrop:rgba(74,42,16,.55);
-    --stripe-a:var(--marigold);
-    --stripe-b:var(--coral);
   }
   :root[data-theme="spaceship-earth"]{
     --ink:#2A2E33;
@@ -199,8 +187,6 @@
     --accent-neutral-text:#454D54;
     --accent-glow:rgba(74,122,158,.18);
     --backdrop:rgba(42,46,51,.55);
-    --stripe-a:#AEB6BC;
-    --stripe-b:#454D54;
   }
   :root[data-theme="dark-side"]{
     --ink:#E8E6E3;
@@ -227,8 +213,6 @@
     --accent-neutral-text:#C5C7C9;
     --accent-glow:rgba(232,115,90,.25);
     --backdrop:rgba(0,0,0,.65);
-    --stripe-a:#4A4D50;
-    --stripe-b:#242628;
   }
   *{box-sizing:border-box;}
   body{
@@ -497,7 +481,7 @@
   }
 
   header.hero{
-    background:linear-gradient(180deg,var(--sky) 0%,var(--sky-deep) 100%);
+    background:var(--sky);
     color:var(--cream);
     padding:22px 20px 20px;
     position:relative;
@@ -506,9 +490,8 @@
     content:"";
     position:absolute;
     bottom:0;left:0;right:0;
-    height:6px;
-    background:repeating-linear-gradient(90deg,var(--stripe-a) 0 18px, var(--stripe-b) 18px 36px);
-    opacity:.85;
+    height:3px;
+    background:var(--coral);
   }
   #tripDetailsWrap{
     color:var(--ink);
@@ -3869,7 +3852,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.64';
+const APP_VERSION = '3.65';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
