@@ -1810,23 +1810,30 @@
     position:absolute;
     box-sizing:border-box;
     border-radius:var(--radius-sm);
-    border:1.5px solid rgba(255,255,255,.5);
-    padding:2px 6px;
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-left:4px solid var(--slate);
+    padding:2px 6px 2px 8px;
     overflow:hidden;
     cursor:pointer;
-    color:white;
+    color:var(--ink);
     font-size:11px;
     line-height:1.25;
   }
   .timeline-block.status-tentative{
     border-style:dashed;
-    opacity:.85;
   }
   .timeline-block.main-plan{
-    border-color:#fff;
-    border-width:2px;
-    box-shadow:0 0 0 1.5px var(--ink);
+    background:var(--accent-positive-bg);
+    border-color:var(--accent-positive-text);
+    border-left-width:4px;
+    box-shadow:none;
   }
+  .timeline-block.tab-activity{border-left-color:var(--marigold);}
+  .timeline-block.tab-logistics{border-left-color:var(--sky);}
+  .timeline-block.tab-dining{border-left-color:var(--coral);}
+  .timeline-block.tab-rest{border-left-color:var(--sage);}
+  .timeline-block.tab-travel{border-left-color:var(--slate);}
   .timeline-block-badge{
     flex-shrink:0;
   }
@@ -4067,7 +4074,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.83';
+const APP_VERSION = '3.85';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -9485,8 +9492,6 @@ function renderDayTimelineGrid(panel, day, trip){
       }
 
       let leftIndicatorsHtml = `<span class="timeline-block-time">${escapeHtml(formatTime(entry.item.time))}</span>`;
-      if(hasConfirmation) leftIndicatorsHtml += `<span class="timeline-block-indicator" title="Has a confirmation number">#</span>`;
-      if(hasNotes) leftIndicatorsHtml += `<span class="timeline-block-indicator" title="Has notes">🗒️</span>`;
       const crowdHtml = crowdValue
         ? `<span class="timeline-block-crowd ${getCrowdClass(crowdValue)}" title="Crowd level ${escapeHtml(crowdValue)}">${escapeHtml(crowdValue)}</span>`
         : '';
@@ -11845,6 +11850,11 @@ function renderTripDetails(trip){
       const dayOptionsFor = (selectedId) => blankDayOption + trip.days.map((d, i) =>
         `<option value="${d.id}" ${d.id===selectedId?'selected':''}>${escapeHtml(getDayDisplayLabel(trip, i, d, true))}</option>`
       ).join('');
+      const startDayIdx = trip.days.findIndex(d => d.id === stay.startDayId);
+      const endDayIdx = trip.days.findIndex(d => d.id === stay.endDayId);
+      const startLabel = startDayIdx !== -1 ? getDayDisplayLabel(trip, startDayIdx, trip.days[startDayIdx], true) : 'Whole trip';
+      const endLabel = endDayIdx !== -1 ? getDayDisplayLabel(trip, endDayIdx, trip.days[endDayIdx], true) : 'Whole trip';
+      const concurrentRoomTypeText = stay.roomType === 'Other' ? (stay.roomTypeOther || 'Other') : (stay.roomType || 'Not set');
       card.innerHTML = `
         <div class="day-info-row">
           <div class="day-info-field">
@@ -11882,7 +11892,8 @@ function renderTripDetails(trip){
             <select data-role="endDayId">${dayOptionsFor(stay.endDayId)}</select>
           </div>
         </div>
-        <div class="print-only-fact">Hotel: ${escapeHtml(stay.hotel || 'Not set')}${stay.note ? ' · ' + escapeHtml(stay.note) : ''}</div>
+        <div class="print-only-fact">Hotel: ${escapeHtml(stay.hotel || 'Not set')} · Starts: ${escapeHtml(startLabel)} · Ends: ${escapeHtml(endLabel)}</div>
+        <div class="print-only-fact">Room type: ${escapeHtml(concurrentRoomTypeText)}${stay.note ? ' · Note: ' + escapeHtml(stay.note) : ''}</div>
         <button type="button" class="stay-card-remove danger">Remove this concurrent stay</button>
       `;
       card.querySelector('[data-role="hotel"]').oninput = e => { stay.hotel = e.target.value; };
