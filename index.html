@@ -508,16 +508,12 @@
     color:var(--ink);
   }
   .trip-details-wrap-bg{
-    background:linear-gradient(180deg,var(--sky) 0%,var(--sky-deep) 100%);
-    max-width:640px;
-    margin:0 auto;
-    padding:14px 20px 4px;
     box-sizing:border-box;
   }
   .app-version-line{
     text-align:center;
     font-size:10.5px;
-    color:rgba(255,255,255,.5);
+    color:var(--slate);
     padding:4px 0 2px;
   }
   .share-link-row{
@@ -920,11 +916,7 @@
   }
   .trip-summary-trigger .trip-summary-chevron{
     flex-shrink:0;
-    font-size:12px;
-    transition:transform .2s ease;
-  }
-  .trip-summary-trigger.open .trip-summary-chevron{
-    transform:rotate(180deg);
+    font-size:14px;
   }
   .view-controls-row{
     max-width:640px;
@@ -3416,6 +3408,34 @@
     .trip-subsection-overview{display:none !important;}
     body.print-show-overview .trip-subsection-overview{display:block !important;}
 
+    /* Trip Basics/Park Hours/Itinerary Overview now live inside the Trip Details
+       modal, which the blanket .master-editor-overlay hide rule above would
+       otherwise swallow regardless of the print checkboxes - force the modal
+       chain back to normal document flow whenever any of the three is selected. */
+    body.print-show-basics #tripDetailsOverlay,
+    body.print-show-crowd #tripDetailsOverlay,
+    body.print-show-overview #tripDetailsOverlay{
+      display:block !important;
+      position:static !important;
+      background:none !important;
+      padding:0 !important;
+    }
+    body.print-show-basics #tripDetailsOverlay .master-editor,
+    body.print-show-crowd #tripDetailsOverlay .master-editor,
+    body.print-show-overview #tripDetailsOverlay .master-editor{
+      max-width:none !important;
+      max-height:none !important;
+      overflow:visible !important;
+      box-shadow:none !important;
+      border-radius:0 !important;
+      padding:0 !important;
+      background:none !important;
+    }
+    #tripDetailsOverlay h2,
+    #tripDetailsOverlay .master-editor-close{
+      display:none !important;
+    }
+
     #dayPanels{display:none !important;}
     body.print-show-days #dayPanels{display:block !important;}
     body:not(.print-show-packing) #packingPanelWrap{display:none !important;}
@@ -3610,14 +3630,21 @@
 
 <div class="trip-meta" id="tripMeta">
   <button type="button" id="tripSummaryTrigger" class="trip-summary-trigger">
-    <span class="trip-summary-label">Trip Details</span>
+    <span class="trip-summary-label">Trip Details &amp; more</span>
     <span class="trip-summary-text"></span>
-    <span class="trip-summary-chevron">▾</span>
+    <span class="trip-summary-chevron">›</span>
   </button>
   <button type="button" id="syncBtn" class="refresh-trip-btn">↻ Sync</button>
   <button type="button" id="toolsMenuTrigger" class="tools-menu-trigger">☰ Tools</button>
 </div>
-<div id="tripDetailsWrap" class="trip-details-wrap-bg"></div>
+
+<div class="master-editor-overlay" id="tripDetailsOverlay">
+  <div class="master-editor">
+    <h2>Trip Details</h2>
+    <div id="tripDetailsWrap" class="trip-details-wrap-bg"></div>
+    <button class="master-editor-close master-editor-close-sticky" id="tripDetailsCloseBtn">Done</button>
+  </div>
+</div>
 
 <div class="master-editor-overlay" id="tripSwitchOverlay">
   <div class="master-editor">
@@ -4022,7 +4049,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.75';
+const APP_VERSION = '3.76';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -10448,7 +10475,8 @@ function closeTravelerColorModal(){
   ['dayCopyOverlay', () => { document.getElementById('dayCopyOverlay').classList.remove('active'); dayCopyContext = null; }],
   ['parkHoursOverlay', closeParkHoursModal],
   ['dayJumpOverlay', closeDayJumpModal],
-  ['tripGridOverlay', closeTripGridModal]
+  ['tripGridOverlay', closeTripGridModal],
+  ['tripDetailsOverlay', () => { const trip = getActiveTrip(); if(trip) expandedTripDetails.delete(trip.id); render(); }]
 ].forEach(([overlayId, closeFn]) => {
   document.getElementById(overlayId).addEventListener('click', e => {
     if(e.target.id !== overlayId) return;
@@ -11312,20 +11340,18 @@ function getTripSummaryText(trip){
 
 function renderTripSummaryTrigger(trip){
   const btn = document.getElementById('tripSummaryTrigger');
-  const isOpen = expandedTripDetails.has(trip.id);
-  btn.classList.toggle('open', isOpen);
   btn.querySelector('.trip-summary-text').textContent = getTripSummaryText(trip);
   btn.onclick = () => {
-    if(isOpen){
-      expandedTripDetails.delete(trip.id);
-      render();
-    } else {
-      expandedTripDetails.add(trip.id);
-      render();
-      refreshActiveTripFromSupabase();
-    }
+    expandedTripDetails.add(trip.id);
+    render();
+    refreshActiveTripFromSupabase();
   };
 }
+document.getElementById('tripDetailsCloseBtn').onclick = () => {
+  const trip = getActiveTrip();
+  if(trip) expandedTripDetails.delete(trip.id);
+  render();
+};
 
 let initializedTripSubsectionDefaults = new Set();
 function ensureTripSubsectionDefaults(trip){
@@ -11363,7 +11389,7 @@ function renderTripSubsection(container, trip, key, icon, title, summaryText, bu
 function renderTripDetails(trip){
   const wrap = document.getElementById('tripDetailsWrap');
   wrap.innerHTML = '';
-  wrap.style.display = expandedTripDetails.has(trip.id) ? '' : 'none';
+  document.getElementById('tripDetailsOverlay').classList.toggle('active', expandedTripDetails.has(trip.id));
   ensureTripSubsectionDefaults(trip);
 
   if(!Array.isArray(trip.travelerIds)) trip.travelerIds = [];
