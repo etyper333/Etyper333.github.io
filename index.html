@@ -1383,6 +1383,27 @@
     opacity:1;
     transform:translate(-50%, 0);
   }
+  /* Locks down the actual form fields, not just the buttons around them - this is
+     what stops someone from ever reaching the handlers guarded above in the first
+     place (Trip Basics, stays, crowd levels, day notes, packing/grocery). Scoped to
+     these three containers specifically so it never touches unrelated controls that
+     should stay interactive in read-only mode, like the traveler filter or the
+     print modal's own checkboxes, which live elsewhere in the page. */
+  body.read-only-view #tripDetailsWrap input,
+  body.read-only-view #tripDetailsWrap textarea,
+  body.read-only-view #tripDetailsWrap select,
+  body.read-only-view #dayPanels input,
+  body.read-only-view #dayPanels textarea,
+  body.read-only-view #packingPanelWrap input,
+  body.read-only-view #packingPanelWrap textarea,
+  body.read-only-view #groceryPanelWrap input,
+  body.read-only-view #groceryPanelWrap textarea{
+    pointer-events:none;
+    opacity:.65;
+  }
+  body.read-only-view .packing-add-row{
+    display:none !important;
+  }
 
   .park-select-row{
     display:flex;
@@ -3989,7 +4010,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.71';
+const APP_VERSION = '3.72';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4589,10 +4610,12 @@ async function syncAllTripsToSupabase(){
 // is caught immediately, at the moment you edit something, not just at the next big Save. ---
 function showRemovedByOtherMessage(result){
   if(!result || result.ok) return;
+  if(isReadOnlyView) return;
   alert(`Heads up: "${result.name}" was removed by someone else since you last looked, so this change wasn't saved.`);
 }
 
 function handleDayFieldBlur(trip, day){
+  if(isReadOnlyView) return;
   syncSingleDayUpdate(day).then(result => {
     if(!result.ok){
       trip.days = trip.days.filter(d => d.id !== day.id);
@@ -4606,6 +4629,7 @@ function handleDayFieldBlur(trip, day){
 }
 
 function handleTripFieldBlur(trip){
+  if(isReadOnlyView) return;
   syncSingleTripUpdate(trip).then(result => {
     if(!result.ok){
       if(appData.trips.length > 1){
@@ -4889,6 +4913,7 @@ async function syncSingleStayUpdate(stay, trip){
   }
 }
 function handleStayFieldBlur(stay, trip){
+  if(isReadOnlyView) return;
   syncSingleStayUpdate(stay, trip).then(result => {
     if(!result.ok){
       trip.stays = trip.stays.filter(s => s.id !== stay.id);
@@ -5811,6 +5836,7 @@ function openItemKebabMenu(item, day, trip){
       item.isMainPlan = false;
       render();
     } else {
+      if(isReadOnlyView) { closeItemKebabMenu(); return; }
       pendingMainPlanEdit.add(item.id);
       editingItems.add(item.id);
       render();
@@ -6494,6 +6520,7 @@ function renderCrowdLevelsManager(){
         <button type="button" class="crowd-remove-btn" aria-label="Remove">×</button>
       `;
       row.querySelector('select').onchange = e => {
+        if(isReadOnlyView) return;
         setCrowdLevel(trip, slot.dayId, slot.park, e.target.value);
         renderCrowdLevelsManager();
         syncSingleCrowdLevelUpdate(trip, slot.dayId, slot.park, e.target.value).then(result => {
@@ -6550,6 +6577,7 @@ function renderCrowdLevelsManager(){
   daySelect.onchange = refreshParkOptions;
 
   addRow.querySelector('button').onclick = () => {
+    if(isReadOnlyView) return;
     const dayId = daySelect.value;
     const park = parkSelect.value;
     const level = levelSelect.value;
@@ -8707,7 +8735,7 @@ function renderWizardSaveArea(body, trip){
       establishAllBaselines();
       document.getElementById('wizardBackBtn').style.display = 'none';
       renderWizardSaveArea(body, trip);
-      if(deletedByOthers.length){
+      if(deletedByOthers.length && !isReadOnlyView){
         const names = deletedByOthers.map(d => `"${d.name}"`).join(', ');
         alert(`Heads up: some things were removed by someone else since you last looked: ${names}`);
       }
@@ -9629,6 +9657,7 @@ function renderItemCard(day, item, currentOrNext){
     <span class="item-card-chevron">▾</span>
   `;
   card.onclick = () => {
+    if(isReadOnlyView) return;
     editingItems.add(item.id);
     render();
     setTimeout(() => {
@@ -10805,7 +10834,7 @@ function renderToolsMenu(){
     a.download = `park-days-trips.json`;
     a.click();
     URL.revokeObjectURL(url);
-    if(deletedByOthers.length){
+    if(deletedByOthers.length && !isReadOnlyView){
       render();
       const names = deletedByOthers.map(d => `"${d.name}"`).join(', ');
       const plural = deletedByOthers.length > 1;
