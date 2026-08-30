@@ -3409,6 +3409,22 @@
     .trip-subsection-overview{display:none !important;}
     body.print-show-overview .trip-subsection-overview{display:block !important;}
 
+    /* Itinerary Overview reads best in landscape, but forcing the *entire* print
+       job into landscape (an earlier attempt, removed) caused real breakage once
+       portrait day-page content shared the same job - a blank landscape page even
+       when landscape was chosen manually in the print dialog, independent of any
+       app code, plus visual overlap between Overview and the day pages that
+       followed it. Scoping landscape to just this one section via a named page is
+       the more correct fix, and degrades safely if a browser doesn't support named
+       pages: worst case it just prints portrait like everything else, rather than
+       breaking the whole job the way the global override did. */
+    @page overview-landscape{
+      size:landscape;
+    }
+    body.print-show-overview .trip-subsection-overview{
+      page:overview-landscape;
+    }
+
     /* Trip Basics/Park Hours/Itinerary Overview now live inside the Trip Details
        modal, which the blanket .master-editor-overlay hide rule above would
        otherwise swallow regardless of the print checkboxes - force the modal
@@ -4051,7 +4067,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.77';
+const APP_VERSION = '3.78';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -11884,25 +11900,7 @@ function printSelected({ includeBasics, includeCrowd, includeOverview, includeDa
   const wasCompact = document.body.classList.contains('compact-items');
   document.body.classList.add('compact-items');
 
-  // Itinerary Overview's grid only makes sense in landscape - injected as a
-  // real stylesheet rule (a class alone can't drive @page) and removed right
-  // after, rather than applying to every print job by default.
-  let landscapeStyleEl = null;
-  if(includeOverview){
-    landscapeStyleEl = document.createElement('style');
-    landscapeStyleEl.textContent = '@page{size:landscape;}';
-    document.head.appendChild(landscapeStyleEl);
-  }
-
-  if(landscapeStyleEl){
-    // Give the browser a full layout/paint cycle to recompute against the new
-    // @page size before opening the print dialog - printing immediately after
-    // injecting the style risked the grid's auto-fit columns resolving against
-    // stale (pre-landscape) width, which is what produced a near-blank page.
-    requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
-  } else {
-    window.print();
-  }
+  window.print();
 
   const cleanup = () => {
     document.body.classList.remove(
@@ -11912,7 +11910,6 @@ function printSelected({ includeBasics, includeCrowd, includeOverview, includeDa
     );
     excludedDayEls.forEach(el => el.classList.remove('print-day-excluded'));
     document.body.classList.toggle('compact-items', wasCompact);
-    if(landscapeStyleEl) landscapeStyleEl.remove();
     if(wasTimeline){
       itineraryDisplayMode = 'timeline';
       render();
