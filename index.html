@@ -547,15 +547,15 @@
   .hero-brand-row{
     display:flex;
     align-items:center;
-    gap:7px;
-    margin-bottom:6px;
+    gap:10px;
+    margin-bottom:8px;
   }
   .hero-mark{
     flex-shrink:0;
     display:block;
   }
   .eyebrow{
-    font-size:10.5px;
+    font-size:11.5px;
     letter-spacing:.14em;
     text-transform:uppercase;
     color:var(--header-placeholder);
@@ -3452,7 +3452,7 @@
 
 <header class="hero">
   <div class="hero-brand-row">
-    <svg class="hero-mark" width="26" height="17" viewBox="0 0 34 22" aria-hidden="true">
+    <svg class="hero-mark" width="46" height="30" viewBox="0 0 34 22" aria-hidden="true">
       <path d="M3,9.5 L19,9.5 C24,9.7 28,11.8 30,14 C28,16.2 24,18 19,18.2 L3,18.2 Z" fill="var(--cream)"/>
       <path d="M19,9.5 C24,9.7 28,11.8 30,14 L19,14.9 Z" fill="var(--ink)"/>
       <polygon points="19,16.4 19,18.2 22.5,17.7" fill="var(--coral)"/>
@@ -3875,7 +3875,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.66';
+const APP_VERSION = '3.67';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
