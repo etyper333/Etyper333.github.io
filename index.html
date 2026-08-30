@@ -4067,7 +4067,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.78';
+const APP_VERSION = '3.79';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -11871,10 +11871,14 @@ function printSelected({ includeBasics, includeCrowd, includeOverview, includeDa
   document.body.classList.toggle('print-need-grocery-break', anyBeforeGrocery && includeGrocery);
 
   // Trip Details content (Basics/Crowd/Overview) sits earlier in the document than
-  // the day panels - without a break here they can end up sharing a page, which is
-  // what caused Itinerary Overview's landscape-widened grid to visually collide with
-  // the day pages' portrait content when both were printed together.
-  const anyBeforeDays = includeBasics || includeCrowd || includeOverview;
+  // the day panels - without a break here they can end up sharing a page. Overview
+  // specifically is excluded from this check: its named-page landscape assignment
+  // (see the CSS) already forces a break immediately after itself back to the
+  // default page type, per the CSS Paged Media spec - adding this break on top of
+  // that automatic one produced a second, redundant break and a blank page between
+  // them. Only Basics/Crowd need the manual break; Overview's own transition
+  // already guarantees one.
+  const anyBeforeDays = includeBasics || includeCrowd;
   document.body.classList.toggle('print-need-days-break', anyBeforeDays && includeDays);
 
   // Mark unselected day panels so print CSS can hide just those, while the
