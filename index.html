@@ -3663,6 +3663,22 @@
   <button type="button" id="toolsMenuTrigger" class="tools-menu-trigger">☰ Tools</button>
 </div>
 
+<div class="master-editor-overlay" id="adminAccessOverlay">
+  <div class="master-editor">
+    <h2>Admin Access</h2>
+    <div id="adminAccessBody"></div>
+    <button class="master-editor-close master-editor-close-sticky" id="adminAccessCloseBtn">Done</button>
+  </div>
+</div>
+
+<div class="master-editor-overlay" id="adminGatedActionOverlay">
+  <div class="master-editor">
+    <h2>Confirm Admin Action</h2>
+    <div id="adminGatedActionBody"></div>
+    <button class="master-editor-close master-editor-close-sticky" id="adminGatedActionCloseBtn">Cancel</button>
+  </div>
+</div>
+
 <div class="master-editor-overlay" id="tripDetailsOverlay">
   <div class="master-editor">
     <h2>Trip Details</h2>
@@ -3907,6 +3923,7 @@
     <div class="sticky-footer-group">
       <button type="button" class="submit-btn" id="templateDetailApplyBtn" style="display:none;">📥 Apply to this day</button>
       <button type="button" class="cancel-btn" id="templateDetailEditBtn">✏️ Edit name, description, tags</button>
+      <button type="button" class="tools-menu-danger-btn" id="templateDetailDeleteBtn">🗑️ Delete this template</button>
       <button type="button" class="cancel-btn" id="templateDetailBackBtn">Back</button>
     </div>
   </div>
@@ -4074,7 +4091,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.87';
+const APP_VERSION = '3.89';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4132,6 +4149,171 @@ function applyReadOnlyGuardIfNeeded(){
     return builder;
   };
 }
+
+// --- Admin Access: trip-level secret (Crowd Levels + Delete Trip) and a single
+// global template-admin secret (template deletion). Both hashed server-side via
+// pgcrypto, never stored or compared as plain text, never touched by the app's
+// normal read paths. Local storage here is purely a convenience so the person
+// isn't retyping constantly - "Enter Admin Access" always works as a real
+// fallback if this is ever cleared or they're on a new device. ---
+function getTripAdminSecret(supabaseTripId){
+  if(!supabaseTripId) return null;
+  try{
+    const stored = JSON.parse(localStorage.getItem('parkDaysTripAdminSecrets') || '{}');
+    return stored[supabaseTripId] || null;
+  }catch(e){ return null; }
+}
+function rememberTripAdminSecret(supabaseTripId, secret){
+  try{
+    const stored = JSON.parse(localStorage.getItem('parkDaysTripAdminSecrets') || '{}');
+    stored[supabaseTripId] = secret;
+    localStorage.setItem('parkDaysTripAdminSecrets', JSON.stringify(stored));
+  }catch(e){}
+}
+function forgetTripAdminSecret(supabaseTripId){
+  try{
+    const stored = JSON.parse(localStorage.getItem('parkDaysTripAdminSecrets') || '{}');
+    delete stored[supabaseTripId];
+    localStorage.setItem('parkDaysTripAdminSecrets', JSON.stringify(stored));
+  }catch(e){}
+}
+function getTemplateAdminSecret(){
+  return localStorage.getItem('parkDaysTemplateAdminSecret') || null;
+}
+function rememberTemplateAdminSecret(secret){
+  localStorage.setItem('parkDaysTemplateAdminSecret', secret);
+}
+
+// A one-off client carrying the admin secret as a request header, used only for
+// the specific gated calls below - the shared supabaseClient is never touched,
+// so nothing about normal app behavior changes.
+function getHeaderScopedClient(headerName, secret){
+  if(!secret) return supabaseClient;
+  return window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    global: { headers: { [headerName]: secret } }
+  });
+}
+function crowdLevelsAdminClient(trip){
+  return getHeaderScopedClient('x-trip-admin-secret', getTripAdminSecret(trip.supabaseId));
+}
+
+async function claimTripAdminSecret(trip, secret){
+  if(!trip.supabaseId) return false;
+  const { data, error } = await supabaseClient.rpc('claim_trip_admin_secret', { p_trip_id: trip.supabaseId, p_secret: secret });
+  if(error){ console.warn('claim_trip_admin_secret failed:', error); return false; }
+  return !!data;
+}
+async function verifyTripAdminSecret(trip, secret){
+  if(!trip.supabaseId) return false;
+  const { data, error } = await supabaseClient.rpc('verify_trip_admin_secret', { p_trip_id: trip.supabaseId, p_secret: secret });
+  if(error){ console.warn('verify_trip_admin_secret failed:', error); return false; }
+  return !!data;
+}
+async function claimTemplateAdminSecret(secret){
+  const { data, error } = await supabaseClient.rpc('claim_template_admin_secret', { p_secret: secret });
+  if(error){ console.warn('claim_template_admin_secret failed:', error); return false; }
+  return !!data;
+}
+async function verifyTemplateAdminSecret(secret){
+  const { data, error } = await supabaseClient.rpc('verify_template_admin_secret', { p_secret: secret });
+  if(error){ console.warn('verify_template_admin_secret failed:', error); return false; }
+  return !!data;
+}
+async function deleteTripPermanently(trip, secret){
+  if(!trip.supabaseId) return false;
+  const { data, error } = await supabaseClient.rpc('delete_trip_admin', { p_trip_id: trip.supabaseId, p_secret: secret });
+  if(error){ console.warn('delete_trip_admin failed:', error); return false; }
+  return !!data;
+}
+async function deleteTemplatePermanently(templateSupabaseId, secret){
+  const { data, error } = await supabaseClient.rpc('delete_template_admin', { p_template_id: templateSupabaseId, p_secret: secret });
+  if(error){ console.warn('delete_template_admin failed:', error); return false; }
+  return !!data;
+}
+
+function openAdminAccessModal(trip){
+  renderAdminAccessModal(trip);
+  document.getElementById('adminAccessOverlay').classList.add('active');
+}
+function closeAdminAccessModal(){
+  document.getElementById('adminAccessOverlay').classList.remove('active');
+}
+function renderAdminAccessModal(trip){
+  const body = document.getElementById('adminAccessBody');
+  const remembered = getTripAdminSecret(trip.supabaseId);
+  if(remembered){
+    body.innerHTML = `
+      <p class="sub">You have admin access for this trip on this device. This unlocks Crowd Levels editing and permanently deleting the trip.</p>
+      <button type="button" class="tools-menu-danger-btn" data-role="forgetBtn">Forget admin access on this device</button>
+    `;
+    body.querySelector('[data-role="forgetBtn"]').onclick = () => {
+      forgetTripAdminSecret(trip.supabaseId);
+      renderAdminAccessModal(trip);
+    };
+  } else {
+    body.innerHTML = `
+      <p class="sub">Enter this trip's admin passphrase to unlock Crowd Levels editing and permanently deleting the trip. If this trip doesn't have one set yet, whatever you enter here becomes it.</p>
+      <input type="text" placeholder="Admin passphrase" data-role="secretInput" style="width:100%;box-sizing:border-box;margin-bottom:10px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius-md);font-size:14px;" />
+      <div data-role="error" style="color:var(--coral);font-size:12.5px;margin-bottom:8px;display:none;"></div>
+      <button type="button" class="print-packing-btn" data-role="unlockBtn">Unlock</button>
+    `;
+    const input = body.querySelector('[data-role="secretInput"]');
+    const errorEl = body.querySelector('[data-role="error"]');
+    const unlockBtn = body.querySelector('[data-role="unlockBtn"]');
+    unlockBtn.onclick = async () => {
+      const secret = input.value.trim();
+      if(!secret){ errorEl.textContent = 'Enter a passphrase first.'; errorEl.style.display = 'block'; return; }
+      unlockBtn.disabled = true;
+      unlockBtn.textContent = 'Checking…';
+      let ok = await verifyTripAdminSecret(trip, secret);
+      if(!ok) ok = await claimTripAdminSecret(trip, secret);
+      if(ok){
+        rememberTripAdminSecret(trip.supabaseId, secret);
+        renderAdminAccessModal(trip);
+      } else {
+        unlockBtn.disabled = false;
+        unlockBtn.textContent = 'Unlock';
+        errorEl.textContent = "That didn't match, and this trip already has admin access set up by someone else.";
+        errorEl.style.display = 'block';
+      }
+    };
+  }
+}
+document.getElementById('adminAccessCloseBtn').onclick = closeAdminAccessModal;
+
+// Generic confirm-with-admin-secret modal, reused by any admin-gated destructive
+// action (Delete Trip, Delete Template) rather than building one modal per action.
+function openAdminGatedAction({ actionLabel, rememberedSecret, onConfirm }){
+  const body = document.getElementById('adminGatedActionBody');
+  body.innerHTML = `
+    <p class="sub">This needs admin access to ${escapeHtml(actionLabel)}.</p>
+    ${rememberedSecret ? '' : `<input type="text" placeholder="Admin passphrase" data-role="secretInput" style="width:100%;box-sizing:border-box;margin-bottom:10px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius-md);font-size:14px;" />`}
+    <div data-role="error" style="color:var(--coral);font-size:12.5px;margin-bottom:8px;display:none;"></div>
+    <button type="button" class="tools-menu-danger-btn" data-role="confirmBtn">Confirm</button>
+  `;
+  const errorEl = body.querySelector('[data-role="error"]');
+  const confirmBtn = body.querySelector('[data-role="confirmBtn"]');
+  confirmBtn.onclick = async () => {
+    const secret = rememberedSecret || (body.querySelector('[data-role="secretInput"]') || {}).value || '';
+    if(!secret){ errorEl.textContent = 'Enter the admin passphrase first.'; errorEl.style.display = 'block'; return; }
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Working…';
+    const ok = await onConfirm(secret);
+    if(ok){
+      closeAdminGatedActionModal();
+    } else {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Confirm';
+      errorEl.textContent = "That passphrase didn't work.";
+      errorEl.style.display = 'block';
+    }
+  };
+  document.getElementById('adminGatedActionOverlay').classList.add('active');
+}
+function closeAdminGatedActionModal(){
+  document.getElementById('adminGatedActionOverlay').classList.remove('active');
+}
+document.getElementById('adminGatedActionCloseBtn').onclick = closeAdminGatedActionModal;
 
 // Inserts a brand-new item into Supabase immediately, rather than waiting for the next
 // Templates live in their own standalone table, genuinely separate from trips/days/items -
@@ -4384,7 +4566,7 @@ async function deleteCrowdLevelFromSupabaseNow(trip, dayId, park){
   const supaId = trip.supabaseCrowdMap && trip.supabaseCrowdMap[key];
   if(!supaId) return;
   try{
-    await supabaseClient.from('crowd_levels').delete().eq('id', supaId);
+    await crowdLevelsAdminClient(trip).from('crowd_levels').delete().eq('id', supaId);
     delete trip.supabaseCrowdMap[key];
   }catch(err){
     console.warn('Could not delete crowd level from Supabase (it may remain there until cleaned up):', err);
@@ -4612,6 +4794,13 @@ async function syncTripToSupabase(trip, allTravelers){
   }
 
   if(!trip.supabaseCrowdMap) trip.supabaseCrowdMap = {};
+  // Crowd Levels are admin-gated now - a non-admin's regular Sync would otherwise
+  // attempt to push every crowd level unconditionally, get rejected by RLS, and (since
+  // 0 rows updated is generically read elsewhere as "this was deleted by someone else")
+  // wrongly wipe out perfectly valid crowd level data locally. Skipping the write
+  // attempt entirely for non-admins avoids that false positive - reads are unaffected,
+  // since those stay open regardless of admin status.
+  if(getTripAdminSecret(trip.supabaseId)){
   const crowdPairs = new Map();
   Object.keys(trip.crowdLevels || {}).forEach(key => {
     const sepIdx = key.indexOf(':');
@@ -4626,17 +4815,18 @@ async function syncTripToSupabase(trip, allTravelers){
     const crowdPayload = { day_id: supaDayId, park: pair.park, level: pair.level || null };
     const existingSupaId = trip.supabaseCrowdMap[key];
     if(existingSupaId){
-      const { data: updateResult } = await supabaseClient.from('crowd_levels').update(crowdPayload).eq('id', existingSupaId).select();
+      const { data: updateResult } = await crowdLevelsAdminClient(trip).from('crowd_levels').update(crowdPayload).eq('id', existingSupaId).select();
       if(!updateResult || updateResult.length === 0){
         deletedByOthers.push({ type: 'crowd level', name: pair.park + ' crowd level' });
         delete trip.supabaseCrowdMap[key];
         if(trip.crowdLevels) delete trip.crowdLevels[key];
       }
     } else {
-      const { data, error } = await supabaseClient.from('crowd_levels').insert([{ ...crowdPayload, trip_id: trip.supabaseId }]).select().single();
+      const { data, error } = await crowdLevelsAdminClient(trip).from('crowd_levels').insert([{ ...crowdPayload, trip_id: trip.supabaseId }]).select().single();
       if(error) throw error;
       trip.supabaseCrowdMap[key] = data.id;
     }
+  }
   }
 
   if(!trip.supabasePackingMap) trip.supabasePackingMap = {};
@@ -5056,13 +5246,13 @@ async function syncSingleCrowdLevelUpdate(trip, dayId, park, level){
     const payload = { day_id: supaDayId, park, level: level || null };
     const existingSupaId = trip.supabaseCrowdMap[key];
     if(existingSupaId){
-      const { data: updateResult } = await supabaseClient.from('crowd_levels').update(payload).eq('id', existingSupaId).select();
+      const { data: updateResult } = await crowdLevelsAdminClient(trip).from('crowd_levels').update(payload).eq('id', existingSupaId).select();
       if(!updateResult || updateResult.length === 0){
         delete trip.supabaseCrowdMap[key];
         return { ok: false, type: 'crowd level', name: park + ' crowd level' };
       }
     } else {
-      const { data, error } = await supabaseClient.from('crowd_levels').insert([{ ...payload, trip_id: trip.supabaseId }]).select().single();
+      const { data, error } = await crowdLevelsAdminClient(trip).from('crowd_levels').insert([{ ...payload, trip_id: trip.supabaseId }]).select().single();
       if(error) throw error;
       trip.supabaseCrowdMap[key] = data.id;
     }
@@ -6434,6 +6624,25 @@ document.getElementById('templateDetailEditBtn').onclick = () => {
   openEditTemplateModal(templateDetailContext.template);
 };
 
+document.getElementById('templateDetailDeleteBtn').onclick = () => {
+  if(!templateDetailContext) return;
+  const { template, day } = templateDetailContext;
+  openAdminGatedAction({
+    actionLabel: `delete the template "${template.name}" - this affects every trip, not just this one`,
+    rememberedSecret: getTemplateAdminSecret(),
+    onConfirm: async (secret) => {
+      const ok = await deleteTemplatePermanently(template.id, secret);
+      if(ok){
+        rememberTemplateAdminSecret(secret);
+        document.getElementById('templateDetailOverlay').classList.remove('active');
+        templateDetailContext = null;
+        openTemplateListModal(day);
+      }
+      return ok;
+    }
+  });
+};
+
 let editTemplateSelectedTags = new Set();
 
 function openEditTemplateModal(template){
@@ -6663,6 +6872,17 @@ function renderCrowdLevelsManager(){
   body.innerHTML = '';
   if(!trip) return;
 
+  if(!getTripAdminSecret(trip.supabaseId)){
+    const notice = document.createElement('div');
+    notice.className = 'stay-warning';
+    notice.innerHTML = 'You can view crowd levels, but saving changes needs admin access. <a href="#" data-role="unlockLink">Enter Admin Access</a>';
+    notice.querySelector('[data-role="unlockLink"]').onclick = (e) => {
+      e.preventDefault();
+      openAdminAccessModal(trip);
+    };
+    body.appendChild(notice);
+  }
+
   const setLevels = getSetCrowdLevels(trip);
   if(setLevels.length === 0){
     const note = document.createElement('div');
@@ -6682,6 +6902,11 @@ function renderCrowdLevelsManager(){
       `;
       row.querySelector('select').onchange = e => {
         if(isReadOnlyView) return;
+        if(!getTripAdminSecret(trip.supabaseId)){
+          e.target.value = slot.level || '';
+          alert('You need admin access to change crowd levels for this trip. Tap "Enter Admin Access" above.');
+          return;
+        }
         setCrowdLevel(trip, slot.dayId, slot.park, e.target.value);
         renderCrowdLevelsManager();
         syncSingleCrowdLevelUpdate(trip, slot.dayId, slot.park, e.target.value).then(result => {
@@ -6693,6 +6918,10 @@ function renderCrowdLevelsManager(){
         });
       };
       row.querySelector('.crowd-remove-btn').onclick = async () => {
+        if(!getTripAdminSecret(trip.supabaseId)){
+          alert('You need admin access to remove crowd levels for this trip. Tap "Enter Admin Access" above.');
+          return;
+        }
         const removeBtn = row.querySelector('.crowd-remove-btn');
         removeBtn.disabled = true;
         await deleteCrowdLevelFromSupabaseNow(trip, slot.dayId, slot.park);
@@ -6739,6 +6968,10 @@ function renderCrowdLevelsManager(){
 
   addRow.querySelector('button').onclick = () => {
     if(isReadOnlyView) return;
+    if(!getTripAdminSecret(trip.supabaseId)){
+      alert('You need admin access to set crowd levels for this trip. Tap "Enter Admin Access" above.');
+      return;
+    }
     const dayId = daySelect.value;
     const park = parkSelect.value;
     const level = levelSelect.value;
@@ -10652,7 +10885,9 @@ function closeTravelerColorModal(){
   ['parkHoursOverlay', closeParkHoursModal],
   ['dayJumpOverlay', closeDayJumpModal],
   ['tripGridOverlay', closeTripGridModal],
-  ['tripDetailsOverlay', () => { const trip = getActiveTrip(); if(trip) expandedTripDetails.delete(trip.id); render(); }]
+  ['tripDetailsOverlay', () => { const trip = getActiveTrip(); if(trip) expandedTripDetails.delete(trip.id); render(); }],
+  ['adminAccessOverlay', closeAdminAccessModal],
+  ['adminGatedActionOverlay', closeAdminGatedActionModal]
 ].forEach(([overlayId, closeFn]) => {
   document.getElementById(overlayId).addEventListener('click', e => {
     if(e.target.id !== overlayId) return;
@@ -10962,6 +11197,13 @@ function renderToolsMenu(){
           <button type="button" class="share-link-copy-btn" data-copy-role="view">Copy View-only Link</button>
         </div>
         <p class="share-link-note">This link can look, but can't touch — for anyone you'd rather not risk accidental edits from. Not real security: someone determined and technically inclined could still get around it, so keep using the regular link for people you trust to edit.</p>
+        ${getTripAdminSecret(trip.supabaseId) ? `
+        <div class="share-link-row">
+          <input type="text" readonly value="${escapeHtml(getTripAdminSecret(trip.supabaseId))}" class="share-link-input" />
+          <button type="button" class="share-link-copy-btn" data-copy-role="admin">Copy Admin Passphrase</button>
+        </div>
+        <p class="share-link-note">Unlocks Crowd Levels editing and permanently deleting this trip. Shown here since you're currently admin on this device — worth saving somewhere durable.</p>
+        ` : ''}
       `;
     }
     const editBtn = shareSection.querySelector('[data-copy-role="edit"]');
@@ -10987,6 +11229,20 @@ function renderToolsMenu(){
         alert('Could not copy automatically. Here is your link:\n\n' + viewOnlyUrl);
       }
     };
+    const adminBtn = shareSection.querySelector('[data-copy-role="admin"]');
+    if(adminBtn){
+      adminBtn.onclick = async (e) => {
+        const btn = e.currentTarget;
+        const secret = getTripAdminSecret(trip.supabaseId) || '';
+        try{
+          await navigator.clipboard.writeText(secret);
+          btn.textContent = '✓ Copied!';
+          setTimeout(() => { btn.textContent = 'Copy Admin Passphrase'; }, 1500);
+        }catch(err){
+          alert('Could not copy automatically. Here is your admin passphrase:\n\n' + secret);
+        }
+      };
+    }
   } else {
     shareSection.innerHTML = '<p class="section-empty-note">Save this trip at least once to get a shareable link.</p>';
   }
@@ -11038,6 +11294,19 @@ function renderToolsMenu(){
   manageTripLabel.style.marginTop = '18px';
   manageTripLabel.textContent = 'Manage This Trip';
   body.appendChild(manageTripLabel);
+
+  if(!isReadOnlyView){
+  const isCurrentlyAdmin = !!getTripAdminSecret(trip.supabaseId);
+  const adminAccessBtn = document.createElement('button');
+  adminAccessBtn.type = 'button';
+  adminAccessBtn.className = 'print-packing-btn-secondary';
+  adminAccessBtn.textContent = isCurrentlyAdmin ? '🔑 Admin Access (unlocked)' : '🔑 Enter Admin Access';
+  adminAccessBtn.onclick = () => {
+    closeToolsMenu();
+    openAdminAccessModal(trip);
+  };
+  body.appendChild(adminAccessBtn);
+  }
 
   const manageTripBtnRow = document.createElement('div');
   manageTripBtnRow.className = 'tools-menu-btn-row';
@@ -11139,6 +11408,35 @@ function renderToolsMenu(){
     removeTrip(trip.id);
   };
   body.appendChild(removeBtn);
+
+  if(!isReadOnlyView && trip.supabaseId){
+  const deleteTripBtn = document.createElement('button');
+  deleteTripBtn.type = 'button';
+  deleteTripBtn.className = 'tools-menu-danger-btn';
+  deleteTripBtn.textContent = `⚠️ Delete "${trip.title || 'this trip'}" permanently`;
+  deleteTripBtn.title = 'Unlike "Remove from this device," this really deletes it for everyone - requires admin access.';
+  deleteTripBtn.onclick = () => {
+    closeToolsMenu();
+    openAdminGatedAction({
+      actionLabel: `permanently delete "${trip.title || 'this trip'}" for everyone`,
+      rememberedSecret: getTripAdminSecret(trip.supabaseId),
+      onConfirm: async (secret) => {
+        const ok = await deleteTripPermanently(trip, secret);
+        if(ok){
+          appData.trips = appData.trips.filter(t => t.id !== trip.id);
+          forgetTripAdminSecret(trip.supabaseId);
+          if(appData.activeTripId === trip.id && appData.trips.length){
+            appData.activeTripId = appData.trips[0].id;
+            activeDayId = appData.trips[0].days[0].id;
+          }
+          render();
+        }
+        return ok;
+      }
+    });
+  };
+  body.appendChild(deleteTripBtn);
+  }
 
   if(!isReadOnlyView){
   const templatesLabel = document.createElement('div');
