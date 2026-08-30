@@ -1343,7 +1343,10 @@
   body.read-only-view .stay-card-remove,
   body.read-only-view .crowd-remove-btn,
   body.read-only-view .traveler-chip button,
-  body.read-only-view .trip-notes-edit-row{
+  body.read-only-view .trip-notes-edit-row,
+  body.read-only-view .del-item,
+  body.read-only-view .catalog-toggle-btn,
+  body.read-only-view .download-backup-btn{
     display:none !important;
   }
   .read-only-banner{
@@ -4010,7 +4013,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.72';
+const APP_VERSION = '3.73';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -10721,29 +10724,46 @@ function renderToolsMenu(){
   if(trip.supabaseId){
     const shareUrl = `${window.location.origin}${window.location.pathname}?trip=${trip.supabaseId}`;
     const viewOnlyUrl = `${shareUrl}&view=1`;
-    shareSection.innerHTML = `
-      <div class="packing-category-title">Share this trip</div>
-      <div class="share-link-row">
-        <input type="text" readonly value="${escapeHtml(shareUrl)}" class="share-link-input" />
-        <button type="button" class="share-link-copy-btn" data-copy-role="edit">Copy Link</button>
-      </div>
-      <p class="share-link-note">Anyone with this link can view and edit this trip — no account needed.</p>
-      <div class="share-link-row">
-        <input type="text" readonly value="${escapeHtml(viewOnlyUrl)}" class="share-link-input" />
-        <button type="button" class="share-link-copy-btn" data-copy-role="view">Copy View-only Link</button>
-      </div>
-      <p class="share-link-note">This link can look, but can't touch — for anyone you'd rather not risk accidental edits from. Not real security: someone determined and technically inclined could still get around it, so keep using the regular link for people you trust to edit.</p>
-    `;
-    shareSection.querySelector('[data-copy-role="edit"]').onclick = async (e) => {
-      const btn = e.currentTarget;
-      try{
-        await navigator.clipboard.writeText(shareUrl);
-        btn.textContent = '✓ Copied!';
-        setTimeout(() => { btn.textContent = 'Copy Link'; }, 1500);
-      }catch(err){
-        alert('Could not copy automatically. Here is your link:\n\n' + shareUrl);
-      }
-    };
+    if(isReadOnlyView){
+      // Someone already viewing read-only shouldn't be handed the full edit link from
+      // inside that same read-only session - only the view-only link stays offerable,
+      // so read-only access can be forwarded further without ever exposing edit access.
+      shareSection.innerHTML = `
+        <div class="packing-category-title">Share this trip</div>
+        <div class="share-link-row">
+          <input type="text" readonly value="${escapeHtml(viewOnlyUrl)}" class="share-link-input" />
+          <button type="button" class="share-link-copy-btn" data-copy-role="view">Copy View-only Link</button>
+        </div>
+        <p class="share-link-note">You're viewing read-only, so only the view-only link is available here.</p>
+      `;
+    } else {
+      shareSection.innerHTML = `
+        <div class="packing-category-title">Share this trip</div>
+        <div class="share-link-row">
+          <input type="text" readonly value="${escapeHtml(shareUrl)}" class="share-link-input" />
+          <button type="button" class="share-link-copy-btn" data-copy-role="edit">Copy Link</button>
+        </div>
+        <p class="share-link-note">Anyone with this link can view and edit this trip — no account needed.</p>
+        <div class="share-link-row">
+          <input type="text" readonly value="${escapeHtml(viewOnlyUrl)}" class="share-link-input" />
+          <button type="button" class="share-link-copy-btn" data-copy-role="view">Copy View-only Link</button>
+        </div>
+        <p class="share-link-note">This link can look, but can't touch — for anyone you'd rather not risk accidental edits from. Not real security: someone determined and technically inclined could still get around it, so keep using the regular link for people you trust to edit.</p>
+      `;
+    }
+    const editBtn = shareSection.querySelector('[data-copy-role="edit"]');
+    if(editBtn){
+      editBtn.onclick = async (e) => {
+        const btn = e.currentTarget;
+        try{
+          await navigator.clipboard.writeText(shareUrl);
+          btn.textContent = '✓ Copied!';
+          setTimeout(() => { btn.textContent = 'Copy Link'; }, 1500);
+        }catch(err){
+          alert('Could not copy automatically. Here is your link:\n\n' + shareUrl);
+        }
+      };
+    }
     shareSection.querySelector('[data-copy-role="view"]').onclick = async (e) => {
       const btn = e.currentTarget;
       try{
@@ -10812,7 +10832,7 @@ function renderToolsMenu(){
 
   const downloadBtn = document.createElement('button');
   downloadBtn.type = 'button';
-  downloadBtn.className = 'print-packing-btn-secondary';
+  downloadBtn.className = 'print-packing-btn-secondary download-backup-btn';
   downloadBtn.textContent = '💾 Download Backup';
   downloadBtn.title = 'Syncs first, then downloads a full backup file of every trip';
   downloadBtn.onclick = async () => {
