@@ -4013,7 +4013,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.73';
+const APP_VERSION = '3.74';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -10803,7 +10803,7 @@ function renderToolsMenu(){
     closeToolsMenu();
     openCrowdLevelsManager(trip);
   };
-  body.appendChild(crowdBtn);
+  if(!isReadOnlyView) body.appendChild(crowdBtn);
 
   const refreshHoursBtn = document.createElement('button');
   refreshHoursBtn.type = 'button';
@@ -10865,6 +10865,7 @@ function renderToolsMenu(){
   };
   manageTripBtnRow.appendChild(downloadBtn);
 
+  if(!isReadOnlyView){
   const duplicateBtn = document.createElement('button');
   duplicateBtn.type = 'button';
   duplicateBtn.className = 'print-packing-btn-secondary';
@@ -10909,6 +10910,7 @@ function renderToolsMenu(){
     renderToolsMenu();
   };
   body.appendChild(archiveBtn);
+  }
 
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
@@ -10925,6 +10927,7 @@ function renderToolsMenu(){
   };
   body.appendChild(removeBtn);
 
+  if(!isReadOnlyView){
   const templatesLabel = document.createElement('div');
   templatesLabel.className = 'packing-category-title';
   templatesLabel.style.marginTop = '18px';
@@ -10940,7 +10943,9 @@ function renderToolsMenu(){
     openTemplateListModal();
   };
   body.appendChild(manageTemplatesBtn);
+  }
 
+  if(!isReadOnlyView){
   const manageAllLabel = document.createElement('div');
   manageAllLabel.className = 'packing-category-title';
   manageAllLabel.style.marginTop = '18px';
@@ -10952,6 +10957,7 @@ function renderToolsMenu(){
   loadLabel.className = 'print-packing-btn-secondary tools-menu-load-label';
   loadLabel.textContent = '📂 Load Trips from a Backup File';
   body.appendChild(loadLabel);
+  }
 
   const viewArchivedBtn = document.createElement('button');
   viewArchivedBtn.type = 'button';
@@ -10962,7 +10968,7 @@ function renderToolsMenu(){
     closeToolsMenu();
     openTripSwitchModal();
   };
-  body.appendChild(viewArchivedBtn);
+  if(!isReadOnlyView) body.appendChild(viewArchivedBtn);
 }
 
 function openSettings(){
