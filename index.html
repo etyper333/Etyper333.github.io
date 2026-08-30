@@ -4074,7 +4074,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.86';
+const APP_VERSION = '3.87';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -9341,6 +9341,29 @@ async function removeDay(dayId){
   render();
 }
 
+// First-available-column packing (the standard interval-scheduling approach, same
+// idea a calendar day-view uses): walk entries in start-time order, and for each one
+// reuse the first column whose last-placed item has already ended by this item's
+// start time. Only opens a new column when nothing existing is free yet. Returns both
+// the per-entry column assignment and the true peak column count (the most columns
+// ever needed at any single moment) - which is what "+N more" should actually be
+// based on, not the cluster's total item count.
+function assignTimelineColumns(cluster){
+  const sorted = [...cluster].sort((a,b) => a.startMin - b.startMin || (a.item.name||'').localeCompare(b.item.name||''));
+  const columnEndTimes = [];
+  const assigned = sorted.map(entry => {
+    let col = columnEndTimes.findIndex(endMin => endMin <= entry.startMin);
+    if(col === -1){
+      col = columnEndTimes.length;
+      columnEndTimes.push(entry.endMin);
+    } else {
+      columnEndTimes[col] = entry.endMin;
+    }
+    return { entry, column: col };
+  });
+  return { assigned, peakColumns: columnEndTimes.length };
+}
+
 function clusterTimelineItems(entries){
   const sorted = [...entries].sort((a,b) => a.startMin - b.startMin || (a.item.name||'').localeCompare(b.item.name||''));
   const clusters = [];
@@ -9465,9 +9488,13 @@ function renderDayTimelineGrid(panel, day, trip){
   clusters.forEach(cluster => {
     const clusterKey = day.id + ':' + cluster[0].startMin;
     const isExpanded = expandedTimelineClusters.has(clusterKey);
-    const visibleCount = (cluster.length > 2 && !isExpanded) ? 2 : cluster.length;
-    const columnCount = visibleCount + ((cluster.length > 2 && !isExpanded) ? 1 : 0);
-    cluster.slice(0, visibleCount).forEach((entry, i) => {
+    const { assigned, peakColumns } = assignTimelineColumns(cluster);
+    const needsCollapse = peakColumns > 2 && !isExpanded;
+    const visibleColumns = needsCollapse ? 2 : peakColumns;
+    const columnCount = visibleColumns + (needsCollapse ? 1 : 0);
+    const visibleAssigned = assigned.filter(a => a.column < visibleColumns);
+    const hiddenCount = assigned.length - visibleAssigned.length;
+    visibleAssigned.forEach(({ entry, column: i }) => {
       const block = document.createElement('div');
       const status = entry.item.status === 'tentative' ? 'tentative' : 'confirmed';
       const isLandmark = entry.endMin === entry.startMin;
@@ -9479,7 +9506,7 @@ function renderDayTimelineGrid(panel, day, trip){
       block.style.left = (i / columnCount * 100) + '%';
       block.style.width = (100 / columnCount) + '%';
 
-      const isAlone = cluster.length === 1;
+      const isAlone = peakColumns === 1;
       const durationMinutes = entry.endMin - entry.startMin;
       const tier = !isAlone ? 'tight' : (durationMinutes >= 120 ? 'spacious' : 'short');
       const showExtras = height >= 34;
@@ -9536,20 +9563,20 @@ function renderDayTimelineGrid(panel, day, trip){
       block.onclick = () => openItemEditModal(day, entry.item);
       container.appendChild(block);
     });
-    if(cluster.length > 2 && !isExpanded){
+    if(needsCollapse){
       const moreBtn = document.createElement('div');
       moreBtn.className = 'timeline-more-btn';
       const top = (cluster[0].startMin - windowStart) / 60 * PIXELS_PER_HOUR;
       moreBtn.style.top = top + 'px';
       moreBtn.style.left = (2 / columnCount * 100) + '%';
       moreBtn.style.width = (100 / columnCount) + '%';
-      moreBtn.textContent = `+${cluster.length - 2} more`;
+      moreBtn.textContent = `+${hiddenCount} more`;
       moreBtn.onclick = () => {
         expandedTimelineClusters.add(clusterKey);
         render();
       };
       container.appendChild(moreBtn);
-    } else if(cluster.length > 2 && isExpanded){
+    } else if(peakColumns > 2 && isExpanded){
       const lessBtn = document.createElement('div');
       lessBtn.className = 'timeline-less-btn';
       const top = (cluster[0].startMin - windowStart) / 60 * PIXELS_PER_HOUR;
