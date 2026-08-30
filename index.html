@@ -1327,6 +1327,62 @@
     display:none;
   }
   .day-panel.active{display:block;}
+  .day-print-title{display:none;}
+
+  /* Read-only view mode (?view=1 link). Best-effort hiding of the most common
+     edit entry points for a clean read experience - the real safety net is the
+     Supabase write guard, not this list, so this doesn't need to be exhaustive. */
+  body.read-only-view .add-item-btn,
+  body.read-only-view .section-add-btn,
+  body.read-only-view .item-actions,
+  body.read-only-view .add-form,
+  body.read-only-view .day-actions-pill,
+  body.read-only-view .trip-switch-new-btn,
+  body.read-only-view .who-toggle-link,
+  body.read-only-view .add-stay-btn,
+  body.read-only-view .stay-card-remove,
+  body.read-only-view .crowd-remove-btn,
+  body.read-only-view .traveler-chip button,
+  body.read-only-view .trip-notes-edit-row{
+    display:none !important;
+  }
+  .read-only-banner{
+    display:none;
+  }
+  body.read-only-view .read-only-banner{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:var(--accent-glow);
+    border:1px solid var(--coral);
+    border-radius:var(--radius-md);
+    color:var(--ink);
+    font-size:12.5px;
+    font-weight:600;
+    padding:8px 12px;
+    margin:10px 0;
+  }
+  .read-only-toast{
+    position:fixed;
+    left:50%;
+    bottom:24px;
+    transform:translate(-50%, 12px);
+    background:var(--ink);
+    color:var(--cream);
+    font-size:13px;
+    font-weight:600;
+    padding:10px 16px;
+    border-radius:var(--radius-md);
+    box-shadow:0 4px 14px rgba(0,0,0,.25);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .2s ease, transform .2s ease;
+    z-index:999;
+  }
+  .read-only-toast.visible{
+    opacity:1;
+    transform:translate(-50%, 0);
+  }
 
   .park-select-row{
     display:flex;
@@ -3320,6 +3376,8 @@
     .empty-state,
     .dining-reservations-block,
     .hero-mark,
+    .add-item-btn,
+    .day-nav-row,
     #tripTitle[contenteditable]::after{
       display:none !important;
     }
@@ -3440,6 +3498,14 @@
     .trip-summary-trigger{display:none !important;}
     .trip-meta{display:none !important;}
     .print-only-fact{display:block !important;font-size:12px;color:#000;margin-bottom:3px;}
+    .day-print-title{
+      display:block !important;
+      font-family:'Baloo 2',sans-serif;
+      font-size:17px;
+      font-weight:700;
+      color:#000;
+      margin-bottom:8px;
+    }
     .trip-basics-fields .day-info-row,
     .stay-card .day-info-row,
     .print-hide-if-empty{display:none !important;}
@@ -3515,6 +3581,8 @@
     <span class="trip-title-chevron">▾</span>
   </button>
 </header>
+
+<div class="read-only-banner">👀 You're viewing this trip in read-only mode — nothing you do here will be saved.</div>
 
 <div class="trip-meta" id="tripMeta">
   <button type="button" id="tripSummaryTrigger" class="trip-summary-trigger">
@@ -3921,7 +3989,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.69';
+const APP_VERSION = '3.71';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -3929,6 +3997,56 @@ const APP_VERSION = '3.69';
 const SUPABASE_URL = 'https://tiinlcgakvobajeaitsr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_bns5qH6pn0P5aXAUdVCTYg__MijW9d3';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Read-only view mode (view=1 in a share link): this is a real safety net, not just
+// hidden buttons. Rather than hunting down every one of the ~35 write call sites
+// scattered across the app, this wraps the one real chokepoint - the Supabase client
+// itself - so insert/update/delete/upsert silently no-op no matter where they're
+// called from, including anything a future edit misses hiding in the UI. Reads
+// (.select) are completely untouched, so the trip still loads and displays normally.
+// Honest framing: this stops accidental edits from a casual visitor, not a determined
+// or technically inclined one - real enforcement needs server-side rules, tracked
+// separately as the genuine version of this feature (BL36/BL37).
+function makeReadOnlyChain(){
+  const result = { data: null, error: { message: 'This trip is view-only - changes are not saved.' } };
+  let proxy;
+  const handler = {
+    get(target, prop){
+      if(prop === 'then') return (resolve) => resolve(result);
+      if(prop === 'catch' || prop === 'finally') return () => proxy;
+      return () => proxy;
+    }
+  };
+  proxy = new Proxy(function(){}, handler);
+  return proxy;
+}
+function showReadOnlyNotice(){
+  let el = document.getElementById('readOnlyToast');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'readOnlyToast';
+    el.className = 'read-only-toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = "This trip is view-only, so that didn't save.";
+  el.classList.add('visible');
+  clearTimeout(showReadOnlyNotice._t);
+  showReadOnlyNotice._t = setTimeout(() => el.classList.remove('visible'), 2600);
+}
+function applyReadOnlyGuardIfNeeded(){
+  if(!isReadOnlyView) return;
+  const realFrom = supabaseClient.from.bind(supabaseClient);
+  supabaseClient.from = function(table){
+    const builder = realFrom(table);
+    ['insert', 'update', 'delete', 'upsert'].forEach(method => {
+      builder[method] = function(){
+        showReadOnlyNotice();
+        return makeReadOnlyChain();
+      };
+    });
+    return builder;
+  };
+}
 
 // Inserts a brand-new item into Supabase immediately, rather than waiting for the next
 // Templates live in their own standalone table, genuinely separate from trips/days/items -
@@ -7751,6 +7869,7 @@ let appData = {
 };
 appData.activeTripId = appData.trips[0].id;
 let activeDayId = appData.trips[0].days[0].id;
+let isReadOnlyView = false;
 let currentView = 'itinerary';
 let showArchivedTrips = false;
 let lastListsSubView = 'packing';
@@ -9259,6 +9378,11 @@ function renderDayPanels(){
     panel.dataset.dayId = day.id;
     const currentOrNext = getCurrentOrNextItem(trip, day);
 
+    const printTitle = document.createElement('div');
+    printTitle.className = 'day-print-title';
+    printTitle.textContent = getDayDisplayLabel(trip, dayIndex, day, true);
+    panel.appendChild(printTitle);
+
     const isFirst = dayIndex === 0;
     const isLast = dayIndex === trip.days.length - 1;
     const canRemove = trip.days.length > 1 && (isFirst || isLast);
@@ -10567,22 +10691,38 @@ function renderToolsMenu(){
   shareSection.className = 'tools-menu-section';
   if(trip.supabaseId){
     const shareUrl = `${window.location.origin}${window.location.pathname}?trip=${trip.supabaseId}`;
+    const viewOnlyUrl = `${shareUrl}&view=1`;
     shareSection.innerHTML = `
       <div class="packing-category-title">Share this trip</div>
       <div class="share-link-row">
         <input type="text" readonly value="${escapeHtml(shareUrl)}" class="share-link-input" />
-        <button type="button" class="share-link-copy-btn">Copy Link</button>
+        <button type="button" class="share-link-copy-btn" data-copy-role="edit">Copy Link</button>
       </div>
       <p class="share-link-note">Anyone with this link can view and edit this trip — no account needed.</p>
+      <div class="share-link-row">
+        <input type="text" readonly value="${escapeHtml(viewOnlyUrl)}" class="share-link-input" />
+        <button type="button" class="share-link-copy-btn" data-copy-role="view">Copy View-only Link</button>
+      </div>
+      <p class="share-link-note">This link can look, but can't touch — for anyone you'd rather not risk accidental edits from. Not real security: someone determined and technically inclined could still get around it, so keep using the regular link for people you trust to edit.</p>
     `;
-    const copyBtn = shareSection.querySelector('.share-link-copy-btn');
-    copyBtn.onclick = async () => {
+    shareSection.querySelector('[data-copy-role="edit"]').onclick = async (e) => {
+      const btn = e.currentTarget;
       try{
         await navigator.clipboard.writeText(shareUrl);
-        copyBtn.textContent = '✓ Copied!';
-        setTimeout(() => { copyBtn.textContent = 'Copy Link'; }, 1500);
+        btn.textContent = '✓ Copied!';
+        setTimeout(() => { btn.textContent = 'Copy Link'; }, 1500);
       }catch(err){
         alert('Could not copy automatically. Here is your link:\n\n' + shareUrl);
+      }
+    };
+    shareSection.querySelector('[data-copy-role="view"]').onclick = async (e) => {
+      const btn = e.currentTarget;
+      try{
+        await navigator.clipboard.writeText(viewOnlyUrl);
+        btn.textContent = '✓ Copied!';
+        setTimeout(() => { btn.textContent = 'Copy View-only Link'; }, 1500);
+      }catch(err){
+        alert('Could not copy automatically. Here is your link:\n\n' + viewOnlyUrl);
       }
     };
   } else {
@@ -11692,6 +11832,9 @@ async function migrateRopeDropToNotes(){
 }
 
 (async function initApp(){
+  isReadOnlyView = new URLSearchParams(window.location.search).get('view') === '1';
+  applyReadOnlyGuardIfNeeded();
+  if(isReadOnlyView) document.body.classList.add('read-only-view');
   applyStartupTheme();
   applyStartupDefaultView();
   const loadedFromLink = await loadSharedTripFromUrlIfPresent();
