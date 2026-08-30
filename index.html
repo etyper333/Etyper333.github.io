@@ -1019,7 +1019,6 @@
     column-gap:8px;
     row-gap:0;
     overflow-x:auto;
-    scroll-snap-type:x proximity;
     -webkit-overflow-scrolling:touch;
     background:var(--paper);
     border:1px solid var(--line);
@@ -1057,7 +1056,6 @@
     font-weight:700;
     color:var(--ink);
     white-space:nowrap;
-    scroll-snap-align:start;
   }
   .trip-grid-daylabel-chevron{
     color:var(--slate);
@@ -3070,6 +3068,11 @@
     align-items:center;
     padding:10px;
   }
+  @media (min-width:900px){
+    #tripGridOverlay .master-editor{
+      max-width:min(92vw, 1100px);
+    }
+  }
   .wizard-editor{
     display:flex;
     flex-direction:column;
@@ -3866,7 +3869,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.63';
+const APP_VERSION = '3.64';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
