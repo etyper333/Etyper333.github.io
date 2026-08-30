@@ -4067,7 +4067,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.79';
+const APP_VERSION = '3.80';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5655,15 +5655,26 @@ function computeShiftedEndTime(originalTime, originalEndTime, newTime){
 }
 
 // Main Plan only ever carries quietly if the destination section is open - it never
-// replaces an existing Main Plan, and never prompts. excludeItemId keeps a same-day
-// move from seeing the item's own current position as "already taken."
-function computeMainPlanCarry(destDay, destSection, wasMainPlan, excludeItemId){
+// Main Plan only ever carries quietly if the destination section is open. If it
+// would replace an existing Main Plan, the person is asked first - matching the
+// same confirm/replace pattern already used in the single-item edit form - rather
+// than either silently dropping the new item's flag or silently stealing it.
+// excludeItemId keeps a same-day move from seeing the item's own current position
+// as "already taken."
+function computeMainPlanCarry(destDay, destSection, wasMainPlan, excludeItemId, itemLabel, trip){
   if(!wasMainPlan) return false;
   const existing = destDay.items.find(i => i.id !== excludeItemId && i.isMainPlan && getItemSection(i) === destSection);
-  return !existing;
+  if(!existing) return true;
+  const sectionLabel = (SECTIONS.find(s=>s.key===destSection)||{}).label || destSection;
+  const shouldReplace = confirm(`"${itemLabel || 'This item'}" was marked Main Plan. This replaces "${existing.name}" as the main plan for the ${sectionLabel} — continue?`);
+  if(shouldReplace){
+    existing.isMainPlan = false;
+    if(trip) syncSingleItemUpdate(existing, trip);
+  }
+  return shouldReplace;
 }
 
-function buildCopiedItem(sourceItem, destDay, newTime){
+function buildCopiedItem(sourceItem, destDay, newTime, trip){
   const newEndTime = computeShiftedEndTime(sourceItem.time, sourceItem.endTime, newTime);
   const destSection = newTime ? getItemSection({ time: newTime }) : getItemSection(sourceItem);
   return {
@@ -5673,7 +5684,7 @@ function buildCopiedItem(sourceItem, destDay, newTime){
     section: newTime ? '' : (sourceItem.section || ''),
     type: sourceItem.type || '',
     name: sourceItem.name || '',
-    isMainPlan: computeMainPlanCarry(destDay, destSection, sourceItem.isMainPlan, null),
+    isMainPlan: computeMainPlanCarry(destDay, destSection, sourceItem.isMainPlan, null, sourceItem.name, trip),
     status: sourceItem.status || 'confirmed',
     confirmationNumber: sourceItem.confirmationNumber || '',
     mealService: sourceItem.mealService || '',
@@ -5684,7 +5695,7 @@ function buildCopiedItem(sourceItem, destDay, newTime){
 }
 
 async function executeCopyItem(sourceItem, destDay, newTime, trip){
-  const newItem = buildCopiedItem(sourceItem, destDay, newTime);
+  const newItem = buildCopiedItem(sourceItem, destDay, newTime, trip);
   destDay.items.push(newItem);
   render();
   await syncNewItemToSupabase(newItem, destDay, trip);
@@ -5695,7 +5706,7 @@ async function executeCopyDay(sourceDay, destDay, trip, selectedItems){
   const isFullDay = !selectedItems;
   const newItems = [];
   itemsToCopy.forEach(sourceItem => {
-    const newItem = buildCopiedItem(sourceItem, destDay, sourceItem.time);
+    const newItem = buildCopiedItem(sourceItem, destDay, sourceItem.time, trip);
     destDay.items.push(newItem);
     newItems.push(newItem);
   });
@@ -5714,11 +5725,11 @@ async function executeCopyDay(sourceDay, destDay, trip, selectedItems){
   }
 }
 
-function applyItemRelocation(item, sourceDay, destDay, newTime){
+function applyItemRelocation(item, sourceDay, destDay, newTime, trip){
   const sameDay = sourceDay.id === destDay.id;
   const newEndTime = computeShiftedEndTime(item.time, item.endTime, newTime);
   const destSection = newTime ? getItemSection({ time: newTime }) : getItemSection(item);
-  const willBeMainPlan = computeMainPlanCarry(destDay, destSection, item.isMainPlan, item.id);
+  const willBeMainPlan = computeMainPlanCarry(destDay, destSection, item.isMainPlan, item.id, item.name, trip);
 
   if(!sameDay){
     sourceDay.items = sourceDay.items.filter(i => i.id !== item.id);
@@ -5733,7 +5744,7 @@ function applyItemRelocation(item, sourceDay, destDay, newTime){
 }
 
 async function executeMoveItem(item, sourceDay, destDay, newTime, trip){
-  applyItemRelocation(item, sourceDay, destDay, newTime);
+  applyItemRelocation(item, sourceDay, destDay, newTime, trip);
   render();
   await syncItemMoveToSupabase(item, sourceDay, destDay, trip);
 }
@@ -5742,7 +5753,7 @@ async function executeMoveDay(sourceDay, destDay, trip, selectedItems){
   const itemsToMove = (selectedItems || sourceDay.items).slice();
   const isFullDay = !selectedItems;
   itemsToMove.forEach(item => {
-    applyItemRelocation(item, sourceDay, destDay, item.time);
+    applyItemRelocation(item, sourceDay, destDay, item.time, trip);
   });
 
   const hadNotesToMove = isFullDay && !!(sourceDay.notes && sourceDay.notes.trim());
@@ -6520,7 +6531,7 @@ document.getElementById('applyTemplateSubmitBtn').onclick = async () => {
       travelerIds: []
     }, computed, {
       section: destSection,
-      isMainPlan: computeMainPlanCarry(day, destSection, computed.isMainPlan, null)
+      isMainPlan: computeMainPlanCarry(day, destSection, computed.isMainPlan, null, computed.name, trip)
     });
   });
   newItems.forEach(item => day.items.push(item));
@@ -7602,11 +7613,13 @@ function getMainPlanForSection(day, sectionKey){
 }
 
 function getRelevantParksForDay(day){
+  // Deliberately independent of Main Plan - crowd level should surface for any
+  // park that's actually on the schedule that day, not just whichever item
+  // happens to be flagged as the section's Main Plan.
   const parks = [];
-  SECTIONS.forEach(sec => {
-    const mainPlanItem = getMainPlanForSection(day, sec.key);
-    if(mainPlanItem && CROWD_LEVEL_PARKS.includes(mainPlanItem.name) && !parks.includes(mainPlanItem.name)){
-      parks.push(mainPlanItem.name);
+  day.items.forEach(item => {
+    if(CROWD_LEVEL_PARKS.includes(item.name) && !parks.includes(item.name)){
+      parks.push(item.name);
     }
   });
   return parks;
