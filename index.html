@@ -3309,6 +3309,7 @@
   .master-editor-close-sticky{
     position:sticky;
     bottom:0;
+    z-index:5;
     border-top:1px solid rgba(255,255,255,.25);
     box-shadow:0 -2px 8px rgba(27,42,46,.16), 0 -1px 3px rgba(27,42,46,.10);
   }
@@ -3438,6 +3439,7 @@
 
     #dayPanels{display:none !important;}
     body.print-show-days #dayPanels{display:block !important;}
+    body.print-need-days-break #dayPanels{page-break-before:always;}
     body:not(.print-show-packing) #packingPanelWrap{display:none !important;}
     body:not(.print-show-grocery) #groceryPanelWrap{display:none !important;}
     .itinerary-sidebar{display:none !important;}
@@ -4049,7 +4051,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.76';
+const APP_VERSION = '3.77';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -11852,6 +11854,13 @@ function printSelected({ includeBasics, includeCrowd, includeOverview, includeDa
   document.body.classList.toggle('print-need-packing-break', anyBeforePacking && includePacking);
   document.body.classList.toggle('print-need-grocery-break', anyBeforeGrocery && includeGrocery);
 
+  // Trip Details content (Basics/Crowd/Overview) sits earlier in the document than
+  // the day panels - without a break here they can end up sharing a page, which is
+  // what caused Itinerary Overview's landscape-widened grid to visually collide with
+  // the day pages' portrait content when both were printed together.
+  const anyBeforeDays = includeBasics || includeCrowd || includeOverview;
+  document.body.classList.toggle('print-need-days-break', anyBeforeDays && includeDays);
+
   // Mark unselected day panels so print CSS can hide just those, while the
   // on-screen view (and its own active-day state) stays completely untouched.
   const excludedDayEls = [];
@@ -11885,13 +11894,21 @@ function printSelected({ includeBasics, includeCrowd, includeOverview, includeDa
     document.head.appendChild(landscapeStyleEl);
   }
 
-  window.print();
+  if(landscapeStyleEl){
+    // Give the browser a full layout/paint cycle to recompute against the new
+    // @page size before opening the print dialog - printing immediately after
+    // injecting the style risked the grid's auto-fit columns resolving against
+    // stale (pre-landscape) width, which is what produced a near-blank page.
+    requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+  } else {
+    window.print();
+  }
 
   const cleanup = () => {
     document.body.classList.remove(
       'print-show-basics', 'print-show-crowd', 'print-show-overview', 'print-show-days',
       'print-show-packing', 'print-show-grocery',
-      'print-need-packing-break', 'print-need-grocery-break'
+      'print-need-packing-break', 'print-need-grocery-break', 'print-need-days-break'
     );
     excludedDayEls.forEach(el => el.classList.remove('print-day-excluded'));
     document.body.classList.toggle('compact-items', wasCompact);
