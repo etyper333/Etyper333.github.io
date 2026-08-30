@@ -1013,67 +1013,112 @@
     accent-color:var(--coral);
     flex-shrink:0;
   }
-  .overview-day-card{
+  .trip-grid-wrap{
+    display:flex;
+    align-items:stretch;
+  }
+  .trip-grid-timecol{
+    flex:0 0 64px;
+    padding-top:34px;
+  }
+  .trip-grid-time-label{
+    height:104px;
+    display:flex;
+    align-items:center;
+    font-size:11px;
+    font-weight:600;
+    color:var(--slate);
+    border-top:1px solid var(--line);
+  }
+  .trip-grid-timecol .trip-grid-time-label:first-child{
+    border-top:none;
+  }
+  .trip-grid-scroller{
+    display:flex;
+    overflow-x:auto;
+    gap:8px;
+    padding:0 4px 4px 0;
+    scroll-snap-type:x proximity;
+    -webkit-overflow-scrolling:touch;
+  }
+  .trip-grid-day{
+    flex:0 0 128px;
     display:block;
-    width:100%;
     text-align:left;
-    background:var(--paper);
-    border:1.5px solid var(--line);
-    border-radius:var(--radius-lg);
-    padding:12px 14px;
-    margin-bottom:10px;
+    background:none;
+    border:none;
+    padding:0;
     cursor:pointer;
     font-family:'Inter',sans-serif;
+    scroll-snap-align:start;
   }
-  .overview-day-header{
-    display:flex;
-    align-items:baseline;
-    gap:8px;
-    margin-bottom:6px;
-    flex-wrap:wrap;
-  }
-  .overview-day-date{
+  .trip-grid-daylabel{
     font-family:'Baloo 2',sans-serif;
-    font-size:15px;
+    font-size:13px;
     font-weight:700;
     color:var(--ink);
-  }
-  .overview-day-hotel{
-    font-size:12.5px;
-    color:var(--slate);
+    height:26px;
+    display:flex;
+    align-items:center;
+    gap:3px;
+    white-space:nowrap;
     margin-bottom:8px;
   }
-  .overview-park-row{
-    display:flex;
-    flex-wrap:wrap;
-    gap:6px;
-    margin-bottom:6px;
-  }
-  .overview-park-slot{
-    font-size:11.5px;
-    font-weight:600;
-    padding:4px 9px;
-    border-radius:var(--radius-lg);
-    background:var(--cream);
-    color:var(--ink);
-    border:1px solid var(--line);
-  }
-  .overview-park-slot.unset{
+  .trip-grid-daylabel-chevron{
     color:var(--slate);
     font-weight:500;
-    font-style:italic;
   }
-  .overview-park-slot b{
-    font-weight:700;
-    opacity:.65;
-    margin-right:4px;
-  }
-  .overview-dining-row{
-    font-size:12px;
-    color:var(--accent-positive-text);
+  .trip-grid-slot{
+    min-height:104px;
+    padding:6px 0;
+    border-top:1px solid var(--line);
     display:flex;
-    flex-wrap:wrap;
-    gap:4px 10px;
+    flex-direction:column;
+    gap:5px;
+  }
+  .trip-grid-slot:first-of-type{
+    border-top:none;
+  }
+  .trip-grid-empty{
+    font-size:12px;
+    color:var(--slate);
+  }
+  .trip-grid-chip{
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:var(--radius-md);
+    padding:5px 7px;
+    box-shadow:0 1px 3px rgba(27,42,46,.12), 0 1px 2px rgba(27,42,46,.08);
+  }
+  .trip-grid-chip.dining{
+    border-color:var(--accent-positive-text);
+    background:color-mix(in srgb, var(--accent-positive-text) 14%, var(--paper));
+  }
+  .trip-grid-chip-time{
+    font-size:10.5px;
+    color:var(--slate);
+  }
+  .trip-grid-chip-name{
+    font-size:12px;
+    color:var(--ink);
+    line-height:1.3;
+    margin-top:2px;
+  }
+  .trip-grid-legend{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:11.5px;
+    color:var(--slate);
+    margin-top:10px;
+  }
+  .trip-grid-legend-swatch{
+    width:10px;
+    height:10px;
+    border-radius:3px;
+    border:1px solid var(--accent-positive-text);
+    background:color-mix(in srgb, var(--accent-positive-text) 14%, var(--paper));
+    display:inline-block;
   }
   .view-tabs-wrap{
     max-width:640px;
@@ -3746,6 +3791,14 @@
   </div>
 </div>
 
+<div class="master-editor-overlay" id="tripGridOverlay">
+  <div class="master-editor">
+    <h2>Itinerary Overview</h2>
+    <div id="tripGridBody"></div>
+    <button class="master-editor-close master-editor-close-sticky" id="tripGridCloseBtn">Done</button>
+  </div>
+</div>
+
 <div class="master-editor-overlay" id="itemEditOverlay">
   <div class="master-editor">
     <h2 id="itemFormTitle">Edit Item</h2>
@@ -3817,7 +3870,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.61';
+const APP_VERSION = '3.62';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -6228,6 +6281,7 @@ document.getElementById('applyTemplateSubmitBtn').onclick = async () => {
 
 document.getElementById('parkHoursCloseBtn').onclick = closeParkHoursModal;
 document.getElementById('dayJumpCloseBtn').onclick = closeDayJumpModal;
+document.getElementById('tripGridCloseBtn').onclick = closeTripGridModal;
 document.getElementById('parkHoursPrevBtn').onclick = () => {
   parkHoursCurrentDate.setDate(parkHoursCurrentDate.getDate() - 1);
   renderParkHoursModal();
@@ -8661,60 +8715,83 @@ function renderItinerarySidebar(trip){
   renderAtAGlanceBlock(trip, wrap, trip.days[dayIndex], dayIndex);
 }
 
-function renderOverview(trip, wrap){
+// A day/section pair qualifies for the holistic Itinerary Overview grid if it's
+// dining or an activity (regardless of whether a duration is set - those two types
+// carry planning weight on their own), or if any other type has an explicit or
+// default-inferred duration of an hour or more. Deliberately excludes short
+// logistics/travel/rest items so the grid stays scannable rather than complete.
+function itemQualifiesForGrid(item){
+  if(!itemMatchesFilter(item)) return false;
+  if(item.type === 'dining' || item.type === 'activity') return true;
+  return getEffectiveDurationMinutes(item) >= 60;
+}
+
+function renderTripGrid(trip, wrap, onDaySelect){
   wrap.innerHTML = '';
 
+  const gridWrap = document.createElement('div');
+  gridWrap.className = 'trip-grid-wrap';
+
+  const timeCol = document.createElement('div');
+  timeCol.className = 'trip-grid-timecol';
+  SECTIONS.forEach(sec => {
+    const label = document.createElement('div');
+    label.className = 'trip-grid-time-label';
+    label.textContent = sec.label;
+    timeCol.appendChild(label);
+  });
+  gridWrap.appendChild(timeCol);
+
+  const scroller = document.createElement('div');
+  scroller.className = 'trip-grid-scroller';
+
   trip.days.forEach((day, dayIndex) => {
-    const card = document.createElement('button');
-    card.type = 'button';
-    card.className = 'overview-day-card';
-    card.onclick = () => {
+    const dayCol = document.createElement('button');
+    dayCol.type = 'button';
+    dayCol.className = 'trip-grid-day';
+    dayCol.onclick = () => {
       activeDayId = day.id;
-      expandedTripDetails.delete(trip.id);
-      render();
+      if(onDaySelect) onDaySelect();
+      else { expandedTripDetails.delete(trip.id); render(); }
     };
 
-    const header = document.createElement('div');
-    header.className = 'overview-day-header';
-    header.innerHTML = `
-      <span class="overview-day-date">${escapeHtml(getDayDisplayLabel(trip, dayIndex, day, true))}</span>
-    `;
-    card.appendChild(header);
+    const dayLabel = document.createElement('div');
+    dayLabel.className = 'trip-grid-daylabel';
+    dayLabel.innerHTML = `${escapeHtml(getDayDisplayLabel(trip, dayIndex, day, false))} <span class="trip-grid-daylabel-chevron">›</span>`;
+    dayCol.appendChild(dayLabel);
 
-    const stay = getStayForDayIndex(trip, dayIndex);
-    if(stay){
-      const hotelLine = document.createElement('div');
-      hotelLine.className = 'overview-day-hotel';
-      hotelLine.textContent = '🏨 ' + stay.hotel;
-      card.appendChild(hotelLine);
-    }
-
-    const parkRow = document.createElement('div');
-    parkRow.className = 'overview-park-row';
     SECTIONS.forEach(sec => {
-      const mainPlanItem = getMainPlanForSection(day, sec.key);
-      const park = mainPlanItem ? getItemDisplayName(mainPlanItem) : '';
-      const slot = document.createElement('span');
-      slot.className = 'overview-park-slot' + (park ? '' : ' unset');
-      slot.innerHTML = `<b>${sec.label}</b>${park ? escapeHtml(park) : '—'}`;
-      parkRow.appendChild(slot);
+      const slot = document.createElement('div');
+      slot.className = 'trip-grid-slot';
+      const items = day.items
+        .filter(i => itemQualifiesForGrid(i) && getItemSection(i) === sec.key)
+        .sort((a,b) => (a.time||'').localeCompare(b.time||''));
+      if(items.length === 0){
+        slot.innerHTML = '<span class="trip-grid-empty">—</span>';
+      } else {
+        items.forEach(item => {
+          const chip = document.createElement('div');
+          chip.className = 'trip-grid-chip' + (item.type === 'dining' ? ' dining' : '');
+          const tentative = item.status === 'tentative' ? '✏️ ' : '';
+          chip.innerHTML = `
+            <div class="trip-grid-chip-time">${item.time ? formatTime(item.time) : ''}</div>
+            <div class="trip-grid-chip-name">${tentative}${escapeHtml(getItemDisplayName(item))}</div>
+          `;
+          slot.appendChild(chip);
+        });
+      }
+      dayCol.appendChild(slot);
     });
-    card.appendChild(parkRow);
 
-    const diningItems = day.items.filter(i => i.type === 'dining' && i.confirmationNumber && itemMatchesFilter(i));
-    if(diningItems.length){
-      const diningRow = document.createElement('div');
-      diningRow.className = 'overview-dining-row';
-      diningItems.sort((a,b) => (a.time||'').localeCompare(b.time||'')).forEach(i => {
-        const span = document.createElement('span');
-        span.textContent = `🍽️ ${i.time ? formatTime(i.time) + ' ' : ''}${i.name}`;
-        diningRow.appendChild(span);
-      });
-      card.appendChild(diningRow);
-    }
-
-    wrap.appendChild(card);
+    scroller.appendChild(dayCol);
   });
+  gridWrap.appendChild(scroller);
+  wrap.appendChild(gridWrap);
+
+  const legend = document.createElement('div');
+  legend.className = 'trip-grid-legend';
+  legend.innerHTML = '<span class="trip-grid-legend-swatch"></span> Dining';
+  wrap.appendChild(legend);
 }
 
 function renderMonorail(){
@@ -8759,6 +8836,15 @@ function renderMonorail(){
   };
   rail.appendChild(nextBtn);
 
+  const gridBtn = document.createElement('button');
+  gridBtn.type = 'button';
+  gridBtn.className = 'day-nav-arrow';
+  gridBtn.textContent = '🗓️';
+  gridBtn.title = 'Trip overview';
+  gridBtn.setAttribute('aria-label', 'Trip overview');
+  gridBtn.onclick = openTripGridModal;
+  rail.appendChild(gridBtn);
+
   if(currentIndex !== -1){
     const actionsBtn = document.createElement('button');
     actionsBtn.type = 'button';
@@ -8770,6 +8856,15 @@ function renderMonorail(){
     };
     rail.appendChild(actionsBtn);
   }
+}
+
+function openTripGridModal(){
+  const trip = getActiveTrip();
+  renderTripGrid(trip, document.getElementById('tripGridBody'), closeTripGridModal);
+  document.getElementById('tripGridOverlay').classList.add('active');
+}
+function closeTripGridModal(){
+  document.getElementById('tripGridOverlay').classList.remove('active');
 }
 
 function openDayJumpModal(){
@@ -10125,7 +10220,8 @@ function closeTravelerColorModal(){
   ['copyMoveOverlay', () => { document.getElementById('copyMoveOverlay').classList.remove('active'); copyMoveContext = null; }],
   ['dayCopyOverlay', () => { document.getElementById('dayCopyOverlay').classList.remove('active'); dayCopyContext = null; }],
   ['parkHoursOverlay', closeParkHoursModal],
-  ['dayJumpOverlay', closeDayJumpModal]
+  ['dayJumpOverlay', closeDayJumpModal],
+  ['tripGridOverlay', closeTripGridModal]
 ].forEach(([overlayId, closeFn]) => {
   document.getElementById(overlayId).addEventListener('click', e => {
     if(e.target.id !== overlayId) return;
@@ -11237,9 +11333,9 @@ function renderTripDetails(trip){
   }
 
   // --- Trip Overview ---
-  const overviewSummary = `${trip.days.length} day${trip.days.length === 1 ? '' : 's'} · tap a day to jump in`;
+  const overviewSummary = `${trip.days.length} day${trip.days.length === 1 ? '' : 's'} · dining & activities · tap a day to jump in`;
   renderTripSubsection(wrap, trip, 'overview', '🗓️', 'Itinerary Overview', overviewSummary, body => {
-    renderOverview(trip, body);
+    renderTripGrid(trip, body);
   });
 
   const versionLine = document.createElement('div');
