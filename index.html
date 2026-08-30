@@ -1014,70 +1014,66 @@
     flex-shrink:0;
   }
   .trip-grid-wrap{
-    display:flex;
-    align-items:stretch;
+    display:grid;
+    grid-auto-rows:min-content;
+    column-gap:8px;
+    row-gap:0;
+    overflow-x:auto;
+    scroll-snap-type:x proximity;
+    -webkit-overflow-scrolling:touch;
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:var(--radius-md);
+    padding:10px 10px 10px 0;
   }
-  .trip-grid-timecol{
-    flex:0 0 64px;
-    padding-top:34px;
-  }
-  .trip-grid-time-label{
-    height:104px;
-    display:flex;
-    align-items:center;
+  .trip-grid-timecell{
+    position:sticky;
+    left:0;
+    z-index:1;
+    background:var(--paper);
+    padding:8px 8px 8px 10px;
     font-size:11px;
     font-weight:600;
     color:var(--slate);
+    display:flex;
+    align-items:center;
     border-top:1px solid var(--line);
   }
-  .trip-grid-timecol .trip-grid-time-label:first-child{
+  .trip-grid-corner{
     border-top:none;
   }
-  .trip-grid-scroller{
+  .trip-grid-daylabel{
+    grid-row:1;
     display:flex;
-    overflow-x:auto;
-    gap:8px;
-    padding:0 4px 4px 0;
-    scroll-snap-type:x proximity;
-    -webkit-overflow-scrolling:touch;
-  }
-  .trip-grid-day{
-    flex:0 0 128px;
-    display:block;
-    text-align:left;
+    align-items:center;
+    gap:3px;
     background:none;
     border:none;
-    padding:0;
+    padding:8px 4px 8px 2px;
+    text-align:left;
     cursor:pointer;
-    font-family:'Inter',sans-serif;
-    scroll-snap-align:start;
-  }
-  .trip-grid-daylabel{
     font-family:'Baloo 2',sans-serif;
     font-size:13px;
     font-weight:700;
     color:var(--ink);
-    height:26px;
-    display:flex;
-    align-items:center;
-    gap:3px;
     white-space:nowrap;
-    margin-bottom:8px;
+    scroll-snap-align:start;
   }
   .trip-grid-daylabel-chevron{
     color:var(--slate);
     font-weight:500;
   }
   .trip-grid-slot{
-    min-height:104px;
-    padding:6px 0;
-    border-top:1px solid var(--line);
     display:flex;
     flex-direction:column;
+    align-items:stretch;
     gap:5px;
-  }
-  .trip-grid-slot:first-of-type{
-    border-top:none;
+    background:none;
+    border:none;
+    border-top:1px solid var(--line);
+    padding:8px 4px;
+    text-align:left;
+    cursor:pointer;
   }
   .trip-grid-empty{
     font-size:12px;
@@ -1091,8 +1087,8 @@
     box-shadow:0 1px 3px rgba(27,42,46,.12), 0 1px 2px rgba(27,42,46,.08);
   }
   .trip-grid-chip.dining{
-    border-color:var(--accent-positive-text);
-    background:color-mix(in srgb, var(--accent-positive-text) 14%, var(--paper));
+    border-color:var(--coral);
+    background:var(--accent-glow);
   }
   .trip-grid-chip-time{
     font-size:10.5px;
@@ -1116,8 +1112,8 @@
     width:10px;
     height:10px;
     border-radius:3px;
-    border:1px solid var(--accent-positive-text);
-    background:color-mix(in srgb, var(--accent-positive-text) 14%, var(--paper));
+    border:1px solid var(--coral);
+    background:var(--accent-glow);
     display:inline-block;
   }
   .view-tabs-wrap{
@@ -3870,7 +3866,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.62';
+const APP_VERSION = '3.63';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -8731,38 +8727,50 @@ function renderTripGrid(trip, wrap, onDaySelect){
 
   const gridWrap = document.createElement('div');
   gridWrap.className = 'trip-grid-wrap';
+  gridWrap.style.gridTemplateColumns = `64px repeat(${trip.days.length}, 128px)`;
 
-  const timeCol = document.createElement('div');
-  timeCol.className = 'trip-grid-timecol';
-  SECTIONS.forEach(sec => {
+  // Row 1 = day labels, rows 2-4 = Morning/Afternoon/Evening. A shared CSS Grid
+  // (rather than one flex column per day) is what keeps rows aligned across
+  // days even when one day has more items in a slot than another.
+  const cornerCell = document.createElement('div');
+  cornerCell.className = 'trip-grid-timecell trip-grid-corner';
+  cornerCell.style.gridColumn = '1';
+  cornerCell.style.gridRow = '1';
+  gridWrap.appendChild(cornerCell);
+
+  SECTIONS.forEach((sec, secIndex) => {
     const label = document.createElement('div');
-    label.className = 'trip-grid-time-label';
+    label.className = 'trip-grid-timecell';
     label.textContent = sec.label;
-    timeCol.appendChild(label);
+    label.style.gridColumn = '1';
+    label.style.gridRow = String(secIndex + 2);
+    gridWrap.appendChild(label);
   });
-  gridWrap.appendChild(timeCol);
-
-  const scroller = document.createElement('div');
-  scroller.className = 'trip-grid-scroller';
 
   trip.days.forEach((day, dayIndex) => {
-    const dayCol = document.createElement('button');
-    dayCol.type = 'button';
-    dayCol.className = 'trip-grid-day';
-    dayCol.onclick = () => {
+    const col = dayIndex + 2;
+    const jump = () => {
       activeDayId = day.id;
       if(onDaySelect) onDaySelect();
       else { expandedTripDetails.delete(trip.id); render(); }
     };
 
-    const dayLabel = document.createElement('div');
+    const dayLabel = document.createElement('button');
+    dayLabel.type = 'button';
     dayLabel.className = 'trip-grid-daylabel';
+    dayLabel.style.gridColumn = String(col);
+    dayLabel.style.gridRow = '1';
     dayLabel.innerHTML = `${escapeHtml(getDayDisplayLabel(trip, dayIndex, day, false))} <span class="trip-grid-daylabel-chevron">›</span>`;
-    dayCol.appendChild(dayLabel);
+    dayLabel.onclick = jump;
+    gridWrap.appendChild(dayLabel);
 
-    SECTIONS.forEach(sec => {
-      const slot = document.createElement('div');
+    SECTIONS.forEach((sec, secIndex) => {
+      const slot = document.createElement('button');
+      slot.type = 'button';
       slot.className = 'trip-grid-slot';
+      slot.style.gridColumn = String(col);
+      slot.style.gridRow = String(secIndex + 2);
+      slot.onclick = jump;
       const items = day.items
         .filter(i => itemQualifiesForGrid(i) && getItemSection(i) === sec.key)
         .sort((a,b) => (a.time||'').localeCompare(b.time||''));
@@ -8780,12 +8788,10 @@ function renderTripGrid(trip, wrap, onDaySelect){
           slot.appendChild(chip);
         });
       }
-      dayCol.appendChild(slot);
+      gridWrap.appendChild(slot);
     });
-
-    scroller.appendChild(dayCol);
   });
-  gridWrap.appendChild(scroller);
+
   wrap.appendChild(gridWrap);
 
   const legend = document.createElement('div');
