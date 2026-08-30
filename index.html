@@ -4067,7 +4067,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.82';
+const APP_VERSION = '3.83';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4252,7 +4252,7 @@ async function syncNewStayToSupabase(stay, trip){
     const referencedDay = trip.days.find(d => d.id === stay.startDayId);
     const stayPayload = {
       hotel: stay.hotel || '', hotel_confirmation: stay.hotelConfirmation || '',
-      room_type: stay.roomType || '', room_type_other: stay.roomTypeOther || '',
+      room_type: stay.roomType || '', room_type_other: stay.roomTypeOther || '', notes: stay.notes || '',
       start_day_id: (referencedDay && referencedDay.supabaseId) || null
     };
     const { data, error } = await supabaseClient.from('stays').insert([{ ...stayPayload, trip_id: trip.supabaseId }]).select().single();
@@ -4270,6 +4270,7 @@ async function syncNewConcurrentStayToSupabase(stay, trip){
     const endDay = trip.days.find(d => d.id === stay.endDayId);
     const stayPayload = {
       hotel: stay.hotel || '', note: stay.note || '',
+      room_type: stay.roomType || '', room_type_other: stay.roomTypeOther || '',
       start_day_id: (startDay && startDay.supabaseId) || null,
       end_day_id: (endDay && endDay.supabaseId) || null
     };
@@ -4585,7 +4586,7 @@ async function syncTripToSupabase(trip, allTravelers){
     for(const stay of trip.stays){
       const stayPayload = {
         hotel: stay.hotel || '', hotel_confirmation: stay.hotelConfirmation || '',
-        room_type: stay.roomType || '', room_type_other: stay.roomTypeOther || '',
+        room_type: stay.roomType || '', room_type_other: stay.roomTypeOther || '', notes: stay.notes || '',
         start_day_id: stay.startDayId ? (dayLocalToSupa[stay.startDayId] || null) : null
       };
       if(stay.supabaseId){
@@ -4980,7 +4981,7 @@ async function syncSingleStayUpdate(stay, trip){
     trip.days.forEach(d => { if(d.supabaseId) dayLocalToSupa[d.id] = d.supabaseId; });
     const stayPayload = {
       hotel: stay.hotel || '', hotel_confirmation: stay.hotelConfirmation || '',
-      room_type: stay.roomType || '', room_type_other: stay.roomTypeOther || '',
+      room_type: stay.roomType || '', room_type_other: stay.roomTypeOther || '', notes: stay.notes || '',
       start_day_id: stay.startDayId ? (dayLocalToSupa[stay.startDayId] || null) : null
     };
     const { data: updateResult } = await supabaseClient.from('stays').update(stayPayload).eq('id', stay.supabaseId).select();
@@ -5001,6 +5002,7 @@ async function syncSingleConcurrentStayUpdate(stay, trip){
     trip.days.forEach(d => { if(d.supabaseId) dayLocalToSupa[d.id] = d.supabaseId; });
     const stayPayload = {
       hotel: stay.hotel || '', note: stay.note || '',
+      room_type: stay.roomType || '', room_type_other: stay.roomTypeOther || '',
       start_day_id: stay.startDayId ? (dayLocalToSupa[stay.startDayId] || null) : null,
       end_day_id: stay.endDayId ? (dayLocalToSupa[stay.endDayId] || null) : null
     };
@@ -5096,11 +5098,12 @@ async function fetchRemoteTripData(supabaseTripId){
     groceryItems: (groceryRows || []).map(row => ({ supabaseId: row.id, name: row.name || '', category: row.category || '', checked: !!row.checked, channel: row.channel || 'pack' })),
     stays: (stayRows || []).map(stayRow => ({
       supabaseId: stayRow.id, hotel: stayRow.hotel || '', hotelConfirmation: stayRow.hotel_confirmation || '',
-      roomType: stayRow.room_type || '', roomTypeOther: stayRow.room_type_other || '',
+      roomType: stayRow.room_type || '', roomTypeOther: stayRow.room_type_other || '', notes: stayRow.notes || '',
       startDaySupaId: stayRow.start_day_id || ''
     })),
     concurrentStays: (concurrentStayRows || []).map(row => ({
       supabaseId: row.id, hotel: row.hotel || '', note: row.note || '',
+      roomType: row.room_type || '', roomTypeOther: row.room_type_other || '',
       startDaySupaId: row.start_day_id || '', endDaySupaId: row.end_day_id || ''
     })),
     crowdLevels: (crowdRows || []).map(row => ({
@@ -5222,6 +5225,7 @@ function mergeRemoteIntoLocalTrip(localTrip, remoteData, allTravelers){
       localStay.hotelConfirmation = remoteStay.hotelConfirmation;
       localStay.roomType = remoteStay.roomType;
       localStay.roomTypeOther = remoteStay.roomTypeOther;
+      localStay.notes = remoteStay.notes;
       localStay.startDayId = remoteStay.startDaySupaId ? (supaToLocalDay[remoteStay.startDaySupaId] || '') : '';
       return localStay;
     });
@@ -5241,6 +5245,8 @@ function mergeRemoteIntoLocalTrip(localTrip, remoteData, allTravelers){
       }
       localStay.hotel = remoteStay.hotel;
       localStay.note = remoteStay.note;
+      localStay.roomType = remoteStay.roomType;
+      localStay.roomTypeOther = remoteStay.roomTypeOther;
       localStay.startDayId = remoteStay.startDaySupaId ? (supaToLocalDay[remoteStay.startDaySupaId] || '') : '';
       localStay.endDayId = remoteStay.endDaySupaId ? (supaToLocalDay[remoteStay.endDaySupaId] || '') : '';
       return localStay;
@@ -8121,7 +8127,7 @@ function getItemSnapshot(item){
 function getStaySnapshot(stay){
   return JSON.stringify({
     hotel: stay.hotel || '', hotelConfirmation: stay.hotelConfirmation || '',
-    roomType: stay.roomType || '', roomTypeOther: stay.roomTypeOther || '',
+    roomType: stay.roomType || '', roomTypeOther: stay.roomTypeOther || '', notes: stay.notes || '',
     startDayId: stay.startDayId || null
   });
 }
@@ -11761,14 +11767,23 @@ function renderTripDetails(trip){
             <input type="text" placeholder="e.g. Bunk Bed Suite" value="${escapeHtml(stay.roomTypeOther || '')}" data-role="roomTypeOther" />
           </div>
         </div>` : ''}
+        <div class="day-info-row">
+          <div class="day-info-field" style="flex:1 1 100%;">
+            <label>Note</label>
+            <input type="text" placeholder="e.g. Who's in this room" value="${escapeHtml(stay.notes || '')}" data-role="notes" />
+          </div>
+        </div>
         <div class="print-only-fact">Hotel: ${escapeHtml(stay.hotel || 'Not set')} · Starts: ${escapeHtml(startDayLabel)}</div>
         <div class="print-only-fact">Confirmation: ${escapeHtml(stay.hotelConfirmation || 'None')} · Room type: ${escapeHtml(roomTypeText)}</div>
+        ${stay.notes ? `<div class="print-only-fact">Note: ${escapeHtml(stay.notes)}</div>` : ''}
         <button type="button" class="stay-card-remove danger">Remove this stay</button>
       `;
       card.querySelector('[data-role="hotel"]').oninput = e => { stay.hotel = e.target.value; };
       card.querySelector('[data-role="hotel"]').onblur = () => handleStayFieldBlur(stay, trip);
       card.querySelector('[data-role="hotelConfirmation"]').oninput = e => { stay.hotelConfirmation = e.target.value; };
       card.querySelector('[data-role="hotelConfirmation"]').onblur = () => handleStayFieldBlur(stay, trip);
+      card.querySelector('[data-role="notes"]').oninput = e => { stay.notes = e.target.value; };
+      card.querySelector('[data-role="notes"]').onblur = () => handleStayFieldBlur(stay, trip);
       card.querySelector('[data-role="startDayId"]').onchange = e => { stay.startDayId = e.target.value; render(); handleStayFieldBlur(stay, trip); };
       card.querySelector('[data-role="roomType"]').onchange = e => { stay.roomType = e.target.value; render(); handleStayFieldBlur(stay, trip); };
       const roomTypeOtherInput = card.querySelector('[data-role="roomTypeOther"]');
@@ -11836,7 +11851,21 @@ function renderTripDetails(trip){
             <label>Hotel</label>
             <input type="text" placeholder="e.g. Pop Century" value="${escapeHtml(stay.hotel || '')}" data-role="hotel" />
           </div>
+          <div class="day-info-field">
+            <label>Room type</label>
+            <select data-role="roomType">
+              <option value="">No room type set</option>
+              ${ROOM_TYPES.map(rt=>`<option value="${rt}" ${rt===(stay.roomType||'')?'selected':''}>${rt}</option>`).join('')}
+            </select>
+          </div>
         </div>
+        ${stay.roomType === 'Other' ? `
+        <div class="day-info-row">
+          <div class="day-info-field" style="flex:1 1 100%;">
+            <label>Describe room type</label>
+            <input type="text" placeholder="e.g. Bunk Bed Suite" value="${escapeHtml(stay.roomTypeOther || '')}" data-role="roomTypeOther" />
+          </div>
+        </div>` : ''}
         <div class="day-info-row">
           <div class="day-info-field">
             <label>Note</label>
@@ -11858,6 +11887,12 @@ function renderTripDetails(trip){
       `;
       card.querySelector('[data-role="hotel"]').oninput = e => { stay.hotel = e.target.value; };
       card.querySelector('[data-role="hotel"]').onblur = () => handleConcurrentStayFieldBlur(stay, trip);
+      card.querySelector('[data-role="roomType"]').onchange = e => { stay.roomType = e.target.value; render(); handleConcurrentStayFieldBlur(stay, trip); };
+      const concurrentRoomTypeOtherInput = card.querySelector('[data-role="roomTypeOther"]');
+      if(concurrentRoomTypeOtherInput){
+        concurrentRoomTypeOtherInput.oninput = e => { stay.roomTypeOther = e.target.value; };
+        concurrentRoomTypeOtherInput.onblur = () => handleConcurrentStayFieldBlur(stay, trip);
+      }
       card.querySelector('[data-role="note"]').oninput = e => { stay.note = e.target.value; };
       card.querySelector('[data-role="note"]').onblur = () => handleConcurrentStayFieldBlur(stay, trip);
       card.querySelector('[data-role="startDayId"]').onchange = e => { stay.startDayId = e.target.value; handleConcurrentStayFieldBlur(stay, trip); };
@@ -11879,7 +11914,7 @@ function renderTripDetails(trip){
     addConcurrentStayBtn.className = 'add-stay-btn';
     addConcurrentStayBtn.textContent = '+ Add a concurrent stay';
     addConcurrentStayBtn.onclick = () => {
-      const newStay = { id: cryptoId(), hotel: '', note: '', startDayId: '', endDayId: '' };
+      const newStay = { id: cryptoId(), hotel: '', note: '', roomType: '', roomTypeOther: '', startDayId: '', endDayId: '' };
       trip.concurrentStays.push(newStay);
       render();
       syncNewConcurrentStayToSupabase(newStay, trip);
