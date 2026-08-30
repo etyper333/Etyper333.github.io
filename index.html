@@ -350,7 +350,8 @@
   }
   .tools-print-checkbox-row{
     display:flex;
-    gap:16px;
+    flex-wrap:wrap;
+    gap:12px 16px;
     margin:8px 0 12px;
   }
   .calendar-export-quick-actions{
@@ -400,6 +401,14 @@
     flex-shrink:0;
     width:18px;
     height:18px;
+  }
+  .print-day-picker-wrap{
+    border:1px solid var(--line);
+    border-radius:var(--radius-md);
+    padding:4px 10px;
+    max-height:180px;
+    overflow-y:auto;
+    margin:-4px 0 12px;
   }
   .tools-print-checkbox-label{
     display:flex;
@@ -3310,17 +3319,23 @@
     .trip-notes-visibility-hint, .trip-notes-edit-row,
     .empty-state,
     .dining-reservations-block,
+    .hero-mark,
     #tripTitle[contenteditable]::after{
       display:none !important;
     }
 
-    /* Default print mode: itinerary shows unless explicitly hidden; packing and grocery
-       stay hidden unless explicitly shown. Independent flags rather than one mutually-
-       exclusive toggle, so any combination falls out naturally rather than needing its
-       own special case. */
-    #dayPanels{display:block !important;}
-    body.print-hide-itinerary #dayPanels{display:none !important;}
-    body.print-hide-itinerary #tripDetailsWrap{display:none !important;}
+    /* Each printable section is independently hidden by default and shown only
+       when its own checkbox was selected in printSelected - not one bundled
+       itinerary toggle, so any combination of sections and days can print together. */
+    .trip-subsection-basics{display:none !important;}
+    body.print-show-basics .trip-subsection-basics{display:block !important;}
+    .trip-subsection-crowd{display:none !important;}
+    body.print-show-crowd .trip-subsection-crowd{display:block !important;}
+    .trip-subsection-overview{display:none !important;}
+    body.print-show-overview .trip-subsection-overview{display:block !important;}
+
+    #dayPanels{display:none !important;}
+    body.print-show-days #dayPanels{display:block !important;}
     body:not(.print-show-packing) #packingPanelWrap{display:none !important;}
     body:not(.print-show-grocery) #groceryPanelWrap{display:none !important;}
     .itinerary-sidebar{display:none !important;}
@@ -3330,15 +3345,18 @@
       page-break-inside:avoid;
       break-inside:avoid;
     }
+    /* Days left unchecked in the print day-picker - toggled by printSelected,
+       cleared again once printing finishes. Higher specificity than
+       .day-panel above wins regardless of source order. */
+    .day-panel.print-day-excluded{display:none !important;}
 
     body.print-show-packing #packingPanelWrap{
       display:block !important;
       max-width:none !important;
       padding:0 !important;
-      page-break-before:always;
     }
-    body.print-show-packing.print-hide-itinerary #packingPanelWrap{
-      page-break-before:auto;
+    body.print-need-packing-break #packingPanelWrap{
+      page-break-before:always;
     }
     body.print-show-packing #packingPanelWrap::before{
       content:"Packing List";
@@ -3353,10 +3371,9 @@
       display:block !important;
       max-width:none !important;
       padding:0 !important;
-      page-break-before:always;
     }
-    body.print-show-grocery.print-hide-itinerary:not(.print-show-packing) #groceryPanelWrap{
-      page-break-before:auto;
+    body.print-need-grocery-break #groceryPanelWrap{
+      page-break-before:always;
     }
     body.print-show-grocery #groceryPanelWrap::before{
       content:"Grocery List";
@@ -3373,6 +3390,35 @@
     body.print-show-packing .packing-category-block{
       break-inside:avoid;
     }
+
+    /* Itinerary Overview: printed in forced landscape (the @page rule is
+       injected directly by printSelected). Fixed-width day columns only made
+       sense on screen because they scrolled - paper can't scroll, so anything
+       past the page edge simply clipped. Letting columns flex to fill the
+       page width is what actually fixes that, for any number of days. */
+    body.print-show-overview .trip-grid-wrap{
+      overflow-x:visible !important;
+      grid-template-columns:36px repeat(auto-fit, minmax(52px,1fr)) !important;
+      border:none !important;
+      padding:0 !important;
+    }
+    body.print-show-overview .trip-grid-timecell{
+      position:static !important;
+      padding:3px 4px 3px 0 !important;
+      font-size:9px;
+    }
+    body.print-show-overview .trip-grid-daylabel{
+      font-size:10px;
+      padding:3px 2px !important;
+    }
+    body.print-show-overview .trip-grid-daylabel-chevron{display:none;}
+    body.print-show-overview .trip-grid-slot{padding:3px 2px;}
+    body.print-show-overview .trip-grid-chip{
+      box-shadow:none !important;
+      padding:2px 3px;
+    }
+    body.print-show-overview .trip-grid-chip-time{font-size:8px;}
+    body.print-show-overview .trip-grid-chip-name{font-size:9px;}
 
     /* Force every accordion open for print, regardless of on-screen collapse state */
     .accordion-body{display:block !important;}
@@ -3875,7 +3921,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.67';
+const APP_VERSION = '3.69';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -9210,6 +9256,7 @@ function renderDayPanels(){
   trip.days.forEach((day, dayIndex) => {
     const panel = document.createElement('div');
     panel.className = 'day-panel' + (day.id===activeDayId ? ' active' : '');
+    panel.dataset.dayId = day.id;
     const currentOrNext = getCurrentOrNextItem(trip, day);
 
     const isFirst = dayIndex === 0;
@@ -10028,7 +10075,7 @@ function renderPackingPanel(){
   printBtn.type = 'button';
   printBtn.className = 'print-packing-btn';
   printBtn.textContent = '🖨️ Print';
-  printBtn.onclick = () => printSelected(false, true);
+  printBtn.onclick = () => printSelected({ includeBasics:false, includeCrowd:false, includeOverview:false, includeDays:false, selectedDayIds:[], includePacking:true, includeGrocery:false });
   btnRow.appendChild(printBtn);
 
   const copyBtn = document.createElement('button');
@@ -10409,7 +10456,16 @@ function renderToolsMenu(){
   checkboxRow.className = 'tools-print-checkbox-row';
   checkboxRow.innerHTML = `
     <label class="tools-print-checkbox-label">
-      <input type="checkbox" data-print-check="itinerary" checked /> Itinerary
+      <input type="checkbox" data-print-check="basics" checked /> Trip Basics
+    </label>
+    <label class="tools-print-checkbox-label">
+      <input type="checkbox" data-print-check="crowd" /> Park Hours & Crowd Levels
+    </label>
+    <label class="tools-print-checkbox-label">
+      <input type="checkbox" data-print-check="overview" /> Itinerary Overview
+    </label>
+    <label class="tools-print-checkbox-label">
+      <input type="checkbox" data-print-check="days" checked /> Itinerary
     </label>
     <label class="tools-print-checkbox-label">
       <input type="checkbox" data-print-check="packing" /> Packing List
@@ -10420,19 +10476,69 @@ function renderToolsMenu(){
   `;
   printSection.appendChild(checkboxRow);
 
+  const dayPickerWrap = document.createElement('div');
+  dayPickerWrap.className = 'print-day-picker-wrap';
+  const dayPickerActions = document.createElement('div');
+  dayPickerActions.className = 'calendar-export-quick-actions';
+  const selectAllDaysBtn = document.createElement('button');
+  selectAllDaysBtn.type = 'button';
+  selectAllDaysBtn.textContent = 'Select all days';
+  const selectNoDaysBtn = document.createElement('button');
+  selectNoDaysBtn.type = 'button';
+  selectNoDaysBtn.textContent = 'Select no days';
+  dayPickerActions.appendChild(selectAllDaysBtn);
+  dayPickerActions.appendChild(selectNoDaysBtn);
+  dayPickerWrap.appendChild(dayPickerActions);
+
+  const dayCheckboxes = [];
+  trip.days.forEach((day, dayIndex) => {
+    const row = document.createElement('label');
+    row.className = 'calendar-export-item-row';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.dataset.dayId = day.id;
+    row.appendChild(cb);
+    const span = document.createElement('span');
+    span.textContent = getDayDisplayLabel(trip, dayIndex, day, true);
+    row.appendChild(span);
+    dayPickerWrap.appendChild(row);
+    dayCheckboxes.push(cb);
+  });
+  selectAllDaysBtn.onclick = () => dayCheckboxes.forEach(cb => cb.checked = true);
+  selectNoDaysBtn.onclick = () => dayCheckboxes.forEach(cb => cb.checked = false);
+  printSection.appendChild(dayPickerWrap);
+
+  const daysCheckboxInput = checkboxRow.querySelector('[data-print-check="days"]');
+  const syncDayPickerVisibility = () => {
+    dayPickerWrap.style.display = daysCheckboxInput.checked ? 'block' : 'none';
+  };
+  daysCheckboxInput.onchange = syncDayPickerVisibility;
+  syncDayPickerVisibility();
+
   const printSelectedBtn = document.createElement('button');
   printSelectedBtn.type = 'button';
   printSelectedBtn.className = 'print-packing-btn';
   printSelectedBtn.textContent = '🖨️ Print Selected';
   printSelectedBtn.onclick = () => {
-    const includeItinerary = checkboxRow.querySelector('[data-print-check="itinerary"]').checked;
+    const includeBasics = checkboxRow.querySelector('[data-print-check="basics"]').checked;
+    const includeCrowd = checkboxRow.querySelector('[data-print-check="crowd"]').checked;
+    const includeOverview = checkboxRow.querySelector('[data-print-check="overview"]').checked;
+    const includeDays = daysCheckboxInput.checked;
     const includePacking = checkboxRow.querySelector('[data-print-check="packing"]').checked;
     const includeGrocery = checkboxRow.querySelector('[data-print-check="grocery"]').checked;
-    if(!includeItinerary && !includePacking && !includeGrocery){
+    if(!includeBasics && !includeCrowd && !includeOverview && !includeDays && !includePacking && !includeGrocery){
       alert('Choose at least one thing to print.');
       return;
     }
-    printSelected(includeItinerary, includePacking, includeGrocery);
+    const selectedDayIds = includeDays
+      ? dayCheckboxes.filter(cb => cb.checked).map(cb => cb.dataset.dayId)
+      : [];
+    if(includeDays && selectedDayIds.length === 0){
+      alert('Choose at least one day to print, or uncheck Itinerary.');
+      return;
+    }
+    printSelected({ includeBasics, includeCrowd, includeOverview, includeDays, selectedDayIds, includePacking, includeGrocery });
   };
   printSection.appendChild(printSelectedBtn);
 
@@ -11475,19 +11581,67 @@ document.getElementById('loadInput').addEventListener('change', e => {
   e.target.value = '';
 });
 
-function printSelected(includeItinerary, includePacking, includeGrocery){
-  if(!includeItinerary && !includePacking && !includeGrocery) return;
-  document.body.classList.toggle('print-hide-itinerary', !includeItinerary);
+function printSelected({ includeBasics, includeCrowd, includeOverview, includeDays, selectedDayIds, includePacking, includeGrocery }){
+  if(!includeBasics && !includeCrowd && !includeOverview && !includeDays && !includePacking && !includeGrocery) return;
+
+  document.body.classList.toggle('print-show-basics', includeBasics);
+  document.body.classList.toggle('print-show-crowd', includeCrowd);
+  document.body.classList.toggle('print-show-overview', includeOverview);
+  document.body.classList.toggle('print-show-days', includeDays);
   document.body.classList.toggle('print-show-packing', includePacking);
   document.body.classList.toggle('print-show-grocery', includeGrocery);
-  const wasTimeline = includeItinerary && itineraryDisplayMode === 'timeline';
+
+  // Packing/Grocery only need a forced page break before them when something
+  // else is printing first - otherwise they're already the first page.
+  const anyBeforePacking = includeBasics || includeCrowd || includeOverview || includeDays;
+  const anyBeforeGrocery = anyBeforePacking || includePacking;
+  document.body.classList.toggle('print-need-packing-break', anyBeforePacking && includePacking);
+  document.body.classList.toggle('print-need-grocery-break', anyBeforeGrocery && includeGrocery);
+
+  // Mark unselected day panels so print CSS can hide just those, while the
+  // on-screen view (and its own active-day state) stays completely untouched.
+  const excludedDayEls = [];
+  if(includeDays){
+    document.querySelectorAll('.day-panel').forEach(el => {
+      if(!selectedDayIds.includes(el.dataset.dayId)){
+        el.classList.add('print-day-excluded');
+        excludedDayEls.push(el);
+      }
+    });
+  }
+
+  const wasTimeline = includeDays && itineraryDisplayMode === 'timeline';
   if(wasTimeline){
     itineraryDisplayMode = 'cards';
     render();
   }
+
+  // Force the existing Compact item layout for print density, regardless of
+  // whatever the on-screen toggle is currently set to.
+  const wasCompact = document.body.classList.contains('compact-items');
+  document.body.classList.add('compact-items');
+
+  // Itinerary Overview's grid only makes sense in landscape - injected as a
+  // real stylesheet rule (a class alone can't drive @page) and removed right
+  // after, rather than applying to every print job by default.
+  let landscapeStyleEl = null;
+  if(includeOverview){
+    landscapeStyleEl = document.createElement('style');
+    landscapeStyleEl.textContent = '@page{size:landscape;}';
+    document.head.appendChild(landscapeStyleEl);
+  }
+
   window.print();
+
   const cleanup = () => {
-    document.body.classList.remove('print-hide-itinerary', 'print-show-packing', 'print-show-grocery');
+    document.body.classList.remove(
+      'print-show-basics', 'print-show-crowd', 'print-show-overview', 'print-show-days',
+      'print-show-packing', 'print-show-grocery',
+      'print-need-packing-break', 'print-need-grocery-break'
+    );
+    excludedDayEls.forEach(el => el.classList.remove('print-day-excluded'));
+    document.body.classList.toggle('compact-items', wasCompact);
+    if(landscapeStyleEl) landscapeStyleEl.remove();
     if(wasTimeline){
       itineraryDisplayMode = 'timeline';
       render();
