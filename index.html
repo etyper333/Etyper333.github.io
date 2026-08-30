@@ -4067,7 +4067,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.80';
+const APP_VERSION = '3.82';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4263,6 +4263,23 @@ async function syncNewStayToSupabase(stay, trip){
     console.warn('Could not sync new stay to Supabase right away (it will sync on the next full sync):', err);
   }
 }
+async function syncNewConcurrentStayToSupabase(stay, trip){
+  if(!trip.supabaseId || stay.supabaseId) return;
+  try{
+    const startDay = trip.days.find(d => d.id === stay.startDayId);
+    const endDay = trip.days.find(d => d.id === stay.endDayId);
+    const stayPayload = {
+      hotel: stay.hotel || '', note: stay.note || '',
+      start_day_id: (startDay && startDay.supabaseId) || null,
+      end_day_id: (endDay && endDay.supabaseId) || null
+    };
+    const { data, error } = await supabaseClient.from('concurrent_stays').insert([{ ...stayPayload, trip_id: trip.supabaseId }]).select().single();
+    if(error) throw error;
+    stay.supabaseId = data.id;
+  }catch(err){
+    console.warn('Could not sync new concurrent stay to Supabase right away (it will sync on the next full sync):', err);
+  }
+}
 async function syncNewTravelerToSupabase(travelerId, trip){
   if(!trip.supabaseId) return;
   if(!trip.supabaseTravelerMap) trip.supabaseTravelerMap = {};
@@ -4343,6 +4360,14 @@ async function deleteStayFromSupabaseNow(stay){
     await supabaseClient.from('stays').delete().eq('id', stay.supabaseId);
   }catch(err){
     console.warn('Could not delete stay from Supabase (it may remain there until cleaned up):', err);
+  }
+}
+async function deleteConcurrentStayFromSupabaseNow(stay){
+  if(!stay.supabaseId) return;
+  try{
+    await supabaseClient.from('concurrent_stays').delete().eq('id', stay.supabaseId);
+  }catch(err){
+    console.warn('Could not delete concurrent stay from Supabase (it may remain there until cleaned up):', err);
   }
 }
 
@@ -4969,11 +4994,41 @@ async function syncSingleStayUpdate(stay, trip){
     return { ok: true };
   }
 }
+async function syncSingleConcurrentStayUpdate(stay, trip){
+  if(!stay.supabaseId) return { ok: true };
+  try{
+    const dayLocalToSupa = {};
+    trip.days.forEach(d => { if(d.supabaseId) dayLocalToSupa[d.id] = d.supabaseId; });
+    const stayPayload = {
+      hotel: stay.hotel || '', note: stay.note || '',
+      start_day_id: stay.startDayId ? (dayLocalToSupa[stay.startDayId] || null) : null,
+      end_day_id: stay.endDayId ? (dayLocalToSupa[stay.endDayId] || null) : null
+    };
+    const { data: updateResult } = await supabaseClient.from('concurrent_stays').update(stayPayload).eq('id', stay.supabaseId).select();
+    if(!updateResult || updateResult.length === 0){
+      return { ok: false, type: 'concurrent stay', name: stay.hotel || 'this stay' };
+    }
+    return { ok: true };
+  }catch(err){
+    console.warn('Could not sync concurrent stay update:', err);
+    return { ok: true };
+  }
+}
 function handleStayFieldBlur(stay, trip){
   if(isReadOnlyView) return;
   syncSingleStayUpdate(stay, trip).then(result => {
     if(!result.ok){
       trip.stays = trip.stays.filter(s => s.id !== stay.id);
+      render();
+      showRemovedByOtherMessage(result);
+    }
+  });
+}
+function handleConcurrentStayFieldBlur(stay, trip){
+  if(isReadOnlyView) return;
+  syncSingleConcurrentStayUpdate(stay, trip).then(result => {
+    if(!result.ok){
+      trip.concurrentStays = trip.concurrentStays.filter(s => s.id !== stay.id);
       render();
       showRemovedByOtherMessage(result);
     }
@@ -5028,6 +5083,7 @@ async function fetchRemoteTripData(supabaseTripId){
     ? await supabaseClient.from('item_travelers').select('*').in('item_id', itemIds)
     : { data: [] };
   const { data: stayRows } = await supabaseClient.from('stays').select('*').eq('trip_id', supabaseTripId).order('created_at', { ascending: true });
+  const { data: concurrentStayRows } = await supabaseClient.from('concurrent_stays').select('*').eq('trip_id', supabaseTripId).order('created_at', { ascending: true });
   const { data: crowdRows } = await supabaseClient.from('crowd_levels').select('*').eq('trip_id', supabaseTripId);
   const { data: packingRows } = await supabaseClient.from('packing_items').select('*').eq('trip_id', supabaseTripId).order('created_at', { ascending: true });
   const { data: groceryRows } = await supabaseClient.from('grocery_items').select('*').eq('trip_id', supabaseTripId).order('created_at', { ascending: true });
@@ -5042,6 +5098,10 @@ async function fetchRemoteTripData(supabaseTripId){
       supabaseId: stayRow.id, hotel: stayRow.hotel || '', hotelConfirmation: stayRow.hotel_confirmation || '',
       roomType: stayRow.room_type || '', roomTypeOther: stayRow.room_type_other || '',
       startDaySupaId: stayRow.start_day_id || ''
+    })),
+    concurrentStays: (concurrentStayRows || []).map(row => ({
+      supabaseId: row.id, hotel: row.hotel || '', note: row.note || '',
+      startDaySupaId: row.start_day_id || '', endDaySupaId: row.end_day_id || ''
     })),
     crowdLevels: (crowdRows || []).map(row => ({
       supabaseId: row.id, daySupaId: row.day_id, park: row.park || '', level: row.level || ''
@@ -5163,6 +5223,26 @@ function mergeRemoteIntoLocalTrip(localTrip, remoteData, allTravelers){
       localStay.roomType = remoteStay.roomType;
       localStay.roomTypeOther = remoteStay.roomTypeOther;
       localStay.startDayId = remoteStay.startDaySupaId ? (supaToLocalDay[remoteStay.startDaySupaId] || '') : '';
+      return localStay;
+    });
+  }
+
+  if(Array.isArray(remoteData.concurrentStays)){
+    const supaToLocalDay = {};
+    localTrip.days.forEach(d => { if(d.supabaseId) supaToLocalDay[d.supabaseId] = d.id; });
+
+    const existingBySupaId = {};
+    (localTrip.concurrentStays || []).forEach(s => { if(s.supabaseId) existingBySupaId[s.supabaseId] = s; });
+
+    localTrip.concurrentStays = remoteData.concurrentStays.map(remoteStay => {
+      let localStay = existingBySupaId[remoteStay.supabaseId];
+      if(!localStay){
+        localStay = { id: cryptoId(), supabaseId: remoteStay.supabaseId };
+      }
+      localStay.hotel = remoteStay.hotel;
+      localStay.note = remoteStay.note;
+      localStay.startDayId = remoteStay.startDaySupaId ? (supaToLocalDay[remoteStay.startDaySupaId] || '') : '';
+      localStay.endDayId = remoteStay.endDaySupaId ? (supaToLocalDay[remoteStay.endDaySupaId] || '') : '';
       return localStay;
     });
   }
@@ -5328,7 +5408,7 @@ async function loadSharedTripFromUrlIfPresent(){
         id: cryptoId(), supabaseId: tripCode,
         title: remoteData.title, dates: remoteData.dates, startDate: remoteData.startDate,
         travelerIds: [], supabaseTravelerMap: {}, notes: '', packingNotes: '', groceryNotes: '', archivedAt: null,
-        stays: [], crowdLevels: {},
+        stays: [], concurrentStays: [], crowdLevels: {},
         packingCategories: [], packingItems: [], groceryItems: [],
         days: []
       };
@@ -5360,7 +5440,7 @@ function buildPlaceholderTrip(entry){
     id: entry.localTripId || cryptoId(), supabaseId: entry.supaId,
     title: entry.title || 'Untitled trip', dates: entry.dates || '', startDate: '',
     travelerIds: [], supabaseTravelerMap: {}, notes: '', archivedAt: entry.archivedAt || null,
-    stays: [], crowdLevels: {},
+    stays: [], concurrentStays: [], crowdLevels: {},
     packingCategories: [], packingItems: [], groceryItems: [],
     days: [ defaultDay(1) ],
     _isPlaceholder: true
@@ -5433,7 +5513,7 @@ async function loadRememberedTripsIfNoLinkPresent(){
       id: mostRecent.localTripId || cryptoId(), supabaseId: mostRecent.supaId,
       title: remoteData.title, dates: remoteData.dates, startDate: remoteData.startDate,
       travelerIds: [], supabaseTravelerMap: {}, notes: '', packingNotes: '', groceryNotes: '', archivedAt: null,
-      stays: [], crowdLevels: {},
+      stays: [], concurrentStays: [], crowdLevels: {},
       packingCategories: [], packingItems: [], groceryItems: [],
       days: []
     };
@@ -6856,6 +6936,25 @@ function getStayForDayIndex(trip, dayIndex){
   return best;
 }
 
+// Concurrent stays don't reconcile against the sequential stay or against each other -
+// each one just independently checks whether this day index falls within its own
+// optional range. A blank start and/or end means "no restriction" on that side, so a
+// stay with neither set applies to every night of the trip.
+function getActiveConcurrentStaysForDayIndex(trip, dayIndex){
+  if(!Array.isArray(trip.concurrentStays)) return [];
+  return trip.concurrentStays.filter(stay => {
+    if(stay.startDayId){
+      const startIdx = trip.days.findIndex(d => d.id === stay.startDayId);
+      if(startIdx !== -1 && dayIndex < startIdx) return false;
+    }
+    if(stay.endDayId){
+      const endIdx = trip.days.findIndex(d => d.id === stay.endDayId);
+      if(endIdx !== -1 && dayIndex > endIdx) return false;
+    }
+    return true;
+  });
+}
+
 function todayMidnight(){
   const d = new Date();
   d.setHours(0,0,0,0);
@@ -7948,6 +8047,7 @@ function defaultTrip(){
     archivedAt: null,
     days: [ defaultDay(1) ],
     stays: [],
+    concurrentStays: [],
     travelerIds: [],
     crowdLevels: {},
     packingCategories: [],
@@ -8898,15 +8998,21 @@ function renderAtAGlanceBlock(trip, wrap, day, dayIndex){
   block.appendChild(title);
 
   // Tonight's hotel only earns a place here when it's genuinely informative - a real
-  // split stay across more than one resort. On a single-hotel trip, the sticky Trip
-  // Details header already says this, so repeating it here would just be noise.
+  // split stay across more than one resort, or any concurrent stay at all. On a plain
+  // single-hotel trip, the sticky Trip Details header already says this, so repeating
+  // it here would just be noise.
   const isSplitStay = new Set((trip.stays || []).map(s => s.hotel).filter(Boolean)).size > 1;
-  if(isSplitStay){
+  const activeConcurrentStays = getActiveConcurrentStaysForDayIndex(trip, dayIndex);
+  if(isSplitStay || activeConcurrentStays.length){
     const nightStay = getStayForDayIndex(trip, dayIndex);
-    if(nightStay){
+    const hotelNames = [];
+    if(nightStay && nightStay.hotel) hotelNames.push(nightStay.hotel);
+    activeConcurrentStays.forEach(s => { if(s.hotel && !hotelNames.includes(s.hotel)) hotelNames.push(s.hotel); });
+    if(hotelNames.length){
       const hotelFact = document.createElement('div');
       hotelFact.className = 'sidebar-fact';
-      hotelFact.innerHTML = `<span class="label">Tonight's Hotel</span><div>🏨 ${escapeHtml(nightStay.hotel)}</div>`;
+      const label = hotelNames.length > 1 ? "Tonight's Hotels" : "Tonight's Hotel";
+      hotelFact.innerHTML = `<span class="label">${label}</span><div>${hotelNames.map(h => `🏨 ${escapeHtml(h)}`).join('<br>')}</div>`;
       block.appendChild(hotelFact);
     }
   }
@@ -10084,6 +10190,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
         const sectionLabel = (SECTIONS.find(s=>s.key===finalSection)||{}).label || finalSection;
         if(!confirm(`This replaces "${currentHolder.name}" as the main plan for the ${sectionLabel} — continue?`)) return;
         currentHolder.isMainPlan = false;
+        syncSingleItemUpdate(currentHolder, getActiveTrip());
       }
     }
     let finalEndTime = '';
@@ -11361,7 +11468,8 @@ function getTripSummaryText(trip){
     parts.push(formatTripDateRange(trip));
   }
   if(Array.isArray(trip.stays) && trip.stays.length){
-    parts.push(trip.stays[0].hotel + (trip.stays.length > 1 ? ` +${trip.stays.length - 1} more` : ''));
+    const totalStays = trip.stays.length + (Array.isArray(trip.concurrentStays) ? trip.concurrentStays.length : 0);
+    parts.push(trip.stays[0].hotel + (totalStays > 1 ? ` +${totalStays - 1} more` : ''));
   }
   if(Array.isArray(trip.travelerIds) && trip.travelerIds.length){
     parts.push(trip.travelerIds.map(getTravelerName).filter(Boolean).join(', '));
@@ -11425,6 +11533,7 @@ function renderTripDetails(trip){
 
   if(!Array.isArray(trip.travelerIds)) trip.travelerIds = [];
   if(!Array.isArray(trip.stays)) trip.stays = [];
+  if(!Array.isArray(trip.concurrentStays)) trip.concurrentStays = [];
 
   // --- Trip Basics ---
   const basicsSummary = [
@@ -11593,8 +11702,9 @@ function renderTripDetails(trip){
 
   // --- Lodging & Dining ---
   const windows = getDiningWindows(trip);
+  const totalStaysForSummary = trip.stays.length + (Array.isArray(trip.concurrentStays) ? trip.concurrentStays.length : 0);
   const lodgingSummary = trip.stays.length
-    ? (trip.stays[0].hotel + (trip.stays.length > 1 ? ` +${trip.stays.length - 1} more` : ''))
+    ? (trip.stays[0].hotel + (totalStaysForSummary > 1 ? ` +${totalStaysForSummary - 1} more` : ''))
     : 'No stays added yet';
 
   renderTripSubsection(wrap, trip, 'lodging', '🏨', 'Lodging & Dining', lodgingSummary, body => {
@@ -11696,6 +11806,85 @@ function renderTripDetails(trip){
       syncNewStayToSupabase(newStay, trip);
     };
     body.appendChild(addStayBtn);
+
+    // --- Concurrent stays: for a second household/group staying somewhere different
+    // on some or all of the same nights - deliberately not the default path. No date
+    // range required (blank = every night); each one stands alone with no reconciliation
+    // against the sequential stay above or against each other, so overlapping or
+    // identical date ranges across multiple concurrent stays are completely fine. ---
+    const concurrentLabel = document.createElement('div');
+    concurrentLabel.className = 'packing-category-title';
+    concurrentLabel.style.marginTop = '18px';
+    concurrentLabel.textContent = 'Concurrent stays';
+    body.appendChild(concurrentLabel);
+
+    const concurrentIntro = document.createElement('p');
+    concurrentIntro.className = 'section-empty-note';
+    concurrentIntro.textContent = "For a second household staying somewhere different on some or all of the same nights. Leave the dates blank if it covers the whole trip.";
+    body.appendChild(concurrentIntro);
+
+    const blankDayOption = '<option value="">Whole trip</option>';
+    trip.concurrentStays.forEach(stay => {
+      const card = document.createElement('div');
+      card.className = 'stay-card';
+      const dayOptionsFor = (selectedId) => blankDayOption + trip.days.map((d, i) =>
+        `<option value="${d.id}" ${d.id===selectedId?'selected':''}>${escapeHtml(getDayDisplayLabel(trip, i, d, true))}</option>`
+      ).join('');
+      card.innerHTML = `
+        <div class="day-info-row">
+          <div class="day-info-field">
+            <label>Hotel</label>
+            <input type="text" placeholder="e.g. Pop Century" value="${escapeHtml(stay.hotel || '')}" data-role="hotel" />
+          </div>
+        </div>
+        <div class="day-info-row">
+          <div class="day-info-field">
+            <label>Note</label>
+            <input type="text" placeholder="e.g. Cousins - rotates nightly, TBD" value="${escapeHtml(stay.note || '')}" data-role="note" />
+          </div>
+        </div>
+        <div class="day-info-row">
+          <div class="day-info-field">
+            <label>Starts</label>
+            <select data-role="startDayId">${dayOptionsFor(stay.startDayId)}</select>
+          </div>
+          <div class="day-info-field">
+            <label>Ends</label>
+            <select data-role="endDayId">${dayOptionsFor(stay.endDayId)}</select>
+          </div>
+        </div>
+        <div class="print-only-fact">Hotel: ${escapeHtml(stay.hotel || 'Not set')}${stay.note ? ' · ' + escapeHtml(stay.note) : ''}</div>
+        <button type="button" class="stay-card-remove danger">Remove this concurrent stay</button>
+      `;
+      card.querySelector('[data-role="hotel"]').oninput = e => { stay.hotel = e.target.value; };
+      card.querySelector('[data-role="hotel"]').onblur = () => handleConcurrentStayFieldBlur(stay, trip);
+      card.querySelector('[data-role="note"]').oninput = e => { stay.note = e.target.value; };
+      card.querySelector('[data-role="note"]').onblur = () => handleConcurrentStayFieldBlur(stay, trip);
+      card.querySelector('[data-role="startDayId"]').onchange = e => { stay.startDayId = e.target.value; handleConcurrentStayFieldBlur(stay, trip); };
+      card.querySelector('[data-role="endDayId"]').onchange = e => { stay.endDayId = e.target.value; handleConcurrentStayFieldBlur(stay, trip); };
+      card.querySelector('.stay-card-remove').onclick = async () => {
+        if(!confirm(`Remove ${stay.hotel ? `"${stay.hotel}"` : 'this concurrent stay'}?`)) return;
+        const removeBtn = card.querySelector('.stay-card-remove');
+        removeBtn.disabled = true;
+        removeBtn.textContent = 'Removing…';
+        await deleteConcurrentStayFromSupabaseNow(stay);
+        trip.concurrentStays = trip.concurrentStays.filter(s => s.id !== stay.id);
+        render();
+      };
+      body.appendChild(card);
+    });
+
+    const addConcurrentStayBtn = document.createElement('button');
+    addConcurrentStayBtn.type = 'button';
+    addConcurrentStayBtn.className = 'add-stay-btn';
+    addConcurrentStayBtn.textContent = '+ Add a concurrent stay';
+    addConcurrentStayBtn.onclick = () => {
+      const newStay = { id: cryptoId(), hotel: '', note: '', startDayId: '', endDayId: '' };
+      trip.concurrentStays.push(newStay);
+      render();
+      syncNewConcurrentStayToSupabase(newStay, trip);
+    };
+    body.appendChild(addConcurrentStayBtn);
 
     if(windows.length > 0){
       const diningBlock = document.createElement('div');
@@ -11840,6 +12029,7 @@ document.getElementById('loadInput').addEventListener('change', e => {
           });
         });
         if(!Array.isArray(trip.stays)) trip.stays = [];
+        if(!Array.isArray(trip.concurrentStays)) trip.concurrentStays = [];
         if(!Array.isArray(trip.travelerIds)) trip.travelerIds = [];
         if(!trip.crowdLevels || typeof trip.crowdLevels !== 'object' || Array.isArray(trip.crowdLevels)){
           trip.crowdLevels = {};
