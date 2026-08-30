@@ -3681,6 +3681,15 @@
   </div>
 </div>
 
+<div class="master-editor-overlay" id="buildGroceryListOverlay">
+  <div class="master-editor">
+    <h2>Build Grocery List</h2>
+    <p class="sub">For each item, choose Pack (bring it from home) or Florida (order for delivery to your resort, or pick up once you're there).</p>
+    <div id="buildGroceryListBody"></div>
+    <button class="master-editor-close master-editor-close-sticky" id="buildGroceryListCloseBtn">Done</button>
+  </div>
+</div>
+
 <div class="master-editor-overlay" id="calendarExportOverlay">
   <div class="master-editor">
     <h2>Export to Calendar</h2>
@@ -4013,7 +4022,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.74';
+const APP_VERSION = '3.75';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -11107,8 +11116,15 @@ function renderGroceryPanel(){
 
   const intro = document.createElement('p');
   intro.className = 'packing-intro';
-  intro.textContent = "Nothing is added automatically. Browse the catalog below and choose Pack or Deliver for anything that applies to this trip.";
+  intro.textContent = "Nothing is added automatically. For each item, choose Pack (bring it from home) or Florida (order for delivery to your resort, or pick up once you're there).";
   wrap.appendChild(intro);
+
+  const buildBtn = document.createElement('button');
+  buildBtn.type = 'button';
+  buildBtn.className = 'print-packing-btn';
+  buildBtn.textContent = '🌴 Build Grocery List';
+  buildBtn.onclick = openBuildGroceryListModal;
+  wrap.appendChild(buildBtn);
 
   let isFirstHeading = true;
   if(trip.groceryItems.length > 0){
@@ -11117,9 +11133,9 @@ function renderGroceryPanel(){
       if(channelItems.length === 0) return;
       const heading = document.createElement('div');
       heading.className = 'packing-category-title';
-      if(!isFirstHeading) heading.style.marginTop = '18px';
+      heading.style.marginTop = '18px';
       isFirstHeading = false;
-      heading.textContent = channel === 'pack' ? '🧳 Packing With Us' : '📦 Ordering for Delivery';
+      heading.textContent = channel === 'pack' ? '🧳 Packing With Us' : '🌴 Getting It in Florida';
       wrap.appendChild(heading);
 
       const categories = [...new Set(channelItems.map(gi => getGroceryItemCategory(gi)))];
@@ -11133,37 +11149,23 @@ function renderGroceryPanel(){
         });
       });
     });
+  } else {
+    const empty = document.createElement('p');
+    empty.className = 'empty-state';
+    empty.textContent = 'Nothing on your grocery list yet. Tap "Build Grocery List" above to add items.';
+    wrap.appendChild(empty);
   }
-
-  const catalogHeading = document.createElement('div');
-  catalogHeading.className = 'packing-category-title';
-  if(!isFirstHeading) catalogHeading.style.marginTop = '18px';
-  catalogHeading.textContent = 'Add from catalog';
-  wrap.appendChild(catalogHeading);
-
-  const catalogCategories = [...new Set(appData.groceryMaster.map(i => i.category))];
-  catalogCategories.forEach(cat => {
-    const catLabel = document.createElement('div');
-    catLabel.className = 'grocery-category-label';
-    catLabel.textContent = cat;
-    wrap.appendChild(catLabel);
-    const block = document.createElement('div');
-    block.style.cssText = 'background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-lg);padding:2px 10px;margin-bottom:10px;';
-    appData.groceryMaster.filter(i => i.category === cat).forEach(mi => {
-      block.appendChild(renderGroceryCatalogRow(trip, mi));
-    });
-    wrap.appendChild(block);
-  });
 
   wrap.appendChild(renderPackingGroceryNotesBlock(trip));
 
+  const catalogCategories = [...new Set(appData.groceryMaster.map(i => i.category))];
   const addRow = document.createElement('div');
   addRow.className = 'packing-add-row';
   addRow.innerHTML = `
     <input type="text" placeholder="Add a trip-only grocery item" />
     <select data-role="channel">
       <option value="pack">Pack</option>
-      <option value="delivery">Deliver</option>
+      <option value="delivery">Florida</option>
     </select>
     <select data-role="category">
       <option value="">No category</option>
@@ -11190,7 +11192,38 @@ function renderGroceryPanel(){
   wrap.appendChild(addRow);
 }
 
-function renderGroceryCatalogRow(trip, masterItem){
+function openBuildGroceryListModal(){
+  renderBuildGroceryListModal();
+  document.getElementById('buildGroceryListOverlay').classList.add('active');
+}
+function closeBuildGroceryListModal(){
+  document.getElementById('buildGroceryListOverlay').classList.remove('active');
+  render();
+}
+document.getElementById('buildGroceryListCloseBtn').onclick = closeBuildGroceryListModal;
+
+function renderBuildGroceryListModal(){
+  const trip = getActiveTrip();
+  const body = document.getElementById('buildGroceryListBody');
+  body.innerHTML = '';
+  const categories = [...new Set(appData.groceryMaster.map(i => i.category))];
+
+  categories.forEach(cat => {
+    const catLabel = document.createElement('div');
+    catLabel.className = 'packing-category-title';
+    catLabel.textContent = cat;
+    body.appendChild(catLabel);
+
+    const block = document.createElement('div');
+    block.className = 'packing-category-block';
+    appData.groceryMaster.filter(i => i.category === cat).forEach(mi => {
+      block.appendChild(renderGroceryCatalogRow(trip, mi, renderBuildGroceryListModal));
+    });
+    body.appendChild(block);
+  });
+}
+
+function renderGroceryCatalogRow(trip, masterItem, onToggleRerender){
   const el = document.createElement('div');
   el.className = 'catalog-item-row';
   const existing = trip.groceryItems.find(gi => !gi.custom && gi.itemId === masterItem.id);
@@ -11198,7 +11231,7 @@ function renderGroceryCatalogRow(trip, masterItem){
     <span class="catalog-item-name">${escapeHtml(masterItem.name)}</span>
     <div class="catalog-item-actions">
       <button type="button" class="catalog-toggle-btn ${existing && existing.channel==='pack' ? 'active-pack' : ''}" data-channel="pack">Pack</button>
-      <button type="button" class="catalog-toggle-btn ${existing && existing.channel==='delivery' ? 'active-delivery' : ''}" data-channel="delivery">Deliver</button>
+      <button type="button" class="catalog-toggle-btn ${existing && existing.channel==='delivery' ? 'active-delivery' : ''}" data-channel="delivery">Florida</button>
     </div>
   `;
   el.querySelectorAll('.catalog-toggle-btn').forEach(btn => {
@@ -11220,7 +11253,7 @@ function renderGroceryCatalogRow(trip, masterItem){
         syncGroceryToPacking(trip, newItem);
         syncNewGroceryItemToSupabase(newItem, trip);
       }
-      render();
+      if(onToggleRerender) onToggleRerender(); else render();
     };
   });
   return el;
