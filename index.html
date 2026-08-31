@@ -45,6 +45,11 @@
        range toward a more legible floor. Rest of the type scale still uses raw px
        for now, to be tokenized in later phases rather than one large risky pass. */
     --text-micro:0.625rem;
+    /* Phase 2: the 10/10.5px "small" tier. 10px items merge directly into
+       --text-micro above (same value, no need for a separate step). 10.5px items
+       get their own token, bumped slightly to 11px for real visual separation from
+       micro rather than sitting half a pixel apart. */
+    --text-small:0.6875rem;
   }
   :root[data-theme="fort-wilderness"]{
     --ink:#2A1F16;
@@ -267,7 +272,7 @@
   }
   .trip-switch-archived-badge{
     flex-shrink:0;
-    font-size:10.5px;
+    font-size:var(--text-small);
     font-weight:700;
     text-transform:uppercase;
     letter-spacing:.04em;
@@ -518,7 +523,7 @@
   }
   .app-version-line{
     text-align:center;
-    font-size:10.5px;
+    font-size:var(--text-small);
     color:var(--slate);
     padding:4px 0 2px;
   }
@@ -846,7 +851,7 @@
   .item-traveler-badge{
     display:inline-flex;
     align-items:center;
-    font-size:10.5px;
+    font-size:var(--text-small);
     font-weight:700;
     padding:2px 8px;
     border-radius:var(--radius-xl);
@@ -857,7 +862,7 @@
   .item-main-plan-badge{
     display:inline-flex;
     align-items:center;
-    font-size:10.5px;
+    font-size:var(--text-small);
     font-weight:700;
     padding:2px 8px;
     border-radius:var(--radius-xl);
@@ -1090,7 +1095,7 @@
     background:var(--accent-glow);
   }
   .trip-grid-chip-time{
-    font-size:10.5px;
+    font-size:var(--text-small);
     color:var(--slate);
   }
   .trip-grid-chip-name{
@@ -1277,7 +1282,7 @@
   }
   .sidebar-fact .label{
     display:block;
-    font-size:10px;
+    font-size:var(--text-micro);
     font-weight:700;
     text-transform:uppercase;
     letter-spacing:.04em;
@@ -1455,7 +1460,7 @@
   }
   .day-info-field label{
     display:block;
-    font-size:10.5px;
+    font-size:var(--text-small);
     font-weight:700;
     text-transform:uppercase;
     letter-spacing:.05em;
@@ -1630,7 +1635,7 @@
   .grid-time{
     font-weight:600;
     color:var(--sky-text);
-    font-size:10px;
+    font-size:var(--text-micro);
     display:block;
   }
   .grid-dot{
@@ -1899,7 +1904,7 @@
   .timeline-block-crowd.crowd-high{ background:var(--coral); }
   .timeline-block-meal{
     display:block;
-    font-size:10px;
+    font-size:var(--text-micro);
     opacity:.9;
   }
   .timeline-block-confirmation, .timeline-block-notes-preview{
@@ -1923,7 +1928,7 @@
     border-radius:var(--radius-sm);
     background:var(--slate);
     color:white;
-    font-size:10.5px;
+    font-size:var(--text-small);
     font-weight:700;
     text-align:center;
     padding:4px 2px;
@@ -1937,7 +1942,7 @@
     border-radius:var(--radius-lg);
     background:var(--ink);
     color:white;
-    font-size:10px;
+    font-size:var(--text-micro);
     font-weight:700;
     text-align:center;
     padding:3px 10px;
@@ -1989,7 +1994,7 @@
     font-family:'Baloo 2',sans-serif;
   }
   .item-type-badge{
-    font-size:10px;
+    font-size:var(--text-micro);
     font-weight:700;
     text-transform:uppercase;
     letter-spacing:.05em;
@@ -2007,7 +2012,7 @@
     display:inline-flex;
     align-items:center;
     gap:4px;
-    font-size:10.5px;
+    font-size:var(--text-small);
     font-weight:700;
     text-transform:uppercase;
     letter-spacing:.04em;
@@ -2044,7 +2049,7 @@
     display:inline-flex;
     align-items:center;
     gap:4px;
-    font-size:10.5px;
+    font-size:var(--text-small);
     font-weight:700;
     text-transform:uppercase;
     letter-spacing:.04em;
@@ -2209,7 +2214,7 @@
   }
   .mode-toggle-option .sub{
     font-family:'Inter',sans-serif;
-    font-size:10.5px;
+    font-size:var(--text-small);
     font-weight:500;
     color:var(--slate);
   }
@@ -2267,7 +2272,7 @@
   }
   .day-notes-block label{
     display:block;
-    font-size:10.5px;
+    font-size:var(--text-small);
     font-weight:700;
     text-transform:uppercase;
     letter-spacing:.05em;
@@ -2494,7 +2499,7 @@
     display:inline-flex;
     align-items:center;
     gap:3px;
-    font-size:10px;
+    font-size:var(--text-micro);
     font-weight:700;
     text-transform:none;
     letter-spacing:0;
@@ -2704,7 +2709,7 @@
   }
   .park-hours-perk-tag{
     display:block;
-    font-size:10.5px;
+    font-size:var(--text-small);
     font-weight:700;
     color:#7A6114;
     margin-top:2px;
@@ -2928,7 +2933,7 @@
   }
   .packing-category-title .essential-tag{
     font-family:'Inter',sans-serif;
-    font-size:10px;
+    font-size:var(--text-micro);
     font-weight:700;
     text-transform:uppercase;
     letter-spacing:.04em;
@@ -4133,7 +4138,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.94';
+const APP_VERSION = '3.95';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
