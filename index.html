@@ -39,6 +39,12 @@
     --radius-lg:8px;
     --radius-xl:18px;
     --radius-round:50%;
+    /* Font-size tokens, phased in - Phase 1 covers only the smallest tier (badges,
+       Timeline indicators), converted to rem per NN/G's own recommendation to use
+       relative units rather than fixed px, and raised from the previous 8-9.5px
+       range toward a more legible floor. Rest of the type scale still uses raw px
+       for now, to be tokenized in later phases rather than one large risky pass. */
+    --text-micro:0.625rem;
   }
   :root[data-theme="fort-wilderness"]{
     --ink:#2A1F16;
@@ -1337,6 +1343,7 @@
   body.read-only-view .traveler-chip button,
   body.read-only-view .trip-notes-edit-row,
   body.read-only-view .del-item,
+  body.read-only-view .edit-category-link,
   body.read-only-view .catalog-toggle-btn,
   body.read-only-view .download-backup-btn{
     display:none !important;
@@ -1357,7 +1364,7 @@
     padding:8px 12px;
     margin:10px 0;
   }
-  .read-only-toast{
+  .app-toast{
     position:fixed;
     left:50%;
     bottom:24px;
@@ -1373,10 +1380,16 @@
     pointer-events:none;
     transition:opacity .2s ease, transform .2s ease;
     z-index:999;
+    max-width:88vw;
+    text-align:center;
   }
-  .read-only-toast.visible{
+  .app-toast.visible{
     opacity:1;
     transform:translate(-50%, 0);
+  }
+  .field-invalid{
+    border-color:var(--coral) !important;
+    box-shadow:0 0 0 2px var(--accent-glow);
   }
   /* Locks down the actual form fields, not just the buttons around them - this is
      what stops someone from ever reaching the handlers guarded above in the first
@@ -1586,7 +1599,7 @@
     font-size:11px;
   }
   .grid-table th{
-    font-size:9.5px;
+    font-size:var(--text-micro);
     font-weight:700;
     color:var(--slate);
     text-align:center;
@@ -1627,7 +1640,7 @@
     width:15px;height:15px;
     border-radius:var(--radius-round);
     margin-top:2px;
-    font-size:8px;
+    font-size:var(--text-micro);
     font-weight:700;
     color:white;
     line-height:1;
@@ -1636,7 +1649,7 @@
   .grid-dot.crowd-mid{background:#C9A227;}
   .grid-dot.crowd-high{background:#C2472A;}
   .grid-empty{color:var(--line); font-size:12px;}
-  .perk-mark{color:var(--marigold); font-size:9px;}
+  .perk-mark{color:var(--marigold); font-size:var(--text-micro);}
   .print-only-fact{
     display:none;
   }
@@ -1802,7 +1815,7 @@
     top:-6px;
     width:34px;
     text-align:right;
-    font-size:9px;
+    font-size:var(--text-micro);
     color:var(--slate);
     opacity:.75;
   }
@@ -1858,12 +1871,12 @@
     margin-bottom:1px;
   }
   .timeline-block-time{
-    font-size:9.5px;
+    font-size:var(--text-micro);
     font-weight:700;
     opacity:.9;
   }
   .timeline-block-indicator{
-    font-size:9px;
+    font-size:var(--text-micro);
     line-height:1;
     opacity:.9;
   }
@@ -1874,7 +1887,7 @@
     width:13px;
     height:13px;
     border-radius:var(--radius-round);
-    font-size:8px;
+    font-size:var(--text-micro);
     font-weight:700;
     line-height:1;
     color:#fff;
@@ -1891,12 +1904,12 @@
   }
   .timeline-block-confirmation, .timeline-block-notes-preview{
     display:block;
-    font-size:9.5px;
+    font-size:var(--text-micro);
     opacity:.85;
     margin-top:2px;
   }
   .timeline-block-traveler-names{
-    font-size:9.5px;
+    font-size:var(--text-micro);
     opacity:.9;
     display:block;
     width:100%;
@@ -2958,6 +2971,12 @@
     color:var(--coral);
     font-weight:700;
   }
+  .packing-item-inner .edit-category-link{
+    font-size:11px;
+    color:var(--slate);
+    text-decoration:underline;
+    flex-shrink:0;
+  }
   .packing-item-inner .del-item:disabled{
     opacity:.6;
     cursor:default;
@@ -3666,6 +3685,25 @@
   <button type="button" id="toolsMenuTrigger" class="tools-menu-trigger">☰ Tools</button>
 </div>
 
+<div class="master-editor-overlay" id="copyFallbackOverlay">
+  <div class="master-editor">
+    <h2 id="copyFallbackTitle">Copy This</h2>
+    <p class="sub">Your clipboard didn't cooperate — tap the text below, select all, and copy manually.</p>
+    <textarea id="copyFallbackText" readonly style="width:100%;box-sizing:border-box;min-height:100px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius-md);font-size:13px;font-family:'Inter',sans-serif;"></textarea>
+    <button type="button" class="master-editor-close master-editor-close-sticky" id="copyFallbackCloseBtn">Done</button>
+  </div>
+</div>
+
+<div class="master-editor-overlay" id="editItemCategoryOverlay">
+  <div class="master-editor">
+    <h2>Edit Category</h2>
+    <p class="sub" id="editItemCategoryItemName"></p>
+    <select id="editItemCategorySelect" style="width:100%;box-sizing:border-box;margin-bottom:14px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius-md);font-size:14px;"></select>
+    <button type="button" class="print-packing-btn" id="editItemCategorySaveBtn">Save</button>
+    <button type="button" class="master-editor-close master-editor-close-sticky" id="editItemCategoryCloseBtn">Cancel</button>
+  </div>
+</div>
+
 <div class="master-editor-overlay" id="adminAccessOverlay">
   <div class="master-editor">
     <h2>Admin Access</h2>
@@ -4095,7 +4133,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.91';
+const APP_VERSION = '3.94';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4126,18 +4164,38 @@ function makeReadOnlyChain(){
   proxy = new Proxy(function(){}, handler);
   return proxy;
 }
-function showReadOnlyNotice(){
-  let el = document.getElementById('readOnlyToast');
+// General-purpose toast, used app-wide for feedback that doesn't need a blocking
+// alert() - long enough duration to actually read (5.5s, above the 5s research
+// minimum), a real ARIA role so screen readers announce it, and reused everywhere
+// rather than each caller inventing its own notice element.
+function showToast(message, opts){
+  opts = opts || {};
+  let el = document.getElementById('appToast');
   if(!el){
     el = document.createElement('div');
-    el.id = 'readOnlyToast';
-    el.className = 'read-only-toast';
+    el.id = 'appToast';
+    el.className = 'app-toast';
+    el.setAttribute('role', 'alert');
     document.body.appendChild(el);
   }
-  el.textContent = "This trip is view-only, so that didn't save.";
+  el.textContent = message;
   el.classList.add('visible');
-  clearTimeout(showReadOnlyNotice._t);
-  showReadOnlyNotice._t = setTimeout(() => el.classList.remove('visible'), 2600);
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => el.classList.remove('visible'), opts.duration || 5500);
+}
+function showReadOnlyNotice(){
+  showToast("This trip is view-only, so that didn't save.");
+}
+// Toasts are the redundant secondary signal, not the only one - for validation tied
+// to a specific field, this keeps a visible highlight on the actual field until it's
+// fixed, so a missed toast doesn't mean silently repeating the same failed action.
+function flagInvalidField(el){
+  if(!el) return;
+  el.classList.add('field-invalid');
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  const clear = () => el.classList.remove('field-invalid');
+  el.addEventListener('input', clear, { once: true });
+  el.addEventListener('change', clear, { once: true });
 }
 function applyReadOnlyGuardIfNeeded(){
   if(!isReadOnlyView) return;
@@ -5891,7 +5949,7 @@ function buildICSEventLines(day, dayDate, item, dtstamp){
 }
 function generateICS(trip, selectedItemIds){
   if(!trip.startDate){
-    alert('Set a trip start date first (in Trip Details) so events can be placed on real calendar dates.');
+    showToast('Set a trip start date first (in Trip Details) so events can be placed on real calendar dates.');
     return null;
   }
   const lines = [];
@@ -5913,7 +5971,7 @@ function generateICS(trip, selectedItemIds){
   lines.push('END:VCALENDAR');
 
   if(eventCount === 0){
-    alert('No items were selected to export.');
+    showToast('No items were selected to export.');
     return null;
   }
   return lines.join('\r\n');
@@ -5923,7 +5981,7 @@ let calendarExportTrip = null;
 
 function openCalendarExportModal(trip){
   if(!trip.startDate){
-    alert('Set a trip start date first (in Trip Details) so events can be placed on real calendar dates.');
+    showToast('Set a trip start date first (in Trip Details) so events can be placed on real calendar dates.');
     return;
   }
   calendarExportTrip = trip;
@@ -6919,6 +6977,58 @@ document.getElementById('parkHoursRefreshLink').onclick = async () => {
   setTimeout(() => { link.textContent = '↻ Refresh hours'; }, 2000);
 };
 
+// Category editing is deliberately a small popup, not an inline select on the main
+// list - Packing and Grocery both group items visually by category, so changing one
+// inline would make the item immediately jump to a different group under the
+// person's thumb, the same class of disorienting reflow already found and fixed
+// once for the grocery catalog. This way the item stays put until the popup closes,
+// then the list re-renders once with the new grouping, not live mid-edit.
+function openEditItemCategoryModal({ trip, item, kind, itemName }){
+  document.getElementById('editItemCategoryItemName').textContent = `"${itemName}" — currently: ${item.category || 'No category'}`;
+  const master = kind === 'packing' ? appData.packingMaster : appData.groceryMaster;
+  const categories = [...new Set(master.map(i => i.category))];
+  const select = document.getElementById('editItemCategorySelect');
+  select.innerHTML = `
+    <option value="">No category</option>
+    ${categories.map(cat => `<option value="${escapeHtml(cat)}" ${cat === (item.category||'') ? 'selected' : ''}>${escapeHtml(cat)}</option>`).join('')}
+  `;
+  document.getElementById('editItemCategorySaveBtn').onclick = () => {
+    item.category = select.value;
+    closeEditItemCategoryModal();
+    render();
+    const syncFn = kind === 'packing' ? syncSinglePackingItemUpdate : syncSingleGroceryItemUpdate;
+    const itemsKey = kind === 'packing' ? 'packingItems' : 'groceryItems';
+    syncFn(trip, item).then(result => {
+      if(!result.ok){
+        trip[itemsKey] = trip[itemsKey].filter(i => i.id !== item.id);
+        render();
+        showRemovedByOtherMessage(result);
+      }
+    });
+  };
+  document.getElementById('editItemCategoryOverlay').classList.add('active');
+}
+function closeEditItemCategoryModal(){
+  document.getElementById('editItemCategoryOverlay').classList.remove('active');
+}
+document.getElementById('editItemCategoryCloseBtn').onclick = closeEditItemCategoryModal;
+
+// Group 4 fix: a plain alert() renders its message as flat, non-selectable text in
+// most browsers, so "here's your link to copy manually" never actually let anyone
+// select and copy it - the fallback didn't work for the one thing it existed for.
+// A real readonly textarea, pre-selected on open, actually does.
+function showCopyFallbackModal(title, text){
+  document.getElementById('copyFallbackTitle').textContent = title;
+  const ta = document.getElementById('copyFallbackText');
+  ta.value = text;
+  document.getElementById('copyFallbackOverlay').classList.add('active');
+  setTimeout(() => { ta.focus(); ta.select(); }, 50);
+}
+function closeCopyFallbackModal(){
+  document.getElementById('copyFallbackOverlay').classList.remove('active');
+}
+document.getElementById('copyFallbackCloseBtn').onclick = closeCopyFallbackModal;
+
 function renderCrowdLevelsManager(){
   const trip = crowdLevelsManagerTrip;
   const body = document.getElementById('crowdLevelsManagerBody');
@@ -6957,7 +7067,7 @@ function renderCrowdLevelsManager(){
         if(isReadOnlyView) return;
         if(!getTripAdminSecret(trip.supabaseId)){
           e.target.value = slot.level || '';
-          alert('You need admin access to change crowd levels for this trip. Tap "Enter Admin Access" above.');
+          showToast('You need admin access to change crowd levels for this trip. Tap "Enter Admin Access" above.');
           return;
         }
         setCrowdLevel(trip, slot.dayId, slot.park, e.target.value);
@@ -6972,7 +7082,7 @@ function renderCrowdLevelsManager(){
       };
       row.querySelector('.crowd-remove-btn').onclick = async () => {
         if(!getTripAdminSecret(trip.supabaseId)){
-          alert('You need admin access to remove crowd levels for this trip. Tap "Enter Admin Access" above.');
+          showToast('You need admin access to remove crowd levels for this trip. Tap "Enter Admin Access" above.');
           return;
         }
         const removeBtn = row.querySelector('.crowd-remove-btn');
@@ -7022,14 +7132,15 @@ function renderCrowdLevelsManager(){
   addRow.querySelector('button').onclick = () => {
     if(isReadOnlyView) return;
     if(!getTripAdminSecret(trip.supabaseId)){
-      alert('You need admin access to set crowd levels for this trip. Tap "Enter Admin Access" above.');
+      showToast('You need admin access to set crowd levels for this trip. Tap "Enter Admin Access" above.');
       return;
     }
     const dayId = daySelect.value;
     const park = parkSelect.value;
     const level = levelSelect.value;
     if(!dayId || !park || !level){
-      alert('Choose a day, park, and level to save.');
+      showToast('Choose a day, park, and level to save.');
+      flagInvalidField(!dayId ? daySelect : (!park ? parkSelect : levelSelect));
       return;
     }
     setCrowdLevel(trip, dayId, park, level);
@@ -7130,7 +7241,7 @@ document.getElementById('calendarExportOverlay').addEventListener('click', e => 
 
 function generateSingleItemICS(trip, day, item){
   if(!trip.startDate){
-    alert('Set a trip start date first (in Trip Details) so this event can be placed on a real calendar date.');
+    showToast('Set a trip start date first (in Trip Details) so this event can be placed on a real calendar date.');
     return null;
   }
   const dayIndex = trip.days.findIndex(d => d.id === day.id);
@@ -7858,7 +7969,7 @@ let parkHoursCurrentDate = null;
 function openParkHoursModal(day){
   const trip = getActiveTrip();
   if(!trip.startDate){
-    alert("Set your trip's start date in Trip Details first — park hours are shown by specific date.");
+    showToast("Set your trip's start date in Trip Details first — park hours are shown by specific date.");
     return;
   }
   const dayIndex = trip.days.findIndex(d => d.id === day.id);
@@ -9164,7 +9275,7 @@ function renderWizardSaveArea(body, trip){
         btn.textContent = '✓ Copied!';
         setTimeout(() => { btn.textContent = 'Copy Link'; }, 1500);
       }catch(err){
-        alert('Could not copy automatically. Here is your link:\n\n' + shareUrl);
+        showCopyFallbackModal('Your Trip Link', shareUrl);
       }
     };
     area.querySelector('#wizardFinishBtn').onclick = () => closeTripWizard();
@@ -9608,7 +9719,7 @@ async function removeDay(dayId){
   if(trip.days.length <= 1) return;
   const idx = trip.days.findIndex(d => d.id === dayId);
   if(idx !== 0 && idx !== trip.days.length - 1){
-    alert("Only the first or last day of a trip can be removed, to keep dates in order.");
+    showToast("Only the first or last day of a trip can be removed, to keep dates in order.");
     return;
   }
   const dayToRemove = trip.days.find(d => d.id === dayId);
@@ -10483,15 +10594,17 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   wrap.querySelector('[data-role="submit"]').onclick = () => {
     const isMainPlan = mainPlanCheckbox.checked && !mainPlanCheckbox.disabled;
     const name = wrap.querySelector('[data-f="name"]').value.trim();
-    if(!name){ alert('Give it a name first.'); return; }
+    if(!name){ showToast('Give it a name first.'); flagInvalidField(wrap.querySelector('[data-f="name"]')); return; }
     const time = timeInput.value;
     const section = sectionSelect.value;
     if(!time && !section){
-      alert('Pick a time, or choose Morning, Afternoon, or Evening for this item.');
+      showToast('Pick a time, or choose Morning, Afternoon, or Evening for this item.');
+      flagInvalidField(timeInput);
       return;
     }
     if(landmarkCheckbox.checked && !time){
-      alert('A moment in time needs an actual time — pick one, or uncheck "n/a" next to Ends At.');
+      showToast('A moment in time needs an actual time — pick one, or uncheck "n/a" next to Ends At.');
+      flagInvalidField(timeInput);
       return;
     }
     const type = typeSelect.value;
@@ -10499,11 +10612,13 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
     const mealPeriod = mealPeriodSelect.value;
     if(type === 'dining'){
       if(!mealService){
-        alert('Choose a service type for this dining item (QS, TS, 2TS, Snack, or In-Room).');
+        showToast('Choose a service type for this dining item (QS, TS, 2TS, Snack, or In-Room).');
+        flagInvalidField(mealServiceSelect);
         return;
       }
       if(mealService !== 'snack' && !mealPeriod){
-        alert('Choose a meal (Breakfast, Lunch, or Dinner) for this dining item.');
+        showToast('Choose a meal (Breakfast, Lunch, or Dinner) for this dining item.');
+        flagInvalidField(mealPeriodSelect);
         return;
       }
     }
@@ -10739,7 +10854,7 @@ function renderPackingPanel(){
   copyBtn.onclick = async () => {
     const text = generatePackingListText(trip);
     if(!text){
-      alert('Nothing on your packing list yet.');
+      showToast('Nothing on your packing list yet.');
       return;
     }
     try{
@@ -10747,7 +10862,7 @@ function renderPackingPanel(){
       copyBtn.textContent = '✓ Copied!';
       setTimeout(() => { copyBtn.textContent = '📋 Copy Text'; }, 1500);
     }catch(err){
-      alert('Could not copy automatically. Here\'s your list:\n\n' + text);
+      showCopyFallbackModal('Your Packing List', text);
     }
   };
   btnRow.appendChild(copyBtn);
@@ -10848,10 +10963,17 @@ function renderPackingItemRow(trip, name, row, isCustom, essential){
       <div class="packing-item-inner">
         <input type="checkbox" ${row.checked ? 'checked' : ''} />
         <span class="packing-item-name">${escapeHtml(name)}</span>
+        ${isCustom ? '<a href="#" class="edit-category-link">Category</a>' : ''}
         ${canRemove ? '<button type="button" class="del-item danger">Remove</button>' : ''}
       </div>
     </div>
   `;
+  if(isCustom){
+    el.querySelector('.edit-category-link').onclick = (e) => {
+      e.preventDefault();
+      openEditItemCategoryModal({ trip, item: row, kind: 'packing', itemName: name });
+    };
+  }
   el.querySelector('input').onchange = () => {
     row.checked = !row.checked;
     render();
@@ -10940,7 +11062,9 @@ function closeTravelerColorModal(){
   ['tripGridOverlay', closeTripGridModal],
   ['tripDetailsOverlay', () => { const trip = getActiveTrip(); if(trip) expandedTripDetails.delete(trip.id); render(); }],
   ['adminAccessOverlay', closeAdminAccessModal],
-  ['adminGatedActionOverlay', closeAdminGatedActionModal]
+  ['adminGatedActionOverlay', closeAdminGatedActionModal],
+  ['editItemCategoryOverlay', closeEditItemCategoryModal],
+  ['copyFallbackOverlay', closeCopyFallbackModal]
 ].forEach(([overlayId, closeFn]) => {
   document.getElementById(overlayId).addEventListener('click', e => {
     if(e.target.id !== overlayId) return;
@@ -11185,14 +11309,14 @@ function renderToolsMenu(){
     const includePacking = checkboxRow.querySelector('[data-print-check="packing"]').checked;
     const includeGrocery = checkboxRow.querySelector('[data-print-check="grocery"]').checked;
     if(!includeBasics && !includeCrowd && !includeOverview && !includeDays && !includePacking && !includeGrocery){
-      alert('Choose at least one thing to print.');
+      showToast('Choose at least one thing to print.');
       return;
     }
     const selectedDayIds = includeDays
       ? dayCheckboxes.filter(cb => cb.checked).map(cb => cb.dataset.dayId)
       : [];
     if(includeDays && selectedDayIds.length === 0){
-      alert('Choose at least one day to print, or uncheck Itinerary.');
+      showToast('Choose at least one day to print, or uncheck Itinerary.');
       return;
     }
     printSelected({ includeBasics, includeCrowd, includeOverview, includeDays, selectedDayIds, includePacking, includeGrocery });
@@ -11206,7 +11330,7 @@ function renderToolsMenu(){
   copyTextBtn.onclick = async () => {
     const text = generatePackingListText(trip);
     if(!text){
-      alert('Nothing on your packing list yet.');
+      showToast('Nothing on your packing list yet.');
       return;
     }
     try{
@@ -11214,7 +11338,7 @@ function renderToolsMenu(){
       copyTextBtn.textContent = '✓ Copied!';
       setTimeout(() => { copyTextBtn.textContent = '📋 Copy Packing List as Text'; }, 1500);
     }catch(err){
-      alert('Could not copy automatically. Here\'s your list:\n\n' + text);
+      showCopyFallbackModal('Your Packing List', text);
     }
   };
   printSection.appendChild(copyTextBtn);
@@ -11268,7 +11392,7 @@ function renderToolsMenu(){
           btn.textContent = '✓ Copied!';
           setTimeout(() => { btn.textContent = 'Copy Link'; }, 1500);
         }catch(err){
-          alert('Could not copy automatically. Here is your link:\n\n' + shareUrl);
+          showCopyFallbackModal('Your Trip Link', shareUrl);
         }
       };
     }
@@ -11279,7 +11403,7 @@ function renderToolsMenu(){
         btn.textContent = '✓ Copied!';
         setTimeout(() => { btn.textContent = 'Copy View-only Link'; }, 1500);
       }catch(err){
-        alert('Could not copy automatically. Here is your link:\n\n' + viewOnlyUrl);
+        showCopyFallbackModal('Your View-only Link', viewOnlyUrl);
       }
     };
     const adminBtn = shareSection.querySelector('[data-copy-role="admin"]');
@@ -11292,7 +11416,7 @@ function renderToolsMenu(){
           btn.textContent = '✓ Copied!';
           setTimeout(() => { btn.textContent = 'Copy Admin Passphrase'; }, 1500);
         }catch(err){
-          alert('Could not copy automatically. Here is your admin passphrase:\n\n' + secret);
+          showCopyFallbackModal('Your Admin Passphrase', secret);
         }
       };
     }
@@ -11453,7 +11577,7 @@ function renderToolsMenu(){
   removeBtn.textContent = `Remove "${trip.title || 'this trip'}" from this device`;
   removeBtn.onclick = () => {
     if(appData.trips.length <= 1){
-      alert("This is your only trip, so it can't be removed.");
+      showToast("This is your only trip, so it can't be removed.");
       return;
     }
     if(!confirm(`This removes "${trip.title || 'this trip'}" from your device only. It doesn't delete anything, and nobody else loses access — you can always get it back using the same share link.\n\nContinue?`)) return;
@@ -11823,10 +11947,17 @@ function renderGroceryItemRow(trip, name, gi){
       <div class="packing-item-inner">
         <input type="checkbox" ${gi.checked ? 'checked' : ''} />
         <span class="packing-item-name">${escapeHtml(name)}</span>
+        ${gi.custom ? '<a href="#" class="edit-category-link">Category</a>' : ''}
         <button type="button" class="del-item danger">Remove</button>
       </div>
     </div>
   `;
+  if(gi.custom){
+    el.querySelector('.edit-category-link').onclick = (e) => {
+      e.preventDefault();
+      openEditItemCategoryModal({ trip, item: gi, kind: 'grocery', itemName: name });
+    };
+  }
   el.querySelector('input').onchange = () => {
     gi.checked = !gi.checked;
     render();
