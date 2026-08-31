@@ -3908,6 +3908,7 @@
   <div class="master-editor">
     <h2>Templates</h2>
     <p class="sub">Saved day shapes, shared across every trip.</p>
+    <button type="button" class="print-packing-btn-secondary" id="templateAdminAccessBtn" style="margin-bottom:14px;"></button>
     <div id="templateListBody"></div>
     <button type="button" class="master-editor-close master-editor-close-sticky" id="templateListCloseBtn">Done</button>
   </div>
@@ -4091,7 +4092,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.89';
+const APP_VERSION = '3.90';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4281,6 +4282,52 @@ function renderAdminAccessModal(trip){
 }
 document.getElementById('adminAccessCloseBtn').onclick = closeAdminAccessModal;
 
+function openTemplateAdminAccessModal(){
+  renderTemplateAdminAccessModal();
+  document.getElementById('adminAccessOverlay').classList.add('active');
+}
+function renderTemplateAdminAccessModal(){
+  const body = document.getElementById('adminAccessBody');
+  const remembered = getTemplateAdminSecret();
+  if(remembered){
+    body.innerHTML = `
+      <p class="sub">You have template admin access on this device. This unlocks deleting templates - affects every trip, not just one.</p>
+      <button type="button" class="tools-menu-danger-btn" data-role="forgetBtn">Forget template admin access on this device</button>
+    `;
+    body.querySelector('[data-role="forgetBtn"]').onclick = () => {
+      localStorage.removeItem('parkDaysTemplateAdminSecret');
+      renderTemplateAdminAccessModal();
+    };
+  } else {
+    body.innerHTML = `
+      <p class="sub">Enter the template admin passphrase to unlock deleting templates. This is separate from any trip's own admin access, deliberately - if this hasn't been set yet, whatever you enter here becomes it.</p>
+      <input type="text" placeholder="Template admin passphrase" data-role="secretInput" style="width:100%;box-sizing:border-box;margin-bottom:10px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius-md);font-size:14px;" />
+      <div data-role="error" style="color:var(--coral);font-size:12.5px;margin-bottom:8px;display:none;"></div>
+      <button type="button" class="print-packing-btn" data-role="unlockBtn">Unlock</button>
+    `;
+    const input = body.querySelector('[data-role="secretInput"]');
+    const errorEl = body.querySelector('[data-role="error"]');
+    const unlockBtn = body.querySelector('[data-role="unlockBtn"]');
+    unlockBtn.onclick = async () => {
+      const secret = input.value.trim();
+      if(!secret){ errorEl.textContent = 'Enter a passphrase first.'; errorEl.style.display = 'block'; return; }
+      unlockBtn.disabled = true;
+      unlockBtn.textContent = 'Checking…';
+      let ok = await verifyTemplateAdminSecret(secret);
+      if(!ok) ok = await claimTemplateAdminSecret(secret);
+      if(ok){
+        rememberTemplateAdminSecret(secret);
+        renderTemplateAdminAccessModal();
+      } else {
+        unlockBtn.disabled = false;
+        unlockBtn.textContent = 'Unlock';
+        errorEl.textContent = "That didn't match, and template admin access already has a passphrase set.";
+        errorEl.style.display = 'block';
+      }
+    };
+  }
+}
+
 // Generic confirm-with-admin-secret modal, reused by any admin-gated destructive
 // action (Delete Trip, Delete Template) rather than building one modal per action.
 function openAdminGatedAction({ actionLabel, rememberedSecret, onConfirm }){
@@ -4294,7 +4341,7 @@ function openAdminGatedAction({ actionLabel, rememberedSecret, onConfirm }){
   const errorEl = body.querySelector('[data-role="error"]');
   const confirmBtn = body.querySelector('[data-role="confirmBtn"]');
   confirmBtn.onclick = async () => {
-    const secret = rememberedSecret || (body.querySelector('[data-role="secretInput"]') || {}).value || '';
+    const secret = rememberedSecret || ((body.querySelector('[data-role="secretInput"]') || {}).value || '').trim();
     if(!secret){ errorEl.textContent = 'Enter the admin passphrase first.'; errorEl.style.display = 'block'; return; }
     confirmBtn.disabled = true;
     confirmBtn.textContent = 'Working…';
@@ -6515,6 +6562,9 @@ document.getElementById('saveTemplateSubmitBtn').onclick = async () => {
 
 async function openTemplateListModal(day){
   document.getElementById('templateListOverlay').classList.add('active');
+  const adminBtn = document.getElementById('templateAdminAccessBtn');
+  adminBtn.textContent = getTemplateAdminSecret() ? '🔑 Template Admin Access (unlocked)' : '🔑 Enter Template Admin Access';
+  adminBtn.onclick = () => openTemplateAdminAccessModal();
   const body = document.getElementById('templateListBody');
   body.innerHTML = '<div class="empty-state">Loading templates…</div>';
   const templates = await fetchTemplates();
