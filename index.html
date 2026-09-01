@@ -1880,6 +1880,18 @@
     color:var(--ink);
     font-size:var(--text-small);
     line-height:1.25;
+    /* Content over precise proportionality: guarantees the item name (the most
+       important line in the block) always has room to actually render, even for
+       very short-duration items, rather than getting vertically clipped when a
+       larger text-size setting is active. Scales automatically with --text-emphasis
+       (the token the name itself uses), so it stays correct across Small/Medium/
+       Large without needing separate values maintained here. min-height reliably
+       wins over a smaller explicit height even when that height is set inline via
+       JS, so no script changes were needed alongside this. The trade-off - the
+       shortest blocks can render slightly taller than their true duration would
+       imply - was a deliberate, explicit choice: knowing what something is called
+       matters more than knowing precisely how short it is. */
+    min-height:calc(var(--text-emphasis) * 1.25 + 4px);
   }
   .timeline-block.status-tentative{
     border-style:dashed;
@@ -4182,7 +4194,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '4.00';
+const APP_VERSION = '4.02';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -9834,6 +9846,18 @@ function assignTimelineColumns(cluster){
   return { assigned, peakColumns: columnEndTimes.length };
 }
 
+// Mirrors the CSS min-height formula on .timeline-block exactly (var(--text-emphasis)
+// * 1.25 + 4px padding), so the JS-side collision-avoidance pass below agrees with
+// what the browser will actually render. Kept as a small lookup rather than reading
+// the CSS custom property live, since that would need DOM measurement rather than a
+// simple synchronous check - a real, acknowledged duplication to keep in sync if the
+// --text-emphasis values in the stylesheet ever change.
+function getMinVisualHeight(){
+  const textSize = document.documentElement.getAttribute('data-text-size') || 'medium';
+  const emphasisPx = { small: 13, medium: 14, large: 17 }[textSize] || 14;
+  return emphasisPx * 1.25 + 4;
+}
+
 function clusterTimelineItems(entries){
   const sorted = [...entries].sort((a,b) => a.startMin - b.startMin || (a.item.name||'').localeCompare(b.item.name||''));
   const clusters = [];
@@ -9955,6 +9979,14 @@ function renderDayTimelineGrid(panel, day, trip){
   const blockEntries = entries;
 
   const clusters = clusterTimelineItems(blockEntries);
+  // Global cursor for the collision-avoidance pass below - deliberately one running
+  // value across the whole day, not per-cluster or per-column, since clustering uses
+  // strict "<" for overlap, meaning items that exactly touch (one ends the instant
+  // the next starts) land in separate clusters with no awareness of each other at
+  // all. Only applied to single-column clusters; multi-column ones update the
+  // cursor so whatever comes after them doesn't collide, but are never themselves
+  // inflated or shifted - a deliberate, scoped limitation, not an oversight.
+  let stackCursor = -Infinity;
   clusters.forEach(cluster => {
     const clusterKey = day.id + ':' + cluster[0].startMin;
     const isExpanded = expandedTimelineClusters.has(clusterKey);
@@ -9969,8 +10001,15 @@ function renderDayTimelineGrid(panel, day, trip){
       const status = entry.item.status === 'tentative' ? 'tentative' : 'confirmed';
       const isLandmark = entry.endMin === entry.startMin;
       block.className = `timeline-block ${isLandmark ? 'landmark' : 'tab-' + entry.item.type} status-${status}` + (entry.item.isMainPlan ? ' main-plan' : '');
-      const top = (entry.startMin - windowStart) / 60 * PIXELS_PER_HOUR;
-      const height = Math.max(20, (entry.endMin - entry.startMin) / 60 * PIXELS_PER_HOUR);
+      let top = (entry.startMin - windowStart) / 60 * PIXELS_PER_HOUR;
+      let height = Math.max(20, (entry.endMin - entry.startMin) / 60 * PIXELS_PER_HOUR);
+      if(peakColumns === 1){
+        height = Math.max(height, getMinVisualHeight());
+        if(top < stackCursor) top = stackCursor;
+        stackCursor = top + height;
+      } else {
+        stackCursor = Math.max(stackCursor, top + height);
+      }
       block.style.top = top + 'px';
       block.style.height = height + 'px';
       block.style.left = (i / columnCount * 100) + '%';
