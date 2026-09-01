@@ -1906,6 +1906,7 @@
   }
   .timeline-block-name{
     font-weight:700;
+    font-size:var(--text-emphasis);
     white-space:nowrap;
     overflow:hidden;
     text-overflow:ellipsis;
@@ -4181,7 +4182,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.99';
+const APP_VERSION = '4.00';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
