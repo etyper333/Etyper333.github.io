@@ -3911,7 +3911,7 @@
     </div>
     <div class="time-field-block" id="copyMoveTimeRow">
       <label class="form-row-label">Time</label>
-      <div class="time-input-wrap"><input type="time" id="copyMoveTimeInput" /></div>
+      <div class="time-input-wrap"><input type="time" id="copyMoveTimeInput" step="300" /></div>
     </div>
     <p class="section-empty-note" id="copyMoveNoTimeNote" style="display:none;">This item has no specific time — it'll keep its current part of the day, unchanged.</p>
 
@@ -4062,7 +4062,7 @@
     <div class="item-context" id="applyTemplateContext"></div>
     <div class="form-row">
       <label class="form-row-label">Start time</label>
-      <input type="time" id="applyTemplateStartTime" />
+      <input type="time" id="applyTemplateStartTime" step="300" />
     </div>
     <p class="sub" style="margin-top:-4px;">Original start time — everything else shifts along with it if you change this.</p>
     <button type="button" class="park-hours-link" id="applyTemplateParkHoursLink">🎢 Check Park Hours & Crowd Levels</button>
@@ -4194,7 +4194,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '4.02';
+const APP_VERSION = '4.04';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -10430,7 +10430,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
           <label class="form-row-label start-time-label-row">Time</label>
           <div class="time-field-block">
             <div class="time-input-wrap">
-              <input type="time" data-f="time" value="${initial.time || ''}" />
+              <input type="time" data-f="time" step="300" value="${initial.time || ''}" />
               <button type="button" class="time-clear-x" data-role="clear-time" style="display:none;" title="Clear time">✕</button>
             </div>
           </div>
@@ -10444,7 +10444,7 @@ function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
             </label>
           </label>
           <div class="time-field-block" data-role="end-time-row">
-            <div class="time-input-wrap"><input type="time" data-f="endTime" /></div>
+            <div class="time-input-wrap"><input type="time" data-f="endTime" step="300" /></div>
           </div>
         </div>
       </div>
@@ -11601,11 +11601,12 @@ function renderToolsMenu(){
   manageTripBtnRow.className = 'tools-menu-btn-row';
   body.appendChild(manageTripBtnRow);
 
+  if(!isReadOnlyView && getTripAdminSecret(trip.supabaseId)){
   const downloadBtn = document.createElement('button');
   downloadBtn.type = 'button';
   downloadBtn.className = 'print-packing-btn-secondary download-backup-btn';
   downloadBtn.textContent = '💾 Download Backup';
-  downloadBtn.title = 'Syncs first, then downloads a full backup file of every trip';
+  downloadBtn.title = 'Syncs first, then downloads a full backup file of every trip on this device — requires admin access';
   downloadBtn.onclick = async () => {
     downloadBtn.disabled = true;
     downloadBtn.textContent = '💾 Syncing…';
@@ -11635,6 +11636,7 @@ function renderToolsMenu(){
     }
   };
   manageTripBtnRow.appendChild(downloadBtn);
+  }
 
   if(!isReadOnlyView){
   const duplicateBtn = document.createElement('button');
