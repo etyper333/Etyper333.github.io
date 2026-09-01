@@ -60,6 +60,39 @@
        deduplication rather than a size increase - consolidated to the middle
        value rather than pushed toward the top like the smaller tiers were. */
     --text-base:0.8125rem;
+    /* Final phase: headings deliberately treated differently from the body-text
+       bands above - real variation preserved, not collapsed the same way. 14/14.5/15
+       merge as one genuinely-drifted role; 16px (mostly chevrons/icons, not prose)
+       gets its own token without a value change, for consistency; 18px and up stay
+       raw px since each is a distinct, single-use heading size - a value used once
+       can't drift, so tokenizing it adds nothing. The @media(max-width:400px) h1
+       override is untouched entirely - confirmed intentional responsive behavior,
+       not drift. */
+    --text-emphasis:0.875rem;
+    --text-icon:1rem;
+  }
+  /* BL97: in-app text-size preference, same data-attribute pattern already proven
+     for theming. Differential scaling, not uniform - content-adjacent tokens
+     (base, emphasis) move the most; chrome-adjacent ones (micro, icon) move the
+     least or not at all, since those cover the tightest fixed-size elements in the
+     app (badges, crowd circles) that were the highest-risk spots throughout the
+     whole font cleanup. Nothing on Small drops below the legibility floors
+     established during that same cleanup. */
+  :root[data-text-size="small"]{
+    --text-micro:0.625rem;
+    --text-small:0.625rem;
+    --text-md:0.6875rem;
+    --text-base:0.75rem;
+    --text-emphasis:0.8125rem;
+    --text-icon:1rem;
+  }
+  :root[data-text-size="large"]{
+    --text-micro:0.6875rem;
+    --text-small:0.75rem;
+    --text-md:0.875rem;
+    --text-base:0.9375rem;
+    --text-emphasis:1.0625rem;
+    --text-icon:1.0625rem;
   }
   :root[data-theme="fort-wilderness"]{
     --ink:#2A1F16;
@@ -268,7 +301,7 @@
     background:var(--paper);
     border:1.5px solid var(--line);
     color:var(--ink);
-    font-size:14px;
+    font-size:var(--text-emphasis);
     font-weight:600;
     cursor:pointer;
     text-align:left;
@@ -502,12 +535,12 @@
   .theme-card .swatch:first-child{margin-left:0;}
   .theme-card .theme-name{
     font-weight:700;
-    font-size:14px;
+    font-size:var(--text-emphasis);
     color:var(--ink);
     flex:1;
   }
   .theme-card .theme-check{
-    font-size:16px;
+    font-size:var(--text-icon);
     color:var(--coral);
     flex-shrink:0;
   }
@@ -794,7 +827,7 @@
   }
   .conflict-field-label{
     font-family:'Baloo 2',sans-serif;
-    font-size:14px;
+    font-size:var(--text-emphasis);
     font-weight:700;
     color:var(--coral);
     margin-bottom:8px;
@@ -937,7 +970,7 @@
   }
   .trip-summary-trigger .trip-summary-chevron{
     flex-shrink:0;
-    font-size:14px;
+    font-size:var(--text-emphasis);
   }
   .view-controls-row{
     max-width:640px;
@@ -1016,7 +1049,7 @@
     gap:10px;
     padding:12px 10px;
     border-radius:var(--radius-md);
-    font-size:14px;
+    font-size:var(--text-emphasis);
     font-weight:600;
     cursor:pointer;
   }
@@ -1163,7 +1196,7 @@
   }
   .view-tab-primary{
     flex:1.7;
-    font-size:14.5px;
+    font-size:var(--text-emphasis);
   }
   .view-tab-secondary{
     flex:1;
@@ -1211,7 +1244,7 @@
     border:1.5px solid var(--line);
     background:var(--paper);
     color:var(--sky-text);
-    font-size:16px;
+    font-size:var(--text-icon);
     font-weight:700;
     cursor:pointer;
   }
@@ -1228,7 +1261,7 @@
     border-radius:var(--radius-md);
     padding:9px 10px;
     font-family:'Baloo 2',sans-serif;
-    font-size:14.5px;
+    font-size:var(--text-emphasis);
     font-weight:700;
     color:var(--ink);
     cursor:pointer;
@@ -1437,7 +1470,7 @@
   }
   .day-title-input{
     font-family:'Inter',sans-serif;
-    font-size:14px;
+    font-size:var(--text-emphasis);
     font-weight:600;
     padding:8px 10px;
     border-radius:var(--radius-md);
@@ -1524,7 +1557,7 @@
     color:var(--slate);
     border-radius:var(--radius-round);
     width:24px;height:24px;
-    font-size:14px;
+    font-size:var(--text-emphasis);
     line-height:1;
     cursor:pointer;
     padding:0;
@@ -1691,7 +1724,7 @@
     top:12px;
     right:14px;
     color:var(--slate);
-    font-size:16px;
+    font-size:var(--text-icon);
     font-weight:700;
     pointer-events:none;
   }
@@ -1708,7 +1741,7 @@
     border:1.5px solid var(--line);
     background:var(--cream);
     color:var(--slate);
-    font-size:16px;
+    font-size:var(--text-icon);
     font-weight:700;
     cursor:pointer;
     z-index:1;
@@ -2011,7 +2044,7 @@
     color:var(--slate);
   }
   .item-name{
-    font-size:15px;
+    font-size:var(--text-emphasis);
     font-weight:700;
   }
   .item-notes{
@@ -2197,7 +2230,7 @@
   }
   .item-context strong{
     color:var(--ink);
-    font-size:14px;
+    font-size:var(--text-emphasis);
     display:block;
     margin-bottom:2px;
   }
@@ -2213,7 +2246,7 @@
     border:2px solid var(--line);
     background:var(--paper);
     font-family:'Baloo 2',sans-serif;
-    font-size:15px;
+    font-size:var(--text-emphasis);
     font-weight:700;
     color:var(--slate);
     cursor:pointer;
@@ -2330,7 +2363,7 @@
   }
   .accordion-header .accordion-title{
     font-family:'Baloo 2',sans-serif;
-    font-size:14.5px;
+    font-size:var(--text-emphasis);
     font-weight:700;
     color:var(--ink);
     flex-shrink:0;
@@ -2377,7 +2410,7 @@
   }
   .add-form h3{
     margin:0 0 10px;
-    font-size:15px;
+    font-size:var(--text-emphasis);
   }
   .form-row{
     display:flex;
@@ -2452,7 +2485,7 @@
     border-radius:var(--radius-round);
     border:1.5px solid var(--line);
     background:var(--cream);
-    font-size:16px;
+    font-size:var(--text-icon);
     cursor:pointer;
     display:flex;
     align-items:center;
@@ -2596,7 +2629,7 @@
   }
   .time-input-wrap input[type="time"]{
     font-family:'Inter',sans-serif;
-    font-size:16px;
+    font-size:var(--text-icon);
     color:var(--ink);
     background:transparent;
     border:none;
@@ -2675,7 +2708,7 @@
     border:1.5px solid var(--line);
     background:var(--cream);
     color:var(--slate);
-    font-size:14px;
+    font-size:var(--text-emphasis);
     cursor:pointer;
     flex-shrink:0;
   }
@@ -2743,7 +2776,7 @@
     cursor:pointer;
     font-family:'Inter',sans-serif;
     font-weight:600;
-    font-size:14px;
+    font-size:var(--text-emphasis);
     color:var(--ink);
   }
   .day-jump-row.active{
@@ -2933,7 +2966,7 @@
   }
   .packing-category-title{
     font-family:'Baloo 2',sans-serif;
-    font-size:14px;
+    font-size:var(--text-emphasis);
     font-weight:700;
     color:var(--ink);
     margin-bottom:8px;
@@ -2967,7 +3000,7 @@
   }
   .packing-item-name{
     flex:1;
-    font-size:14px;
+    font-size:var(--text-emphasis);
   }
   .packing-item-card.checked .packing-item-name{
     color:var(--slate);
@@ -3220,7 +3253,7 @@
     border:none;
     background:rgba(0,0,0,.06);
     color:var(--ink);
-    font-size:14px;
+    font-size:var(--text-emphasis);
     cursor:pointer;
     flex-shrink:0;
   }
@@ -4148,7 +4181,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '3.97';
+const APP_VERSION = '3.99';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5639,6 +5672,30 @@ function mergeRemoteIntoLocalTrip(localTrip, remoteData, allTravelers){
   }
 
   return localTrip;
+}
+
+function getStoredTextSizePreference(){
+  try{
+    return localStorage.getItem('parkDaysTextSizePreference');
+  }catch(err){
+    return null;
+  }
+}
+function saveTextSizePreference(sizeKey){
+  try{
+    localStorage.setItem('parkDaysTextSizePreference', sizeKey);
+  }catch(err){
+    console.warn('Could not remember this text size choice for next time:', err);
+  }
+}
+function applyStartupTextSize(){
+  const stored = getStoredTextSizePreference();
+  const size = ['small','medium','large'].includes(stored) ? stored : 'medium';
+  if(size === 'medium'){
+    document.documentElement.removeAttribute('data-text-size');
+  } else {
+    document.documentElement.setAttribute('data-text-size', size);
+  }
 }
 
 function getStoredThemePreference(){
@@ -11732,6 +11789,33 @@ function renderSettings(){
     viewToggleRow.appendChild(optBtn);
   });
   body.appendChild(viewToggleRow);
+
+  const textSizeLabel = document.createElement('div');
+  textSizeLabel.className = 'packing-category-title';
+  textSizeLabel.style.marginTop = '18px';
+  textSizeLabel.textContent = 'Text Size';
+  body.appendChild(textSizeLabel);
+  const textSizeSub = document.createElement('p');
+  textSizeSub.className = 'section-empty-note';
+  textSizeSub.textContent = 'How big text appears on this device.';
+  body.appendChild(textSizeSub);
+  const textSizeToggleRow = document.createElement('div');
+  textSizeToggleRow.className = 'status-toggle-row';
+  const storedTextSize = getStoredTextSizePreference();
+  const currentTextSize = ['small','medium','large'].includes(storedTextSize) ? storedTextSize : 'medium';
+  [{ key: 'small', label: 'Small' }, { key: 'medium', label: 'Medium' }, { key: 'large', label: 'Large' }].forEach(opt => {
+    const optBtn = document.createElement('button');
+    optBtn.type = 'button';
+    optBtn.textContent = opt.label;
+    optBtn.className = currentTextSize === opt.key ? 'on-confirmed' : '';
+    optBtn.onclick = () => {
+      saveTextSizePreference(opt.key);
+      applyStartupTextSize();
+      renderSettings();
+    };
+    textSizeToggleRow.appendChild(optBtn);
+  });
+  body.appendChild(textSizeToggleRow);
 }
 
 function renderThemes(){
@@ -12741,6 +12825,7 @@ async function migrateRopeDropToNotes(){
   applyReadOnlyGuardIfNeeded();
   if(isReadOnlyView) document.body.classList.add('read-only-view');
   applyStartupTheme();
+  applyStartupTextSize();
   applyStartupDefaultView();
   const loadedFromLink = await loadSharedTripFromUrlIfPresent();
   if(!loadedFromLink){
