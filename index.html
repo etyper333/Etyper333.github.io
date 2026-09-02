@@ -4244,7 +4244,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '4.08';
+const APP_VERSION = '4.10';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4583,6 +4583,7 @@ async function updateTemplateInSupabase(templateId, payload){
       updated_at: new Date().toISOString()
     };
     if(payload.items !== undefined) updatePayload.items = payload.items;
+    if(payload.originalStartTime !== undefined) updatePayload.original_start_time = payload.originalStartTime;
     const { data, error } = await supabaseClient.from('day_templates').update(updatePayload).eq('id', templateId).select();
     if(error || !data || data.length === 0){ return { ok: false }; }
     return { ok: true };
@@ -6907,19 +6908,49 @@ function renderTemplateEditItemsList(){
   listEl.querySelectorAll('.template-edit-item-row').forEach(row => {
     row.onclick = () => openTemplateItemEditModal(template, parseInt(row.dataset.idx, 10));
   });
+  let addBtn = document.getElementById('templateAddItemBtn');
+  if(!addBtn){
+    addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.id = 'templateAddItemBtn';
+    addBtn.className = 'add-stay-btn';
+    addBtn.textContent = '+ Add Item';
+    listEl.parentNode.insertBefore(addBtn, listEl.nextSibling);
+  }
+  addBtn.onclick = () => openTemplateItemEditModal(template, null);
 }
 document.getElementById('templateEditItemsCloseBtn').onclick = closeTemplateEditItemsList;
 
 let templateEditItemsContext = null;
 
+// A function, not a top-level const - TYPES isn't declared until much later in the
+// file, and a top-level const referencing another top-level const declared later
+// throws immediately at script load (the temporal dead zone), breaking the entire
+// app before it ever renders. A function defers evaluation until it's actually
+// called, by which point every top-level declaration in the file already exists.
+function getBlankTemplateItem(){
+  return {
+    name: '', type: TYPES[0].key, time: '', endTime: '', section: '',
+    mealService: '', mealPeriod: '', confirmationNumber: '', notes: '', isMainPlan: false
+  };
+}
+
 function openTemplateItemEditModal(template, itemIndex){
+  const isNew = itemIndex === null;
   const previewItems = computeTemplateItemTimes(template, template.originalStartTime);
-  const initial = previewItems[itemIndex];
+  const initial = isNew ? getBlankTemplateItem() : previewItems[itemIndex];
   const body = document.getElementById('templateItemEditBody');
   body.innerHTML = '';
-  const form = buildTemplateItemFieldsForm(initial, 'Save Item', (values) => {
+  const form = buildTemplateItemFieldsForm(initial, isNew ? 'Add Item' : 'Save Item', (values) => {
+    // Templates saved from a day with no timed items at all have no anchor to
+    // measure offsets against - if this is the first time a real time gets set on
+    // any item, establish the anchor right here rather than silently discarding
+    // the chosen time.
+    if(values.time && !template.originalStartTime){
+      template.originalStartTime = values.time;
+    }
     const anchorMinutes = template.originalStartTime ? timeToMinutes(template.originalStartTime) : null;
-    const tplItem = template.items[itemIndex];
+    const tplItem = isNew ? {} : template.items[itemIndex];
     tplItem.name = values.name;
     tplItem.type = values.type;
     tplItem.mealService = values.mealService;
@@ -6927,9 +6958,6 @@ function openTemplateItemEditModal(template, itemIndex){
     tplItem.confirmationNumber = values.confirmationNumber;
     tplItem.notes = values.notes;
     tplItem.isMainPlan = values.isMainPlan;
-    if(values.isMainPlan){
-      template.items.forEach((other, idx) => { if(idx !== itemIndex) other.isMainPlan = false; });
-    }
     if(values.time && anchorMinutes !== null){
       tplItem.offsetMinutes = timeToMinutes(values.time) - anchorMinutes;
       tplItem.durationMinutes = values.endTime ? (timeToMinutes(values.endTime) - timeToMinutes(values.time)) : null;
@@ -6939,14 +6967,34 @@ function openTemplateItemEditModal(template, itemIndex){
       tplItem.durationMinutes = null;
       tplItem.section = values.section;
     }
+    if(values.isMainPlan){
+      template.items.forEach(other => { if(other !== tplItem) other.isMainPlan = false; });
+    }
+    if(isNew) template.items.push(tplItem);
     closeTemplateItemEditModal();
     renderTemplateEditItemsList();
-    updateTemplateInSupabase(template.id, { name: template.name, description: template.description, tags: template.tags, items: template.items }).then(result => {
+    updateTemplateInSupabase(template.id, { name: template.name, description: template.description, tags: template.tags, items: template.items, originalStartTime: template.originalStartTime }).then(result => {
       if(!result.ok) showToast("That saved on this device, but couldn't sync - it may not be visible elsewhere yet.");
     });
   }, () => {
     closeTemplateItemEditModal();
   });
+  if(!isNew){
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'timeline-modal-delete-btn';
+    deleteBtn.textContent = 'Delete this item';
+    deleteBtn.onclick = () => {
+      if(!confirm(`Remove "${initial.name}" from this template?`)) return;
+      template.items.splice(itemIndex, 1);
+      closeTemplateItemEditModal();
+      renderTemplateEditItemsList();
+      updateTemplateInSupabase(template.id, { name: template.name, description: template.description, tags: template.tags, items: template.items }).then(result => {
+        if(!result.ok) showToast("That saved on this device, but couldn't sync - it may not be visible elsewhere yet.");
+      });
+    };
+    form.appendChild(deleteBtn);
+  }
   body.appendChild(form);
   document.getElementById('templateItemEditOverlay').classList.add('active');
 }
