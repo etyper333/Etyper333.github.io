@@ -3248,6 +3248,9 @@
   #templateItemEditOverlay{
     z-index:21;
   }
+  #unsavedItemChangesOverlay{
+    z-index:22;
+  }
   .master-editor{
     background:var(--cream);
     width:100%;
@@ -4241,7 +4244,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '4.06';
+const APP_VERSION = '4.07';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
