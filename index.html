@@ -94,6 +94,22 @@
     --text-emphasis:1.0625rem;
     --text-icon:1.0625rem;
   }
+  /* BL98: genuine WCAG 1.4.4 target - every real text token at 200% of the Medium
+     baseline, not 200% of Large. --text-icon is the deliberate exception: it covers
+     chevrons and arrow glyphs, not prose text, so it isn't what 1.4.4 is actually
+     about - kept meaningfully bigger than Large but not doubled. Crowd/grid dots
+     switch from a fixed circle to an auto-width pill specifically at this size (see
+     the .grid-dot / .timeline-block-crowd overrides below) - a circle physically
+     cannot contain doubled text, so the container shape has to change, not just its
+     font-size. */
+  :root[data-text-size="xl"]{
+    --text-micro:1.25rem;
+    --text-small:1.375rem;
+    --text-md:1.5rem;
+    --text-base:1.625rem;
+    --text-emphasis:1.75rem;
+    --text-icon:1.25rem;
+  }
   :root[data-theme="fort-wilderness"]{
     --ink:#2A1F16;
     --sky:#5C3A21;
@@ -1958,6 +1974,17 @@
   .timeline-block-crowd.crowd-low{ background:var(--sage); }
   .timeline-block-crowd.crowd-mid{ background:var(--marigold); }
   .timeline-block-crowd.crowd-high{ background:var(--coral); }
+  /* XL only: a fixed circle can't contain doubled text, so both crowd/grid badges
+     switch to an auto-width pill here instead of trying to force a bigger number
+     into the same tiny circle. */
+  :root[data-text-size="xl"] .grid-dot,
+  :root[data-text-size="xl"] .timeline-block-crowd{
+    width:auto;
+    height:auto;
+    min-width:1.25rem;
+    border-radius:var(--radius-lg);
+    padding:2px 5px;
+  }
   .timeline-block-meal{
     display:block;
     font-size:var(--text-micro);
@@ -4194,7 +4221,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '4.04';
+const APP_VERSION = '4.05';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5703,7 +5730,7 @@ function saveTextSizePreference(sizeKey){
 }
 function applyStartupTextSize(){
   const stored = getStoredTextSizePreference();
-  const size = ['small','medium','large'].includes(stored) ? stored : 'medium';
+  const size = ['small','medium','large','xl'].includes(stored) ? stored : 'medium';
   if(size === 'medium'){
     document.documentElement.removeAttribute('data-text-size');
   } else {
@@ -9600,7 +9627,10 @@ function renderTripGrid(trip, wrap, onDaySelect){
 
   const gridWrap = document.createElement('div');
   gridWrap.className = 'trip-grid-wrap';
-  gridWrap.style.gridTemplateColumns = `64px repeat(${trip.days.length}, 128px)`;
+  const isXlText = document.documentElement.getAttribute('data-text-size') === 'xl';
+  gridWrap.style.gridTemplateColumns = isXlText
+    ? `88px repeat(${trip.days.length}, 172px)`
+    : `64px repeat(${trip.days.length}, 128px)`;
 
   // Row 1 = day labels, rows 2-4 = Morning/Afternoon/Evening. A shared CSS Grid
   // (rather than one flex column per day) is what keeps rows aligned across
@@ -9854,7 +9884,7 @@ function assignTimelineColumns(cluster){
 // --text-emphasis values in the stylesheet ever change.
 function getMinVisualHeight(){
   const textSize = document.documentElement.getAttribute('data-text-size') || 'medium';
-  const emphasisPx = { small: 13, medium: 14, large: 17 }[textSize] || 14;
+  const emphasisPx = { small: 13, medium: 14, large: 17, xl: 28 }[textSize] || 14;
   return emphasisPx * 1.25 + 4;
 }
 
@@ -11844,8 +11874,8 @@ function renderSettings(){
   const textSizeToggleRow = document.createElement('div');
   textSizeToggleRow.className = 'status-toggle-row';
   const storedTextSize = getStoredTextSizePreference();
-  const currentTextSize = ['small','medium','large'].includes(storedTextSize) ? storedTextSize : 'medium';
-  [{ key: 'small', label: 'Small' }, { key: 'medium', label: 'Medium' }, { key: 'large', label: 'Large' }].forEach(opt => {
+  const currentTextSize = ['small','medium','large','xl'].includes(storedTextSize) ? storedTextSize : 'medium';
+  [{ key: 'small', label: 'Small' }, { key: 'medium', label: 'Medium' }, { key: 'large', label: 'Large' }, { key: 'xl', label: 'XL' }].forEach(opt => {
     const optBtn = document.createElement('button');
     optBtn.type = 'button';
     optBtn.textContent = opt.label;
