@@ -4244,7 +4244,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '4.07';
+const APP_VERSION = '4.08';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -6945,11 +6945,7 @@ function openTemplateItemEditModal(template, itemIndex){
       if(!result.ok) showToast("That saved on this device, but couldn't sync - it may not be visible elsewhere yet.");
     });
   }, () => {
-    if(form.isDirty()){
-      openUnsavedItemChangesPrompt(form);
-    } else {
-      closeTemplateItemEditModal();
-    }
+    closeTemplateItemEditModal();
   });
   body.appendChild(form);
   document.getElementById('templateItemEditOverlay').classList.add('active');
