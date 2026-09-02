@@ -3245,6 +3245,9 @@
   #adminAccessOverlay, #adminGatedActionOverlay{
     z-index:21;
   }
+  #templateItemEditOverlay{
+    z-index:21;
+  }
   .master-editor{
     background:var(--cream);
     width:100%;
@@ -3782,6 +3785,22 @@
   </div>
 </div>
 
+<div class="master-editor-overlay" id="templateEditItemsOverlay">
+  <div class="master-editor">
+    <h2>Edit Items</h2>
+    <p class="sub" id="templateEditItemsSub"></p>
+    <div id="templateEditItemsList"></div>
+    <button type="button" class="master-editor-close master-editor-close-sticky" id="templateEditItemsCloseBtn">Done</button>
+  </div>
+</div>
+
+<div class="master-editor-overlay" id="templateItemEditOverlay">
+  <div class="master-editor">
+    <h2>Edit Item</h2>
+    <div id="templateItemEditBody"></div>
+  </div>
+</div>
+
 <div class="master-editor-overlay" id="editItemCategoryOverlay">
   <div class="master-editor">
     <h2>Edit Category</h2>
@@ -4053,6 +4072,7 @@
     <div class="sticky-footer-group">
       <button type="button" class="submit-btn" id="templateDetailApplyBtn" style="display:none;">📥 Apply to this day</button>
       <button type="button" class="cancel-btn" id="templateDetailEditBtn">✏️ Edit name, description, tags</button>
+      <button type="button" class="cancel-btn" id="templateDetailEditItemsBtn">📝 Edit Items</button>
       <button type="button" class="tools-menu-danger-btn" id="templateDetailDeleteBtn">🗑️ Delete this template</button>
       <button type="button" class="cancel-btn" id="templateDetailBackBtn">Back</button>
     </div>
@@ -4221,7 +4241,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '4.05';
+const APP_VERSION = '4.06';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -4549,15 +4569,18 @@ async function createTemplateInSupabase(payload){
   }
 }
 
-// Metadata-only for now (name, description, tags) - deliberately not touching items or
-// original_start_time. Editing a template's actual content is a real, separate piece of
-// work, held for later; the honest workaround in the meantime is deleting and re-saving.
+// Handles both metadata-only edits (name/description/tags) and item-content edits -
+// items only included in the update when actually provided, so the existing
+// metadata-edit call site is completely unaffected and doesn't need to pass items
+// it never touched.
 async function updateTemplateInSupabase(templateId, payload){
   try{
-    const { data, error } = await supabaseClient.from('day_templates').update({
+    const updatePayload = {
       name: payload.name, description: payload.description || '', tags: payload.tags || [],
       updated_at: new Date().toISOString()
-    }).eq('id', templateId).select();
+    };
+    if(payload.items !== undefined) updatePayload.items = payload.items;
+    const { data, error } = await supabaseClient.from('day_templates').update(updatePayload).eq('id', templateId).select();
     if(error || !data || data.length === 0){ return { ok: false }; }
     return { ok: true };
   }catch(err){
@@ -6846,6 +6869,242 @@ document.getElementById('templateDetailEditBtn').onclick = () => {
   if(!templateDetailContext) return;
   openEditTemplateModal(templateDetailContext.template);
 };
+
+document.getElementById('templateDetailEditItemsBtn').onclick = () => {
+  if(!templateDetailContext) return;
+  const { template, day } = templateDetailContext;
+  document.getElementById('templateDetailOverlay').classList.remove('active');
+  openTemplateEditItemsList(template, day);
+};
+
+function openTemplateEditItemsList(template, day){
+  templateEditItemsContext = { template, day };
+  renderTemplateEditItemsList();
+  document.getElementById('templateEditItemsOverlay').classList.add('active');
+}
+function closeTemplateEditItemsList(){
+  document.getElementById('templateEditItemsOverlay').classList.remove('active');
+  const { template, day } = templateEditItemsContext || {};
+  templateEditItemsContext = null;
+  if(template) openTemplateDetailModal(template, day);
+}
+function renderTemplateEditItemsList(){
+  const { template } = templateEditItemsContext;
+  document.getElementById('templateEditItemsSub').textContent = 'Tap an item to edit it.';
+  const previewItems = computeTemplateItemTimes(template, template.originalStartTime);
+  const indexed = previewItems.map((item, i) => ({ item, i }));
+  const sorted = indexed.slice().sort((a, b) => (a.item.time || '').localeCompare(b.item.time || ''));
+  const listEl = document.getElementById('templateEditItemsList');
+  listEl.innerHTML = sorted.map(({ item, i }) => `
+    <div class="stay-card template-edit-item-row" data-idx="${i}" style="margin-bottom:8px;cursor:pointer;">
+      <div style="font-size:12px; font-weight:700; color:var(--sky-text);">${item.time ? escapeHtml(formatTime(item.time)) : 'No time set'}</div>
+      <div style="font-weight:600; font-size:13.5px;">${escapeHtml(item.name)}</div>
+    </div>
+  `).join('');
+  listEl.querySelectorAll('.template-edit-item-row').forEach(row => {
+    row.onclick = () => openTemplateItemEditModal(template, parseInt(row.dataset.idx, 10));
+  });
+}
+document.getElementById('templateEditItemsCloseBtn').onclick = closeTemplateEditItemsList;
+
+let templateEditItemsContext = null;
+
+function openTemplateItemEditModal(template, itemIndex){
+  const previewItems = computeTemplateItemTimes(template, template.originalStartTime);
+  const initial = previewItems[itemIndex];
+  const body = document.getElementById('templateItemEditBody');
+  body.innerHTML = '';
+  const form = buildTemplateItemFieldsForm(initial, 'Save Item', (values) => {
+    const anchorMinutes = template.originalStartTime ? timeToMinutes(template.originalStartTime) : null;
+    const tplItem = template.items[itemIndex];
+    tplItem.name = values.name;
+    tplItem.type = values.type;
+    tplItem.mealService = values.mealService;
+    tplItem.mealPeriod = values.mealPeriod;
+    tplItem.confirmationNumber = values.confirmationNumber;
+    tplItem.notes = values.notes;
+    tplItem.isMainPlan = values.isMainPlan;
+    if(values.isMainPlan){
+      template.items.forEach((other, idx) => { if(idx !== itemIndex) other.isMainPlan = false; });
+    }
+    if(values.time && anchorMinutes !== null){
+      tplItem.offsetMinutes = timeToMinutes(values.time) - anchorMinutes;
+      tplItem.durationMinutes = values.endTime ? (timeToMinutes(values.endTime) - timeToMinutes(values.time)) : null;
+      tplItem.section = '';
+    } else {
+      tplItem.offsetMinutes = null;
+      tplItem.durationMinutes = null;
+      tplItem.section = values.section;
+    }
+    closeTemplateItemEditModal();
+    renderTemplateEditItemsList();
+    updateTemplateInSupabase(template.id, { name: template.name, description: template.description, tags: template.tags, items: template.items }).then(result => {
+      if(!result.ok) showToast("That saved on this device, but couldn't sync - it may not be visible elsewhere yet.");
+    });
+  }, () => {
+    if(form.isDirty()){
+      openUnsavedItemChangesPrompt(form);
+    } else {
+      closeTemplateItemEditModal();
+    }
+  });
+  body.appendChild(form);
+  document.getElementById('templateItemEditOverlay').classList.add('active');
+}
+function closeTemplateItemEditModal(){
+  document.getElementById('templateItemEditOverlay').classList.remove('active');
+}
+
+// Deliberately separate from buildItemFieldsForm, not a trimmed call into it - see the
+// trip-wire comment on that function. No travelerIds, no Penciled In, no adjacent-time
+// hint, no park-hours link - none of those apply to a template, which represents a
+// reusable shape rather than a specific trip's day. Mirrors the same isDirty() /
+// data-role="submit"/"cancel" convention so openUnsavedItemChangesPrompt works
+// unmodified here too.
+function buildTemplateItemFieldsForm(initial, submitLabel, onSubmit, onCancel){
+  const wrap = document.createElement('div');
+  wrap.className = 'add-form';
+  let formTouched = false;
+  wrap.addEventListener('input', () => { formTouched = true; });
+  wrap.addEventListener('change', () => { formTouched = true; });
+  wrap.isDirty = () => formTouched;
+  wrap.innerHTML = `
+    <div class="section-group">
+      <div class="section-heading">What</div>
+      <label class="form-row-label">Name — required</label>
+      <div class="form-row">
+        <input type="text" data-f="name" placeholder="e.g. Hollywood Studios, Be Our Guest lunch" value="${escapeHtml(initial.name || '')}" autocomplete="off" />
+      </div>
+      <label class="form-row-label">Type</label>
+      <div class="form-row">
+        <select data-f="type">${TYPES.map(t=>`<option value="${t.key}" ${t.key===initial.type?'selected':''}>${t.icon} ${t.label}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="section-group">
+      <div class="section-heading">When</div>
+      <div class="time-ends-row">
+        <div class="time-ends-col">
+          <label class="form-row-label">Time</label>
+          <div class="time-input-wrap">
+            <input type="time" data-f="time" step="300" value="${initial.time || ''}" />
+            <button type="button" class="time-clear-x" data-role="clear-time" style="display:${initial.time ? '' : 'none'};" title="Clear time">✕</button>
+          </div>
+        </div>
+        <div class="time-ends-col" data-role="end-time-col">
+          <label class="form-row-label" data-role="end-time-label">
+            Ends at
+            <label class="na-pill-label">
+              <input type="checkbox" data-f="isLandmarkCheckbox" class="na-pill-checkbox" ${initial.time && !initial.endTime ? '' : ''} />
+              <span>📍 n/a</span>
+            </label>
+          </label>
+          <div class="time-input-wrap" data-role="end-time-row"><input type="time" data-f="endTime" step="300" value="${initial.endTime || ''}" /></div>
+        </div>
+      </div>
+      <div class="or-divider" data-role="when-or">or</div>
+      <div data-role="section-row">
+        <label class="form-row-label">Part of Day</label>
+        <select data-f="section">
+          <option value="">Choose a part of day...</option>
+          ${SECTIONS.map(s=>`<option value="${s.key}" ${s.key===initial.section?'selected':''}>${s.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-row" data-role="meal-row">
+        <select data-f="mealService">
+          <option value="">Service type...</option>
+          ${MEAL_SERVICES.map(m=>`<option value="${m.key}" ${m.key===initial.mealService?'selected':''}>${m.icon ? m.icon+' ' : ''}${m.fullLabel ? `${m.fullLabel} (${m.label})` : m.label}</option>`).join('')}
+        </select>
+        <select data-f="mealPeriod">
+          <option value="">Meal...</option>
+          ${MEAL_PERIODS.map(p=>`<option value="${p.key}" ${p.key===initial.mealPeriod?'selected':''}>${p.label}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="section-group">
+      <div class="section-heading">Details</div>
+      <label class="bool-chip">
+        <input type="checkbox" data-f="isMainPlanCheckbox" ${initial.isMainPlan ? 'checked' : ''} />
+        <span>📌 Main Plan</span>
+      </label>
+      <label class="form-row-label">Confirmation #</label>
+      <div class="form-row"><input type="text" data-f="confirmationNumber" value="${escapeHtml(initial.confirmationNumber || '')}" /></div>
+      <label class="form-row-label">Notes</label>
+      <div class="form-row"><textarea data-f="notes">${escapeHtml(initial.notes || '')}</textarea></div>
+    </div>
+    <div class="form-row sticky-footer-group">
+      <button type="button" class="submit-btn" data-role="submit">${submitLabel}</button>
+      <button type="button" class="cancel-btn" data-role="cancel">Cancel</button>
+    </div>
+  `;
+  const timeInput = wrap.querySelector('[data-f="time"]');
+  const endTimeInput = wrap.querySelector('[data-f="endTime"]');
+  const clearTimeBtn = wrap.querySelector('[data-role="clear-time"]');
+  const sectionRow = wrap.querySelector('[data-role="section-row"]');
+  const whenOr = wrap.querySelector('[data-role="when-or"]');
+  const sectionSelect = wrap.querySelector('[data-f="section"]');
+  const typeSelect = wrap.querySelector('[data-f="type"]');
+  const mealRow = wrap.querySelector('[data-role="meal-row"]');
+  const mealServiceSelect = wrap.querySelector('[data-f="mealService"]');
+  const mealPeriodSelect = wrap.querySelector('[data-f="mealPeriod"]');
+  const landmarkCheckbox = wrap.querySelector('[data-f="isLandmarkCheckbox"]');
+  const mainPlanCheckbox = wrap.querySelector('[data-f="isMainPlanCheckbox"]');
+  const syncVisibility = () => {
+    const hasTime = !!timeInput.value;
+    sectionRow.style.display = hasTime ? 'none' : '';
+    whenOr.style.display = hasTime ? 'none' : '';
+    clearTimeBtn.style.display = hasTime ? '' : 'none';
+    mealRow.style.display = typeSelect.value === 'dining' ? '' : 'none';
+  };
+  syncVisibility();
+  if(initial.time && !initial.endTime) landmarkCheckbox.checked = false;
+  clearTimeBtn.onclick = () => { timeInput.value = ''; formTouched = true; syncVisibility(); };
+  timeInput.addEventListener('change', syncVisibility);
+  typeSelect.addEventListener('change', syncVisibility);
+  landmarkCheckbox.addEventListener('change', () => {
+    if(landmarkCheckbox.checked){ endTimeInput.value = timeInput.value; }
+  });
+  wrap.querySelector('[data-role="submit"]').onclick = () => {
+    const name = wrap.querySelector('[data-f="name"]').value.trim();
+    if(!name){ showToast('Give it a name first.'); flagInvalidField(wrap.querySelector('[data-f="name"]')); return; }
+    const time = timeInput.value;
+    const section = sectionSelect.value;
+    if(!time && !section){
+      showToast('Pick a time, or choose Morning, Afternoon, or Evening for this item.');
+      flagInvalidField(timeInput);
+      return;
+    }
+    if(landmarkCheckbox.checked && !time){
+      showToast('A moment in time needs an actual time — pick one, or uncheck "n/a" next to Ends At.');
+      flagInvalidField(timeInput);
+      return;
+    }
+    const type = typeSelect.value;
+    const mealService = mealServiceSelect.value;
+    const mealPeriod = mealPeriodSelect.value;
+    if(type === 'dining'){
+      if(!mealService){
+        showToast('Choose a service type for this dining item (QS, TS, 2TS, Snack, or In-Room).');
+        flagInvalidField(mealServiceSelect);
+        return;
+      }
+      if(mealService !== 'snack' && !mealPeriod){
+        showToast('Choose a meal (Breakfast, Lunch, or Dinner) for this dining item.');
+        flagInvalidField(mealPeriodSelect);
+        return;
+      }
+    }
+    onSubmit({
+      name, type, time, section,
+      endTime: landmarkCheckbox.checked ? time : endTimeInput.value,
+      mealService, mealPeriod,
+      confirmationNumber: wrap.querySelector('[data-f="confirmationNumber"]').value.trim(),
+      notes: wrap.querySelector('[data-f="notes"]').value.trim(),
+      isMainPlan: mainPlanCheckbox.checked
+    });
+  };
+  wrap.querySelector('[data-role="cancel"]').onclick = () => onCancel();
+  return wrap;
+}
 
 document.getElementById('templateDetailDeleteBtn').onclick = () => {
   if(!templateDetailContext) return;
@@ -10425,6 +10684,11 @@ function renderItemCard(day, item, currentOrNext){
   return card;
 }
 
+// If you add a new field to this form, decide whether it belongs in templates too -
+// check buildTemplateItemsFromDay (what a template captures) and the separate
+// template-item edit form (openTemplateItemEditModal) before assuming it carries
+// over automatically. It won't - templates deliberately don't reuse this form, so
+// nothing here updates them for you.
 function buildItemFieldsForm(day, initial, submitLabel, onSubmit, onCancel){
   const wrap = document.createElement('div');
   wrap.className = 'add-form';
@@ -11206,6 +11470,12 @@ function closeTravelerColorModal(){
   ['adminAccessOverlay', closeAdminAccessModal],
   ['adminGatedActionOverlay', closeAdminGatedActionModal],
   ['editItemCategoryOverlay', closeEditItemCategoryModal],
+  ['templateEditItemsOverlay', closeTemplateEditItemsList],
+  ['templateItemEditOverlay', () => {
+    const form = document.querySelector('#templateItemEditBody .add-form');
+    if(form && form.isDirty()){ openUnsavedItemChangesPrompt(form); }
+    else { closeTemplateItemEditModal(); }
+  }],
   ['copyFallbackOverlay', closeCopyFallbackModal]
 ].forEach(([overlayId, closeFn]) => {
   document.getElementById(overlayId).addEventListener('click', e => {
