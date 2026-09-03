@@ -3887,15 +3887,6 @@
   </div>
 </div>
 
-<div class="master-editor-overlay" id="parkInfoOverlay">
-  <div class="master-editor">
-    <button type="button" class="tools-menu-back-link" data-back-to-tools>‹ Tools</button>
-    <h2>Park Info</h2>
-    <div id="parkInfoBody"></div>
-    <button type="button" class="master-editor-close master-editor-close-sticky" id="parkInfoCloseBtn">Done</button>
-  </div>
-</div>
-
 <div class="master-editor-overlay" id="manageThisTripOverlay">
   <div class="master-editor">
     <button type="button" class="tools-menu-back-link" data-back-to-tools>‹ Tools</button>
@@ -3936,6 +3927,15 @@
     <h2>Trip Details</h2>
     <div id="tripDetailsWrap" class="trip-details-wrap-bg"></div>
     <button class="master-editor-close master-editor-close-sticky" id="tripDetailsCloseBtn">Done</button>
+  </div>
+</div>
+
+<div class="master-editor-overlay" id="planningOverlay">
+  <div class="master-editor">
+    <h2>Planning</h2>
+    <p class="sub">References for actively shaping this trip's days.</p>
+    <div id="planningBody"></div>
+    <button type="button" class="master-editor-close master-editor-close-sticky" id="planningCloseBtn">Done</button>
   </div>
 </div>
 
@@ -4336,7 +4336,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '4.15';
+const APP_VERSION = '4.16';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -10163,6 +10163,19 @@ function renderMonorail(){
   gridBtn.onclick = openTripGridModal;
   rail.appendChild(gridBtn);
 
+  // Deliberately label-only, no icon - Crowd Levels, Park Hours, and Templates don't
+  // share a single coherent glyph, and a wrong-guess icon here would actively mislead
+  // rather than just fail to help. This button already competes for tight space in a
+  // row that also needs to keep the day label readable, so an icon that isn't earning
+  // its place isn't worth the room either way.
+  const planningBtn = document.createElement('button');
+  planningBtn.type = 'button';
+  planningBtn.className = 'day-actions-pill';
+  planningBtn.textContent = 'Planning';
+  planningBtn.setAttribute('aria-label', 'Planning references: Crowd Levels, Park Hours, Templates');
+  planningBtn.onclick = () => openPlanningModal(trip);
+  if(!isReadOnlyView) rail.appendChild(planningBtn);
+
   if(currentIndex !== -1){
     const actionsBtn = document.createElement('button');
     actionsBtn.type = 'button';
@@ -11621,7 +11634,7 @@ function closeTravelerColorModal(){
   ['editItemCategoryOverlay', closeEditItemCategoryModal],
   ['printExportOverlay', closePrintExportModal],
   ['shareAccessOverlay', closeShareAccessModal],
-  ['parkInfoOverlay', closeParkInfoModal],
+  ['planningOverlay', closePlanningModal],
   ['manageThisTripOverlay', closeManageThisTripModal],
   ['templateEditItemsOverlay', closeTemplateEditItemsList],
   ['templateItemEditOverlay', () => {
@@ -11804,8 +11817,6 @@ function renderToolsMenu(){
   group1.className = 'tools-menu-list-group';
   group1.appendChild(makeRow('🖨️', 'Print & Export', () => { closeToolsMenu(); openPrintExportModal(trip); }));
   group1.appendChild(makeRow('🔗', 'Share & Access', () => { closeToolsMenu(); openShareAccessModal(trip); }));
-  if(!isReadOnlyView) group1.appendChild(makeRow('🎢', 'Park Info', () => { closeToolsMenu(); openParkInfoModal(trip); }));
-  if(!isReadOnlyView) group1.appendChild(makeRow('📑', 'Templates', () => { closeToolsMenu(); openTemplateListModal(); }));
   body.appendChild(group1);
 
   if(!isReadOnlyView){
@@ -12080,9 +12091,9 @@ function closeShareAccessModal(){
 }
 document.getElementById('shareAccessCloseBtn').onclick = closeShareAccessModal;
 
-function openParkInfoModal(trip){
-  document.getElementById('parkInfoOverlay').classList.add('active');
-  const body = document.getElementById('parkInfoBody');
+function openPlanningModal(trip){
+  document.getElementById('planningOverlay').classList.add('active');
+  const body = document.getElementById('planningBody');
   body.innerHTML = '';
 
   const crowdBtn = document.createElement('button');
@@ -12090,7 +12101,7 @@ function openParkInfoModal(trip){
   crowdBtn.className = 'print-packing-btn';
   crowdBtn.textContent = '🎢 Manage Crowd Levels';
   crowdBtn.onclick = () => {
-    closeParkInfoModal();
+    closePlanningModal();
     openCrowdLevelsManager(trip);
   };
   body.appendChild(crowdBtn);
@@ -12109,11 +12120,22 @@ function openParkInfoModal(trip){
     setTimeout(() => { refreshHoursBtn.textContent = '🕐 Refresh Park Hours'; }, 2000);
   };
   body.appendChild(refreshHoursBtn);
+
+  const templatesBtn = document.createElement('button');
+  templatesBtn.type = 'button';
+  templatesBtn.className = 'print-packing-btn-secondary';
+  templatesBtn.style.marginTop = '14px';
+  templatesBtn.textContent = '📑 Manage Templates';
+  templatesBtn.onclick = () => {
+    closePlanningModal();
+    openTemplateListModal();
+  };
+  body.appendChild(templatesBtn);
 }
-function closeParkInfoModal(){
-  document.getElementById('parkInfoOverlay').classList.remove('active');
+function closePlanningModal(){
+  document.getElementById('planningOverlay').classList.remove('active');
 }
-document.getElementById('parkInfoCloseBtn').onclick = closeParkInfoModal;
+document.getElementById('planningCloseBtn').onclick = closePlanningModal;
 
 function openManageThisTripModal(trip){
   document.getElementById('manageThisTripOverlay').classList.add('active');
