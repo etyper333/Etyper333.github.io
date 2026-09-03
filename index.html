@@ -3603,16 +3603,13 @@
        portrait day-page content shared the same job - a blank landscape page even
        when landscape was chosen manually in the print dialog, independent of any
        app code, plus visual overlap between Overview and the day pages that
-       followed it. Scoping landscape to just this one section via a named page is
-       the more correct fix, and degrades safely if a browser doesn't support named
-       pages: worst case it just prints portrait like everything else, rather than
-       breaking the whole job the way the global override did. */
-    @page overview-landscape{
-      size:landscape;
-    }
-    body.print-show-overview .trip-subsection-overview{
-      page:overview-landscape;
-    }
+       followed it. Scoping landscape to just this one section via a named page was
+       the next attempt - confirmed non-functional on a real iPad (iPadOS 26.6.1):
+       the page loads portrait regardless, matching the documented "degrades safely"
+       fallback for unsupported named-page CSS. Removed rather than left in as dead
+       weight, since it wasn't achieving anything. Whether manually forcing landscape
+       in the print dialog itself still causes content loss is being tested
+       separately, now that this rule is confirmed out of the equation entirely. */
 
     /* Trip Basics and Itinerary Overview live inside the Trip Details modal, which
        the blanket .master-editor-overlay hide rule above would otherwise swallow
@@ -4357,7 +4354,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '4.18';
+const APP_VERSION = '4.19';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
