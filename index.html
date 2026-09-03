@@ -3614,12 +3614,13 @@
       page:overview-landscape;
     }
 
-    /* Trip Basics/Park Hours/Itinerary Overview now live inside the Trip Details
-       modal, which the blanket .master-editor-overlay hide rule above would
-       otherwise swallow regardless of the print checkboxes - force the modal
-       chain back to normal document flow whenever any of the three is selected. */
+    /* Trip Basics and Itinerary Overview live inside the Trip Details modal, which
+       the blanket .master-editor-overlay hide rule above would otherwise swallow
+       regardless of the print checkboxes - force the modal chain back to normal
+       document flow whenever either is selected. Park Hours & Crowd Levels moved to
+       Planning, so it gets the identical treatment applied to #planningOverlay
+       instead, just below - same proven technique, different modal. */
     body.print-show-basics #tripDetailsOverlay,
-    body.print-show-crowd #tripDetailsOverlay,
     body.print-show-overview #tripDetailsOverlay{
       display:block !important;
       position:static !important;
@@ -3627,7 +3628,6 @@
       padding:0 !important;
     }
     body.print-show-basics #tripDetailsOverlay .master-editor,
-    body.print-show-crowd #tripDetailsOverlay .master-editor,
     body.print-show-overview #tripDetailsOverlay .master-editor{
       max-width:none !important;
       max-height:none !important;
@@ -3637,8 +3637,29 @@
       padding:0 !important;
       background:none !important;
     }
+    body.print-show-crowd #planningOverlay{
+      display:block !important;
+      position:static !important;
+      background:none !important;
+      padding:0 !important;
+    }
+    body.print-show-crowd #planningOverlay .master-editor{
+      max-width:none !important;
+      max-height:none !important;
+      overflow:visible !important;
+      box-shadow:none !important;
+      border-radius:0 !important;
+      padding:0 !important;
+      background:none !important;
+    }
     #tripDetailsOverlay h2,
-    #tripDetailsOverlay .master-editor-close{
+    #tripDetailsOverlay .master-editor-close,
+    #planningOverlay h2,
+    #planningOverlay .sub,
+    #planningOverlay .master-editor-close,
+    #planningOverlay .print-packing-btn,
+    #planningOverlay .print-packing-btn-secondary,
+    #planningOverlay .tools-menu-back-link{
       display:none !important;
     }
 
@@ -4336,7 +4357,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '4.17';
+const APP_VERSION = '4.18';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -12096,9 +12117,22 @@ function openPlanningModal(trip){
   const body = document.getElementById('planningBody');
   body.innerHTML = '';
 
+  if(trip.startDate && trip.days.length > 0){
+    const crowdSection = document.createElement('div');
+    crowdSection.className = 'trip-subsection-crowd';
+    const crowdLabel = document.createElement('div');
+    crowdLabel.className = 'packing-category-title';
+    crowdLabel.textContent = 'Park Hours & Crowd Levels';
+    crowdSection.appendChild(crowdLabel);
+    const grid = buildParkHoursCrowdGrid(trip);
+    if(grid) crowdSection.appendChild(grid);
+    body.appendChild(crowdSection);
+  }
+
   const crowdBtn = document.createElement('button');
   crowdBtn.type = 'button';
   crowdBtn.className = 'print-packing-btn';
+  crowdBtn.style.marginTop = '14px';
   crowdBtn.textContent = '🎢 Manage Crowd Levels';
   crowdBtn.onclick = () => {
     closePlanningModal();
@@ -13096,13 +13130,9 @@ function renderTripDetails(trip){
     }
   });
 
-  // --- Park Hours & Crowd Levels (read-only; crowd editing lives in Tools > Manage Crowd Levels) ---
-  if(trip.startDate && trip.days.length > 0){
-    renderTripSubsection(wrap, trip, 'crowd', '🎢', 'Park Hours & Crowd Levels', `${trip.days.length} day${trip.days.length === 1 ? '' : 's'}`, body => {
-      const grid = buildParkHoursCrowdGrid(trip);
-      if(grid) body.appendChild(grid);
-    });
-  }
+  // Park Hours & Crowd Levels moved to Planning (day-nav row) - viewing and managing
+  // this data now live in one place instead of split between a passive Trip Details
+  // display and an active Tools destination.
 
   // --- Trip Overview ---
   const overviewSummary = `${trip.days.length} day${trip.days.length === 1 ? '' : 's'} · dining & activities · tap a day to jump in`;
