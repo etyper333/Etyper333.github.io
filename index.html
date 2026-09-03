@@ -547,6 +547,20 @@
     font-size:15px;
     flex-shrink:0;
   }
+  .tools-menu-back-link{
+    display:inline-flex;
+    align-items:center;
+    gap:2px;
+    background:none;
+    border:none;
+    padding:0;
+    margin-bottom:6px;
+    color:var(--coral);
+    font-size:var(--text-small);
+    font-weight:600;
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
+  }
   .tools-menu-danger-btn{
     display:block;
     width:100%;
@@ -3857,6 +3871,7 @@
 
 <div class="master-editor-overlay" id="printExportOverlay">
   <div class="master-editor">
+    <button type="button" class="tools-menu-back-link" data-back-to-tools>‹ Tools</button>
     <h2>Print &amp; Export</h2>
     <div id="printExportBody"></div>
     <button type="button" class="master-editor-close master-editor-close-sticky" id="printExportCloseBtn">Done</button>
@@ -3865,6 +3880,7 @@
 
 <div class="master-editor-overlay" id="shareAccessOverlay">
   <div class="master-editor">
+    <button type="button" class="tools-menu-back-link" data-back-to-tools>‹ Tools</button>
     <h2>Share &amp; Access</h2>
     <div id="shareAccessBody"></div>
     <button type="button" class="master-editor-close master-editor-close-sticky" id="shareAccessCloseBtn">Done</button>
@@ -3873,6 +3889,7 @@
 
 <div class="master-editor-overlay" id="parkInfoOverlay">
   <div class="master-editor">
+    <button type="button" class="tools-menu-back-link" data-back-to-tools>‹ Tools</button>
     <h2>Park Info</h2>
     <div id="parkInfoBody"></div>
     <button type="button" class="master-editor-close master-editor-close-sticky" id="parkInfoCloseBtn">Done</button>
@@ -3881,17 +3898,10 @@
 
 <div class="master-editor-overlay" id="manageThisTripOverlay">
   <div class="master-editor">
+    <button type="button" class="tools-menu-back-link" data-back-to-tools>‹ Tools</button>
     <h2>Manage This Trip</h2>
     <div id="manageThisTripBody"></div>
     <button type="button" class="master-editor-close master-editor-close-sticky" id="manageThisTripCloseBtn">Done</button>
-  </div>
-</div>
-
-<div class="master-editor-overlay" id="manageAllTripsOverlay">
-  <div class="master-editor">
-    <h2>Manage All Trips</h2>
-    <div id="manageAllTripsBody"></div>
-    <button type="button" class="master-editor-close master-editor-close-sticky" id="manageAllTripsCloseBtn">Done</button>
   </div>
 </div>
 
@@ -4326,7 +4336,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '4.12';
+const APP_VERSION = '4.15';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -5177,8 +5187,15 @@ async function syncTripToSupabase(trip, allTravelers){
   return deletedByOthers;
 }
 
+// Returns { deletedByOthers, anyFailed } rather than a bare array - each trip's sync
+// is still isolated (one trip's network failure shouldn't block others from being
+// attempted), but callers now get a real, honest signal when something didn't
+// actually go through, instead of this function silently swallowing every failure
+// and leaving callers with no way to ever detect one. A caller checking anyFailed is
+// the only correct way to know whether it's actually safe to treat local data as saved.
 async function syncAllTripsToSupabase(){
   const allDeletedByOthers = [];
+  let anyFailed = false;
   for(const trip of appData.trips){
     try{
       const deleted = await syncTripToSupabase(trip, appData.travelers);
@@ -5186,9 +5203,10 @@ async function syncAllTripsToSupabase(){
       console.log(`✓ Synced "${trip.title}" to Supabase.`);
     }catch(err){
       console.warn(`Supabase sync failed for "${trip.title}" (your local save was not affected):`, err);
+      anyFailed = true;
     }
   }
-  return allDeletedByOthers;
+  return { deletedByOthers: allDeletedByOthers, anyFailed };
 }
 
 // --- Scoped, single-record sync: used by individual "Save changes" actions so staleness
@@ -5989,13 +6007,16 @@ function buildPlaceholderTrip(entry){
 async function syncAndRefreshActiveTrip(){
   let syncSucceeded = true;
   try{
-    await syncAllTripsToSupabase();
+    const result = await syncAllTripsToSupabase();
+    syncSucceeded = !result.anyFailed;
   }catch(err){
     console.warn('Sync step had an issue (refresh will still proceed):', err);
     syncSucceeded = false;
   }
   if(syncSucceeded){
     establishAllBaselines();
+  } else {
+    showToast("Couldn't reach the server to sync — your changes are still saved on this device, and will sync once you're back online.");
   }
   await refreshActiveTripFromSupabase();
 }
@@ -9389,6 +9410,17 @@ function renderTripSwitchList(){
     archiveToggle.onclick = () => { showArchivedTrips = !showArchivedTrips; renderTripSwitchList(); };
     body.appendChild(archiveToggle);
   }
+
+  const activeTrip = getActiveTrip();
+  if(activeTrip && activeTrip.supabaseId && getTripAdminSecret(activeTrip.supabaseId)){
+    const loadLabel = document.createElement('label');
+    loadLabel.setAttribute('for', 'loadInput');
+    loadLabel.className = 'print-packing-btn-secondary tools-menu-load-label';
+    loadLabel.style.marginTop = '10px';
+    loadLabel.textContent = '📂 Load Trips from a Backup File';
+    loadLabel.title = 'Can overwrite or merge into trips already on this device — requires admin access';
+    body.appendChild(loadLabel);
+  }
 }
 
 function addTrip(){
@@ -9778,7 +9810,8 @@ function renderWizardSaveArea(body, trip){
       btn.textContent = 'Saving…';
       let deletedByOthers = [];
       try{
-        deletedByOthers = await syncAllTripsToSupabase();
+        const result = await syncAllTripsToSupabase();
+        deletedByOthers = result.deletedByOthers;
       }catch(err){
         console.warn('Supabase sync step had an issue (local save proceeding regardless):', err);
       }
@@ -11590,7 +11623,6 @@ function closeTravelerColorModal(){
   ['shareAccessOverlay', closeShareAccessModal],
   ['parkInfoOverlay', closeParkInfoModal],
   ['manageThisTripOverlay', closeManageThisTripModal],
-  ['manageAllTripsOverlay', closeManageAllTripsModal],
   ['templateEditItemsOverlay', closeTemplateEditItemsList],
   ['templateItemEditOverlay', () => {
     const form = document.querySelector('#templateItemEditBody .add-form');
@@ -11780,7 +11812,6 @@ function renderToolsMenu(){
   const group2 = document.createElement('div');
   group2.className = 'tools-menu-list-group';
   group2.appendChild(makeRow('⚙️', 'Manage This Trip', () => { closeToolsMenu(); openManageThisTripModal(trip); }));
-  group2.appendChild(makeRow('📂', 'Manage All Trips', () => { closeToolsMenu(); openManageAllTripsModal(trip); }));
   body.appendChild(group2);
   }
 
@@ -12101,7 +12132,9 @@ function openManageThisTripModal(trip){
       let deletedByOthers = [];
       let syncSucceeded = true;
       try{
-        deletedByOthers = await syncAllTripsToSupabase();
+        const result = await syncAllTripsToSupabase();
+        deletedByOthers = result.deletedByOthers;
+        syncSucceeded = !result.anyFailed;
       }catch(err){
         console.warn('Supabase sync step had an issue (backup download proceeding regardless):', err);
         syncSucceeded = false;
@@ -12192,36 +12225,17 @@ function closeManageThisTripModal(){
 }
 document.getElementById('manageThisTripCloseBtn').onclick = closeManageThisTripModal;
 
-function openManageAllTripsModal(trip){
-  document.getElementById('manageAllTripsOverlay').classList.add('active');
-  const body = document.getElementById('manageAllTripsBody');
-  body.innerHTML = '';
-
-  if(trip.supabaseId && getTripAdminSecret(trip.supabaseId)){
-    const loadLabel = document.createElement('label');
-    loadLabel.setAttribute('for', 'loadInput');
-    loadLabel.className = 'print-packing-btn-secondary tools-menu-load-label';
-    loadLabel.textContent = '📂 Load Trips from a Backup File';
-    loadLabel.title = 'Can overwrite or merge into trips already on this device — requires admin access';
-    body.appendChild(loadLabel);
-  }
-
-  const viewArchivedBtn = document.createElement('button');
-  viewArchivedBtn.type = 'button';
-  viewArchivedBtn.className = 'print-packing-btn-secondary';
-  viewArchivedBtn.style.marginTop = '10px';
-  viewArchivedBtn.textContent = '🗄️ View Archived Trips';
-  viewArchivedBtn.onclick = () => {
-    showArchivedTrips = true;
-    closeManageAllTripsModal();
-    openTripSwitchModal();
+// Shared "‹ Tools" back-link handler for all five Tools sub-screens - closes
+// whichever one is currently open and reopens Tools fresh, rather than needing five
+// near-identical handlers. "Done" still means "close everything," unchanged;
+// this is specifically for returning one level up, not exiting entirely.
+document.querySelectorAll('[data-back-to-tools]').forEach(btn => {
+  btn.onclick = () => {
+    btn.closest('.master-editor-overlay').classList.remove('active');
+    renderToolsMenu();
+    document.getElementById('toolsMenuOverlay').classList.add('active');
   };
-  body.appendChild(viewArchivedBtn);
-}
-function closeManageAllTripsModal(){
-  document.getElementById('manageAllTripsOverlay').classList.remove('active');
-}
-document.getElementById('manageAllTripsCloseBtn').onclick = closeManageAllTripsModal;
+});
 
 function openPreferences(){
   renderPreferences();
