@@ -495,6 +495,44 @@
     margin-top:10px;
     cursor:pointer;
   }
+  .tools-menu-list-group{
+    background:var(--paper);
+    border-radius:var(--radius-md);
+    overflow:hidden;
+    margin-bottom:12px;
+    border:1px solid var(--line);
+  }
+  .tools-menu-list-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:12px 14px;
+    border-bottom:1px solid var(--line);
+    background:none;
+    border-left:none; border-right:none; border-top:none;
+    width:100%;
+    text-align:left;
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
+  }
+  .tools-menu-list-group .tools-menu-list-row:last-child{
+    border-bottom:none;
+  }
+  .tools-menu-list-row-icon{
+    font-size:17px;
+    flex-shrink:0;
+  }
+  .tools-menu-list-row-label{
+    flex:1;
+    font-size:var(--text-base);
+    font-weight:600;
+    color:var(--ink);
+  }
+  .tools-menu-list-row-chevron{
+    color:var(--slate);
+    font-size:15px;
+    flex-shrink:0;
+  }
   .tools-menu-danger-btn{
     display:block;
     width:100%;
@@ -3804,6 +3842,46 @@
   </div>
 </div>
 
+<div class="master-editor-overlay" id="printExportOverlay">
+  <div class="master-editor">
+    <h2>Print &amp; Export</h2>
+    <div id="printExportBody"></div>
+    <button type="button" class="master-editor-close master-editor-close-sticky" id="printExportCloseBtn">Done</button>
+  </div>
+</div>
+
+<div class="master-editor-overlay" id="shareAccessOverlay">
+  <div class="master-editor">
+    <h2>Share &amp; Access</h2>
+    <div id="shareAccessBody"></div>
+    <button type="button" class="master-editor-close master-editor-close-sticky" id="shareAccessCloseBtn">Done</button>
+  </div>
+</div>
+
+<div class="master-editor-overlay" id="parkInfoOverlay">
+  <div class="master-editor">
+    <h2>Park Info</h2>
+    <div id="parkInfoBody"></div>
+    <button type="button" class="master-editor-close master-editor-close-sticky" id="parkInfoCloseBtn">Done</button>
+  </div>
+</div>
+
+<div class="master-editor-overlay" id="manageThisTripOverlay">
+  <div class="master-editor">
+    <h2>Manage This Trip</h2>
+    <div id="manageThisTripBody"></div>
+    <button type="button" class="master-editor-close master-editor-close-sticky" id="manageThisTripCloseBtn">Done</button>
+  </div>
+</div>
+
+<div class="master-editor-overlay" id="manageAllTripsOverlay">
+  <div class="master-editor">
+    <h2>Manage All Trips</h2>
+    <div id="manageAllTripsBody"></div>
+    <button type="button" class="master-editor-close master-editor-close-sticky" id="manageAllTripsCloseBtn">Done</button>
+  </div>
+</div>
+
 <div class="master-editor-overlay" id="editItemCategoryOverlay">
   <div class="master-editor">
     <h2>Edit Category</h2>
@@ -4244,7 +4322,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '4.10';
+const APP_VERSION = '4.11';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -11517,6 +11595,11 @@ function closeTravelerColorModal(){
   ['adminAccessOverlay', closeAdminAccessModal],
   ['adminGatedActionOverlay', closeAdminGatedActionModal],
   ['editItemCategoryOverlay', closeEditItemCategoryModal],
+  ['printExportOverlay', closePrintExportModal],
+  ['shareAccessOverlay', closeShareAccessModal],
+  ['parkInfoOverlay', closeParkInfoModal],
+  ['manageThisTripOverlay', closeManageThisTripModal],
+  ['manageAllTripsOverlay', closeManageAllTripsModal],
   ['templateEditItemsOverlay', closeTemplateEditItemsList],
   ['templateItemEditOverlay', () => {
     const form = document.querySelector('#templateItemEditBody .add-form');
@@ -11685,12 +11768,84 @@ function renderToolsMenu(){
   const trip = getActiveTrip();
   if(!trip) return;
 
-  const printSection = document.createElement('div');
-  printSection.className = 'tools-menu-section';
+  const makeRow = (icon, label, onclick) => {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'tools-menu-list-row';
+    row.innerHTML = `<span class="tools-menu-list-row-icon">${icon}</span><span class="tools-menu-list-row-label">${escapeHtml(label)}</span><span class="tools-menu-list-row-chevron">›</span>`;
+    row.onclick = onclick;
+    return row;
+  };
+
+  const group1 = document.createElement('div');
+  group1.className = 'tools-menu-list-group';
+  group1.appendChild(makeRow('🖨️', 'Print & Export', () => { closeToolsMenu(); openPrintExportModal(trip); }));
+  group1.appendChild(makeRow('🔗', 'Share & Access', () => { closeToolsMenu(); openShareAccessModal(trip); }));
+  if(!isReadOnlyView) group1.appendChild(makeRow('🎢', 'Park Info', () => { closeToolsMenu(); openParkInfoModal(trip); }));
+  if(!isReadOnlyView) group1.appendChild(makeRow('📑', 'Templates', () => { closeToolsMenu(); openTemplateListModal(); }));
+  body.appendChild(group1);
+
+  if(!isReadOnlyView){
+  const group2 = document.createElement('div');
+  group2.className = 'tools-menu-list-group';
+  group2.appendChild(makeRow('⚙️', 'Manage This Trip', () => { closeToolsMenu(); openManageThisTripModal(trip); }));
+  group2.appendChild(makeRow('📂', 'Manage All Trips', () => { closeToolsMenu(); openManageAllTripsModal(trip); }));
+  body.appendChild(group2);
+  }
+
+  if(!isReadOnlyView && trip.supabaseId && getTripAdminSecret(trip.supabaseId)){
+  const spacer = document.createElement('div');
+  spacer.style.height = '20px';
+  body.appendChild(spacer);
+  const deleteTripBtn = document.createElement('button');
+  deleteTripBtn.type = 'button';
+  deleteTripBtn.className = 'tools-menu-danger-btn';
+  deleteTripBtn.textContent = `⚠️ Delete "${trip.title || 'this trip'}" permanently`;
+  deleteTripBtn.title = 'Unlike "Remove from this device," this really deletes it for everyone.';
+  deleteTripBtn.onclick = () => {
+    closeToolsMenu();
+    openAdminGatedAction({
+      actionLabel: `permanently delete "${trip.title || 'this trip'}" for everyone`,
+      rememberedSecret: getTripAdminSecret(trip.supabaseId),
+      onConfirm: async (secret) => {
+        const ok = await deleteTripPermanently(trip, secret);
+        if(ok){
+          appData.trips = appData.trips.filter(t => t.id !== trip.id);
+          forgetTripAdminSecret(trip.supabaseId);
+          if(appData.activeTripId === trip.id && appData.trips.length){
+            appData.activeTripId = appData.trips[0].id;
+            activeDayId = appData.trips[0].days[0].id;
+          }
+          render();
+        }
+        return ok;
+      }
+    });
+  };
+  body.appendChild(deleteTripBtn);
+  }
+}
+
+function openPrintExportModal(trip){
+  document.getElementById('printExportOverlay').classList.add('active');
+  const body = document.getElementById('printExportBody');
+  body.innerHTML = '';
+
+  const exportBtn = document.createElement('button');
+  exportBtn.type = 'button';
+  exportBtn.className = 'print-packing-btn';
+  exportBtn.textContent = '📅 Export to Calendar';
+  exportBtn.onclick = () => {
+    closePrintExportModal();
+    openCalendarExportModal(trip);
+  };
+  body.appendChild(exportBtn);
+
   const printLabel = document.createElement('div');
   printLabel.className = 'packing-category-title';
+  printLabel.style.marginTop = '18px';
   printLabel.textContent = 'Print';
-  printSection.appendChild(printLabel);
+  body.appendChild(printLabel);
 
   const checkboxRow = document.createElement('div');
   checkboxRow.className = 'tools-print-checkbox-row';
@@ -11714,7 +11869,7 @@ function renderToolsMenu(){
       <input type="checkbox" data-print-check="grocery" /> Grocery List
     </label>
   `;
-  printSection.appendChild(checkboxRow);
+  body.appendChild(checkboxRow);
 
   const dayPickerWrap = document.createElement('div');
   dayPickerWrap.className = 'print-day-picker-wrap';
@@ -11747,7 +11902,7 @@ function renderToolsMenu(){
   });
   selectAllDaysBtn.onclick = () => dayCheckboxes.forEach(cb => cb.checked = true);
   selectNoDaysBtn.onclick = () => dayCheckboxes.forEach(cb => cb.checked = false);
-  printSection.appendChild(dayPickerWrap);
+  body.appendChild(dayPickerWrap);
 
   const daysCheckboxInput = checkboxRow.querySelector('[data-print-check="days"]');
   const syncDayPickerVisibility = () => {
@@ -11780,7 +11935,7 @@ function renderToolsMenu(){
     }
     printSelected({ includeBasics, includeCrowd, includeOverview, includeDays, selectedDayIds, includePacking, includeGrocery });
   };
-  printSection.appendChild(printSelectedBtn);
+  body.appendChild(printSelectedBtn);
 
   const copyTextBtn = document.createElement('button');
   copyTextBtn.type = 'button';
@@ -11800,20 +11955,22 @@ function renderToolsMenu(){
       showCopyFallbackModal('Your Packing List', text);
     }
   };
-  printSection.appendChild(copyTextBtn);
-  body.appendChild(printSection);
+  body.appendChild(copyTextBtn);
+}
+function closePrintExportModal(){
+  document.getElementById('printExportOverlay').classList.remove('active');
+}
+document.getElementById('printExportCloseBtn').onclick = closePrintExportModal;
 
-  const shareSection = document.createElement('div');
-  shareSection.className = 'tools-menu-section';
+function openShareAccessModal(trip){
+  document.getElementById('shareAccessOverlay').classList.add('active');
+  const shareSection = document.getElementById('shareAccessBody');
+  shareSection.innerHTML = '';
   if(trip.supabaseId){
     const shareUrl = `${window.location.origin}${window.location.pathname}?trip=${trip.supabaseId}`;
     const viewOnlyUrl = `${shareUrl}&view=1`;
     if(isReadOnlyView){
-      // Someone already viewing read-only shouldn't be handed the full edit link from
-      // inside that same read-only session - only the view-only link stays offerable,
-      // so read-only access can be forwarded further without ever exposing edit access.
       shareSection.innerHTML = `
-        <div class="packing-category-title">Share this trip</div>
         <div class="share-link-row">
           <input type="text" readonly value="${escapeHtml(viewOnlyUrl)}" class="share-link-input" />
           <button type="button" class="share-link-copy-btn" data-copy-role="view">Copy View-only Link</button>
@@ -11822,7 +11979,6 @@ function renderToolsMenu(){
       `;
     } else {
       shareSection.innerHTML = `
-        <div class="packing-category-title">Share this trip</div>
         <div class="share-link-row">
           <input type="text" readonly value="${escapeHtml(shareUrl)}" class="share-link-input" />
           <button type="button" class="share-link-copy-btn" data-copy-role="edit">Copy Link</button>
@@ -11882,33 +12038,40 @@ function renderToolsMenu(){
   } else {
     shareSection.innerHTML = '<p class="section-empty-note">Save this trip at least once to get a shareable link.</p>';
   }
-  body.appendChild(shareSection);
 
-  const parkDataLabel = document.createElement('div');
-  parkDataLabel.className = 'packing-category-title';
-  parkDataLabel.style.marginTop = '18px';
-  parkDataLabel.textContent = 'Park & Calendar';
-  body.appendChild(parkDataLabel);
+  if(!isReadOnlyView){
+    const isCurrentlyAdmin = !!getTripAdminSecret(trip.supabaseId);
+    const adminAccessBtn = document.createElement('button');
+    adminAccessBtn.type = 'button';
+    adminAccessBtn.className = 'print-packing-btn-secondary';
+    adminAccessBtn.style.marginTop = '14px';
+    adminAccessBtn.textContent = isCurrentlyAdmin ? '🔑 Admin Access (unlocked)' : '🔑 Enter Admin Access';
+    adminAccessBtn.onclick = () => {
+      closeShareAccessModal();
+      openAdminAccessModal(trip);
+    };
+    shareSection.appendChild(adminAccessBtn);
+  }
+}
+function closeShareAccessModal(){
+  document.getElementById('shareAccessOverlay').classList.remove('active');
+}
+document.getElementById('shareAccessCloseBtn').onclick = closeShareAccessModal;
 
-  const exportBtn = document.createElement('button');
-  exportBtn.type = 'button';
-  exportBtn.className = 'print-packing-btn';
-  exportBtn.textContent = '📅 Export to Calendar';
-  exportBtn.onclick = () => {
-    closeToolsMenu();
-    openCalendarExportModal(trip);
-  };
-  body.appendChild(exportBtn);
+function openParkInfoModal(trip){
+  document.getElementById('parkInfoOverlay').classList.add('active');
+  const body = document.getElementById('parkInfoBody');
+  body.innerHTML = '';
 
   const crowdBtn = document.createElement('button');
   crowdBtn.type = 'button';
   crowdBtn.className = 'print-packing-btn';
   crowdBtn.textContent = '🎢 Manage Crowd Levels';
   crowdBtn.onclick = () => {
-    closeToolsMenu();
+    closeParkInfoModal();
     openCrowdLevelsManager(trip);
   };
-  if(!isReadOnlyView) body.appendChild(crowdBtn);
+  body.appendChild(crowdBtn);
 
   const refreshHoursBtn = document.createElement('button');
   refreshHoursBtn.type = 'button';
@@ -11924,68 +12087,54 @@ function renderToolsMenu(){
     setTimeout(() => { refreshHoursBtn.textContent = '🕐 Refresh Park Hours'; }, 2000);
   };
   body.appendChild(refreshHoursBtn);
+}
+function closeParkInfoModal(){
+  document.getElementById('parkInfoOverlay').classList.remove('active');
+}
+document.getElementById('parkInfoCloseBtn').onclick = closeParkInfoModal;
 
-  const manageTripLabel = document.createElement('div');
-  manageTripLabel.className = 'packing-category-title';
-  manageTripLabel.style.marginTop = '18px';
-  manageTripLabel.textContent = 'Manage This Trip';
-  body.appendChild(manageTripLabel);
+function openManageThisTripModal(trip){
+  document.getElementById('manageThisTripOverlay').classList.add('active');
+  const body = document.getElementById('manageThisTripBody');
+  body.innerHTML = '';
 
-  if(!isReadOnlyView){
-  const isCurrentlyAdmin = !!getTripAdminSecret(trip.supabaseId);
-  const adminAccessBtn = document.createElement('button');
-  adminAccessBtn.type = 'button';
-  adminAccessBtn.className = 'print-packing-btn-secondary';
-  adminAccessBtn.textContent = isCurrentlyAdmin ? '🔑 Admin Access (unlocked)' : '🔑 Enter Admin Access';
-  adminAccessBtn.onclick = () => {
-    closeToolsMenu();
-    openAdminAccessModal(trip);
-  };
-  body.appendChild(adminAccessBtn);
+  if(getTripAdminSecret(trip.supabaseId)){
+    const downloadBtn = document.createElement('button');
+    downloadBtn.type = 'button';
+    downloadBtn.className = 'print-packing-btn-secondary download-backup-btn';
+    downloadBtn.textContent = '💾 Download Backup';
+    downloadBtn.title = 'Syncs first, then downloads a full backup file of every trip on this device — requires admin access';
+    downloadBtn.onclick = async () => {
+      downloadBtn.disabled = true;
+      downloadBtn.textContent = '💾 Syncing…';
+      let deletedByOthers = [];
+      let syncSucceeded = true;
+      try{
+        deletedByOthers = await syncAllTripsToSupabase();
+      }catch(err){
+        console.warn('Supabase sync step had an issue (backup download proceeding regardless):', err);
+        syncSucceeded = false;
+      }
+      if(syncSucceeded) establishAllBaselines();
+      const blob = new Blob([JSON.stringify(appData, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `park-days-trips.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      if(deletedByOthers.length){
+        render();
+        const names = deletedByOthers.map(d => `"${d.name}"`).join(', ');
+        const plural = deletedByOthers.length > 1;
+        alert(`Heads up: ${plural ? 'these were' : 'this was'} removed by someone else since you last looked, so any changes you made ${plural ? "weren't" : "wasn't"} saved: ${names}`);
+      } else {
+        closeManageThisTripModal();
+      }
+    };
+    body.appendChild(downloadBtn);
   }
 
-  const manageTripBtnRow = document.createElement('div');
-  manageTripBtnRow.className = 'tools-menu-btn-row';
-  body.appendChild(manageTripBtnRow);
-
-  if(!isReadOnlyView && getTripAdminSecret(trip.supabaseId)){
-  const downloadBtn = document.createElement('button');
-  downloadBtn.type = 'button';
-  downloadBtn.className = 'print-packing-btn-secondary download-backup-btn';
-  downloadBtn.textContent = '💾 Download Backup';
-  downloadBtn.title = 'Syncs first, then downloads a full backup file of every trip on this device — requires admin access';
-  downloadBtn.onclick = async () => {
-    downloadBtn.disabled = true;
-    downloadBtn.textContent = '💾 Syncing…';
-    let deletedByOthers = [];
-    let syncSucceeded = true;
-    try{
-      deletedByOthers = await syncAllTripsToSupabase();
-    }catch(err){
-      console.warn('Supabase sync step had an issue (backup download proceeding regardless):', err);
-      syncSucceeded = false;
-    }
-    if(syncSucceeded) establishAllBaselines();
-    const blob = new Blob([JSON.stringify(appData, null, 2)], {type:'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `park-days-trips.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    if(deletedByOthers.length && !isReadOnlyView){
-      render();
-      const names = deletedByOthers.map(d => `"${d.name}"`).join(', ');
-      const plural = deletedByOthers.length > 1;
-      alert(`Heads up: ${plural ? 'these were' : 'this was'} removed by someone else since you last looked, so any changes you made ${plural ? "weren't" : "wasn't"} saved: ${names}`);
-    } else {
-      closeToolsMenu();
-    }
-  };
-  manageTripBtnRow.appendChild(downloadBtn);
-  }
-
-  if(!isReadOnlyView){
   const duplicateBtn = document.createElement('button');
   duplicateBtn.type = 'button';
   duplicateBtn.className = 'print-packing-btn-secondary';
@@ -11996,7 +12145,7 @@ function renderToolsMenu(){
     duplicateBtn.textContent = '📄 Duplicating…';
     try{
       await duplicateTrip(trip);
-      closeToolsMenu();
+      closeManageThisTripModal();
     }catch(err){
       console.error('Duplicate trip failed:', err);
       duplicateBtn.disabled = false;
@@ -12004,7 +12153,7 @@ function renderToolsMenu(){
       alert("Something went wrong duplicating this trip. Please try again.");
     }
   };
-  manageTripBtnRow.appendChild(duplicateBtn);
+  body.appendChild(duplicateBtn);
 
   const archiveStatusNote = document.createElement('p');
   archiveStatusNote.className = 'section-empty-note';
@@ -12027,14 +12176,14 @@ function renderToolsMenu(){
         saveSharedTripMap(sharedMap);
       }
     }
-    renderToolsMenu();
+    openManageThisTripModal(trip);
   };
   body.appendChild(archiveBtn);
-  }
 
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
   removeBtn.className = 'tools-menu-danger-btn';
+  removeBtn.style.marginTop = '14px';
   removeBtn.textContent = `Remove "${trip.title || 'this trip'}" from this device`;
   removeBtn.onclick = () => {
     if(appData.trips.length <= 1){
@@ -12042,83 +12191,46 @@ function renderToolsMenu(){
       return;
     }
     if(!confirm(`This removes "${trip.title || 'this trip'}" from your device only. It doesn't delete anything, and nobody else loses access — you can always get it back using the same share link.\n\nContinue?`)) return;
-    closeToolsMenu();
+    closeManageThisTripModal();
     removeTrip(trip.id);
   };
   body.appendChild(removeBtn);
+}
+function closeManageThisTripModal(){
+  document.getElementById('manageThisTripOverlay').classList.remove('active');
+}
+document.getElementById('manageThisTripCloseBtn').onclick = closeManageThisTripModal;
 
-  if(!isReadOnlyView && trip.supabaseId){
-  const deleteTripBtn = document.createElement('button');
-  deleteTripBtn.type = 'button';
-  deleteTripBtn.className = 'tools-menu-danger-btn';
-  deleteTripBtn.textContent = `⚠️ Delete "${trip.title || 'this trip'}" permanently`;
-  deleteTripBtn.title = 'Unlike "Remove from this device," this really deletes it for everyone - requires admin access.';
-  deleteTripBtn.onclick = () => {
-    closeToolsMenu();
-    openAdminGatedAction({
-      actionLabel: `permanently delete "${trip.title || 'this trip'}" for everyone`,
-      rememberedSecret: getTripAdminSecret(trip.supabaseId),
-      onConfirm: async (secret) => {
-        const ok = await deleteTripPermanently(trip, secret);
-        if(ok){
-          appData.trips = appData.trips.filter(t => t.id !== trip.id);
-          forgetTripAdminSecret(trip.supabaseId);
-          if(appData.activeTripId === trip.id && appData.trips.length){
-            appData.activeTripId = appData.trips[0].id;
-            activeDayId = appData.trips[0].days[0].id;
-          }
-          render();
-        }
-        return ok;
-      }
-    });
-  };
-  body.appendChild(deleteTripBtn);
-  }
+function openManageAllTripsModal(trip){
+  document.getElementById('manageAllTripsOverlay').classList.add('active');
+  const body = document.getElementById('manageAllTripsBody');
+  body.innerHTML = '';
 
-  if(!isReadOnlyView){
-  const templatesLabel = document.createElement('div');
-  templatesLabel.className = 'packing-category-title';
-  templatesLabel.style.marginTop = '18px';
-  templatesLabel.textContent = 'Templates';
-  body.appendChild(templatesLabel);
-
-  const manageTemplatesBtn = document.createElement('button');
-  manageTemplatesBtn.type = 'button';
-  manageTemplatesBtn.className = 'print-packing-btn-secondary';
-  manageTemplatesBtn.textContent = '📑 Manage Templates';
-  manageTemplatesBtn.onclick = () => {
-    closeToolsMenu();
-    openTemplateListModal();
-  };
-  body.appendChild(manageTemplatesBtn);
-  }
-
-  if(!isReadOnlyView){
-  const manageAllLabel = document.createElement('div');
-  manageAllLabel.className = 'packing-category-title';
-  manageAllLabel.style.marginTop = '18px';
-  manageAllLabel.textContent = 'Manage All Trips';
-  body.appendChild(manageAllLabel);
-
-  const loadLabel = document.createElement('label');
-  loadLabel.setAttribute('for', 'loadInput');
-  loadLabel.className = 'print-packing-btn-secondary tools-menu-load-label';
-  loadLabel.textContent = '📂 Load Trips from a Backup File';
-  body.appendChild(loadLabel);
+  if(trip.supabaseId && getTripAdminSecret(trip.supabaseId)){
+    const loadLabel = document.createElement('label');
+    loadLabel.setAttribute('for', 'loadInput');
+    loadLabel.className = 'print-packing-btn-secondary tools-menu-load-label';
+    loadLabel.textContent = '📂 Load Trips from a Backup File';
+    loadLabel.title = 'Can overwrite or merge into trips already on this device — requires admin access';
+    body.appendChild(loadLabel);
   }
 
   const viewArchivedBtn = document.createElement('button');
   viewArchivedBtn.type = 'button';
   viewArchivedBtn.className = 'print-packing-btn-secondary';
+  viewArchivedBtn.style.marginTop = '10px';
   viewArchivedBtn.textContent = '🗄️ View Archived Trips';
   viewArchivedBtn.onclick = () => {
     showArchivedTrips = true;
-    closeToolsMenu();
+    closeManageAllTripsModal();
     openTripSwitchModal();
   };
-  if(!isReadOnlyView) body.appendChild(viewArchivedBtn);
+  body.appendChild(viewArchivedBtn);
 }
+function closeManageAllTripsModal(){
+  document.getElementById('manageAllTripsOverlay').classList.remove('active');
+}
+document.getElementById('manageAllTripsCloseBtn').onclick = closeManageAllTripsModal;
 
 function openSettings(){
   renderSettings();
