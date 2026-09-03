@@ -392,23 +392,37 @@
   }
   .refresh-trip-btn{
     flex-shrink:0;
-    border:1.5px solid rgba(255,255,255,.3);
-    background:rgba(255,255,255,.08);
+    border:none;
+    background:none;
     color:var(--header-text);
-    border-radius:var(--radius-xl);
-    padding:6px 12px;
-    font-size:var(--text-base);
-    font-weight:600;
+    border-radius:50%;
+    width:32px;
+    height:32px;
+    padding:0;
+    font-size:16px;
     cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
   }
   .refresh-trip-btn:disabled{
     opacity:.6;
     cursor:default;
+    width:auto;
+    padding:6px 12px;
+    border-radius:var(--radius-xl);
+    font-size:var(--text-base);
   }
   .refresh-trip-btn.sync-needed{
     background:var(--coral);
-    border-color:var(--coral);
+    border:1.5px solid var(--coral);
     color:#fff;
+    width:auto;
+    height:auto;
+    padding:6px 12px;
+    border-radius:var(--radius-xl);
+    font-size:var(--text-base);
+    font-weight:600;
   }
   .theme-card-grid{
     display:flex;
@@ -3783,8 +3797,6 @@
 </head>
 <body>
 
-<nav class="trip-switcher" id="tripSwitcher"></nav>
-
 <header class="hero">
   <div class="hero-brand-row">
     <svg class="hero-mark" width="46" height="30" viewBox="0 0 34 22" aria-hidden="true">
@@ -3813,8 +3825,9 @@
     <span class="trip-summary-text"></span>
     <span class="trip-summary-chevron">›</span>
   </button>
-  <button type="button" id="syncBtn" class="refresh-trip-btn">↻ Sync</button>
-  <button type="button" id="toolsMenuTrigger" class="tools-menu-trigger">☰ Tools</button>
+  <button type="button" id="syncBtn" class="refresh-trip-btn">↻</button>
+  <button type="button" id="toolsMenuTrigger" class="tools-menu-trigger">⋯ Tools</button>
+  <button type="button" id="preferencesBtn" class="theme-switch-btn" title="Theme, text size, and other device preferences">⚙️</button>
 </div>
 
 <div class="master-editor-overlay" id="copyFallbackOverlay">
@@ -4289,21 +4302,12 @@
   </div>
 </div>
 
-<div class="master-editor-overlay" id="settingsOverlay">
+<div class="master-editor-overlay" id="preferencesOverlay">
   <div class="master-editor">
-    <h2>Settings</h2>
+    <h2>Preferences</h2>
     <p class="sub">Device-level preferences — not something saved or shared with others.</p>
-    <div id="settingsBody"></div>
-    <button class="master-editor-close master-editor-close-sticky" id="settingsCloseBtn">Done</button>
-  </div>
-</div>
-
-<div class="master-editor-overlay" id="themesOverlay">
-  <div class="master-editor">
-    <h2>Themes</h2>
-    <p class="sub">Pick the look and feel for this device. Purely for fun — nothing here is saved or shared with others.</p>
-    <div id="themesBody"></div>
-    <button class="master-editor-close master-editor-close-sticky" id="themesCloseBtn">Done</button>
+    <div id="preferencesBody"></div>
+    <button class="master-editor-close master-editor-close-sticky" id="preferencesCloseBtn">Done</button>
   </div>
 </div>
 
@@ -4322,7 +4326,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '4.11';
+const APP_VERSION = '4.12';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -9151,7 +9155,7 @@ function updateUnsavedIndicator(){
     btn.title = 'You have changes that haven\'t synced yet — tap to sync now';
     btn.classList.add('sync-needed');
   } else {
-    btn.textContent = '↻ Sync';
+    btn.textContent = '↻';
     btn.title = 'Push your changes and check for the latest updates to this trip';
     btn.classList.remove('sync-needed');
   }
@@ -9204,7 +9208,7 @@ function migrateDayParksToMainPlanItems(trip){
 
 function render(){
   document.documentElement.setAttribute('data-theme', appData.theme || 'green');
-  renderTripSwitcher();
+  // renderTripSwitcher() removed - Preferences button is wired once, statically.
   const trip = getActiveTrip();
   migrateDayHotelsToStays(trip);
   migratePartyToTravelers(trip);
@@ -9294,22 +9298,10 @@ document.getElementById('listsSubTabs').addEventListener('click', e => {
   render();
 });
 
-function renderTripSwitcher(){
-  const bar = document.getElementById('tripSwitcher');
-  bar.innerHTML = '';
-  const themesBtn = document.createElement('button');
-  themesBtn.className = 'theme-switch-btn';
-  themesBtn.textContent = '🎨 Themes';
-  themesBtn.title = 'Pick a look for this device';
-  themesBtn.onclick = openThemes;
-  bar.appendChild(themesBtn);
-  const settingsBtn = document.createElement('button');
-  settingsBtn.className = 'theme-switch-btn';
-  settingsBtn.textContent = '⚙️ Settings';
-  settingsBtn.title = 'Default view and other device preferences';
-  settingsBtn.onclick = openSettings;
-  bar.appendChild(settingsBtn);
-}
+// Themes and Settings merged into one Preferences button/modal - see
+// openPreferences(). The static #preferencesBtn in the header is wired once,
+// directly, rather than needing a per-render function like the old two-button
+// trip-switcher bar did.
 
 function openTripSwitchModal(){
   renderTripSwitchList();
@@ -11577,8 +11569,7 @@ function closeTravelerColorModal(){
 // either pure navigation, or everything they contain already commits immediately.
 [
   ['tripSwitchOverlay', closeTripSwitchModal],
-  ['settingsOverlay', closeSettings],
-  ['themesOverlay', closeThemes],
+  ['preferencesOverlay', closePreferences],
   ['toolsMenuOverlay', closeToolsMenu],
   ['travelerColorOverlay', closeTravelerColorModal],
   ['buildPackingListOverlay', closeBuildPackingListModal],
@@ -12232,25 +12223,15 @@ function closeManageAllTripsModal(){
 }
 document.getElementById('manageAllTripsCloseBtn').onclick = closeManageAllTripsModal;
 
-function openSettings(){
-  renderSettings();
-  document.getElementById('settingsOverlay').classList.add('active');
+function openPreferences(){
+  renderPreferences();
+  document.getElementById('preferencesOverlay').classList.add('active');
 }
-function closeSettings(){
-  document.getElementById('settingsOverlay').classList.remove('active');
+function closePreferences(){
+  document.getElementById('preferencesOverlay').classList.remove('active');
   render();
 }
-document.getElementById('settingsCloseBtn').onclick = closeSettings;
-
-function openThemes(){
-  renderThemes();
-  document.getElementById('themesOverlay').classList.add('active');
-}
-function closeThemes(){
-  document.getElementById('themesOverlay').classList.remove('active');
-  render();
-}
-document.getElementById('themesCloseBtn').onclick = closeThemes;
+document.getElementById('preferencesCloseBtn').onclick = closePreferences;
 
 document.getElementById('toolsMenuTrigger').onclick = openToolsMenu;
 document.getElementById('syncBtn').onclick = async () => {
@@ -12262,38 +12243,14 @@ document.getElementById('syncBtn').onclick = async () => {
   syncInProgress = false;
   updateUnsavedIndicator();
 };
+document.getElementById('preferencesBtn').onclick = openPreferences;
 
-function renderSettings(){
-  const body = document.getElementById('settingsBody');
+function renderPreferences(){
+  const body = document.getElementById('preferencesBody');
   body.innerHTML = '';
-
-  const viewLabel = document.createElement('div');
-  viewLabel.className = 'packing-category-title';
-  viewLabel.textContent = 'Default View';
-  body.appendChild(viewLabel);
-  const viewSub = document.createElement('p');
-  viewSub.className = 'section-empty-note';
-  viewSub.textContent = 'Which itinerary view opens by default on this device.';
-  body.appendChild(viewSub);
-  const viewToggleRow = document.createElement('div');
-  viewToggleRow.className = 'status-toggle-row';
-  const storedView = getStoredDefaultView() === 'timeline' ? 'timeline' : 'cards';
-  [{ key: 'cards', label: 'Cards' }, { key: 'timeline', label: 'Timeline' }].forEach(opt => {
-    const optBtn = document.createElement('button');
-    optBtn.type = 'button';
-    optBtn.textContent = opt.label;
-    optBtn.className = storedView === opt.key ? 'on-confirmed' : '';
-    optBtn.onclick = () => {
-      saveDefaultViewPreference(opt.key);
-      renderSettings();
-    };
-    viewToggleRow.appendChild(optBtn);
-  });
-  body.appendChild(viewToggleRow);
 
   const textSizeLabel = document.createElement('div');
   textSizeLabel.className = 'packing-category-title';
-  textSizeLabel.style.marginTop = '18px';
   textSizeLabel.textContent = 'Text Size';
   body.appendChild(textSizeLabel);
   const textSizeSub = document.createElement('p');
@@ -12312,17 +12269,46 @@ function renderSettings(){
     optBtn.onclick = () => {
       saveTextSizePreference(opt.key);
       applyStartupTextSize();
-      renderSettings();
+      renderPreferences();
     };
     textSizeToggleRow.appendChild(optBtn);
   });
   body.appendChild(textSizeToggleRow);
-}
 
-function renderThemes(){
-  const body = document.getElementById('themesBody');
-  body.innerHTML = '';
+  const viewLabel = document.createElement('div');
+  viewLabel.className = 'packing-category-title';
+  viewLabel.style.marginTop = '18px';
+  viewLabel.textContent = 'Default View';
+  body.appendChild(viewLabel);
+  const viewSub = document.createElement('p');
+  viewSub.className = 'section-empty-note';
+  viewSub.textContent = 'Which itinerary view opens by default on this device.';
+  body.appendChild(viewSub);
+  const viewToggleRow = document.createElement('div');
+  viewToggleRow.className = 'status-toggle-row';
+  const storedView = getStoredDefaultView() === 'timeline' ? 'timeline' : 'cards';
+  [{ key: 'cards', label: 'Cards' }, { key: 'timeline', label: 'Timeline' }].forEach(opt => {
+    const optBtn = document.createElement('button');
+    optBtn.type = 'button';
+    optBtn.textContent = opt.label;
+    optBtn.className = storedView === opt.key ? 'on-confirmed' : '';
+    optBtn.onclick = () => {
+      saveDefaultViewPreference(opt.key);
+      renderPreferences();
+    };
+    viewToggleRow.appendChild(optBtn);
+  });
+  body.appendChild(viewToggleRow);
 
+  const themeLabel = document.createElement('div');
+  themeLabel.className = 'packing-category-title';
+  themeLabel.style.marginTop = '18px';
+  themeLabel.textContent = 'Theme';
+  body.appendChild(themeLabel);
+  const themeSub = document.createElement('p');
+  themeSub.className = 'section-empty-note';
+  themeSub.textContent = 'Purely for fun — nothing here is saved or shared with others.';
+  body.appendChild(themeSub);
   const grid = document.createElement('div');
   grid.className = 'theme-card-grid';
   THEMES.forEach(theme => {
@@ -12340,7 +12326,7 @@ function renderThemes(){
     card.onclick = () => {
       appData.theme = theme.key;
       saveThemePreference(theme.key);
-      renderThemes();
+      renderPreferences();
       document.documentElement.setAttribute('data-theme', appData.theme);
     };
     grid.appendChild(card);
