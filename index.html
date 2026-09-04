@@ -1215,6 +1215,12 @@
     padding:5px 7px;
     box-shadow:0 1px 3px rgba(27,42,46,.12), 0 1px 2px rgba(27,42,46,.08);
   }
+  .trip-grid-chip-stretch{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-start;
+  }
   .trip-grid-chip.dining{
     border-color:var(--coral);
     background:var(--accent-glow);
@@ -4397,7 +4403,7 @@
 <script>
 function cryptoId(){ return 'id' + Math.random().toString(36).slice(2,9); }
 
-const APP_VERSION = '4.21';
+const APP_VERSION = '4.22';
 
 // --- Supabase background sync (Phase 1: quiet, best-effort, one-way local -> Supabase) ---
 // This never blocks or interrupts the local Save/Load flow. If it fails, it fails silently
@@ -10220,9 +10226,30 @@ function renderTripGrid(trip, wrap, onDaySelect){
       if(items.length === 0){
         slot.innerHTML = '<span class="trip-grid-empty">—</span>';
       } else {
-        items.forEach(item => {
+        items.forEach((item, itemIndex) => {
           const chip = document.createElement('div');
-          chip.className = 'trip-grid-chip' + (item.type === 'dining' ? ' dining' : '');
+          const isLast = itemIndex === items.length - 1;
+          // Only the last item in a section can stretch, and only when its own
+          // real duration genuinely justifies it - not stretching short items
+          // just because there happens to be empty space below them. Morning and
+          // Afternoon have a real boundary to compare against (12:00 and 17:00);
+          // Evening has no upper bound in the data at all, so it's gated purely on
+          // the item's own duration being genuinely long - reusing the same
+          // 120-minute threshold that already defines "spacious" tier in Timeline,
+          // rather than inventing a new number. A starting formula, expected to be
+          // refined once tested against real trips rather than treated as final.
+          let shouldStretch = false;
+          if(isLast && item.time && item.endTime){
+            const endMin = timeToMinutes(item.endTime);
+            if(sec.key === 'morning'){
+              shouldStretch = endMin >= (timeToMinutes('12:00') - 30);
+            } else if(sec.key === 'afternoon'){
+              shouldStretch = endMin >= (timeToMinutes('17:00') - 30);
+            } else if(sec.key === 'evening'){
+              shouldStretch = (endMin - timeToMinutes(item.time)) >= 120;
+            }
+          }
+          chip.className = 'trip-grid-chip' + (item.type === 'dining' ? ' dining' : '') + (shouldStretch ? ' trip-grid-chip-stretch' : '');
           const tentative = item.status === 'tentative' ? '✏️ ' : '';
           chip.innerHTML = `
             <div class="trip-grid-chip-time">${item.time ? formatTime(item.time) : ''}</div>
